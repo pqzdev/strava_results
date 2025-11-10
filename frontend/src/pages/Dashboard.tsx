@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import RaceTable from '../components/RaceTable';
 import RaceFilters from '../components/RaceFilters';
+import AthleteSummary from '../components/AthleteSummary';
 import './Dashboard.css';
 
 interface Race {
@@ -171,6 +172,8 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
+            <AthleteSummary races={races} />
+
             <div className="results-count">
               Showing {pagination.offset + 1}-{Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} race{pagination.total !== 1 ? 's' : ''}
             </div>
