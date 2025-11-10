@@ -3,6 +3,7 @@
 import { Env } from '../types';
 import { buildAuthorizationUrl, exchangeCodeForToken, getAthleteClubs } from '../utils/strava';
 import { upsertAthlete } from '../utils/db';
+import { syncAthlete } from '../queue/sync-queue';
 
 /**
  * Handle GET /auth/authorize - redirect to Strava OAuth
@@ -149,6 +150,11 @@ export async function handleCallback(
 
     console.log(`Successfully connected Woodstock Runners member: ${tokenData.athlete.id}`);
 
+    // Trigger sync in background (don't await to avoid timeout)
+    syncAthlete(tokenData.athlete.id, env, true).catch(error => {
+      console.error(`Failed to sync athlete ${tokenData.athlete.id}:`, error);
+    });
+
     // Return success HTML page that closes the popup or redirects
     return new Response(
       `<!DOCTYPE html>
@@ -199,9 +205,10 @@ export async function handleCallback(
 </head>
 <body>
   <div class="success-box">
-    <div class="checkmark">✓</div>
+    <div class="checkmark">&#x2713;</div>
     <h1>Connected Successfully!</h1>
-    <p>Your Strava account has been linked. We'll start syncing your race activities shortly.</p>
+    <p>Your Strava account has been linked. Your race results are being synced and will appear on the dashboard within a few hours.</p>
+    <p style="font-size: 14px; color: #999;">Note: Initial sync may take 1-2 days during busy periods.</p>
     <p id="redirect-msg">Redirecting to dashboard...</p>
   </div>
   <script>
