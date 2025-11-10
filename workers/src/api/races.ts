@@ -264,6 +264,13 @@ export async function updateRaceTime(
       )
         .bind(race.strava_activity_id, race.athlete_id)
         .run();
+
+      // Also clear legacy column in races table
+      await env.DB.prepare(
+        `UPDATE races SET manual_time = NULL WHERE strava_activity_id = ? AND athlete_id = ?`
+      )
+        .bind(race.strava_activity_id, race.athlete_id)
+        .run();
     } else {
       // Upsert the manual time
       await env.DB.prepare(
@@ -345,6 +352,13 @@ export async function updateRaceDistance(
       // Remove the edit (revert to original)
       await env.DB.prepare(
         `DELETE FROM race_edits WHERE strava_activity_id = ? AND athlete_id = ?`
+      )
+        .bind(race.strava_activity_id, race.athlete_id)
+        .run();
+
+      // Also clear legacy column in races table
+      await env.DB.prepare(
+        `UPDATE races SET manual_distance = NULL WHERE strava_activity_id = ? AND athlete_id = ?`
       )
         .bind(race.strava_activity_id, race.athlete_id)
         .run();
