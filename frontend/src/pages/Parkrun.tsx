@@ -49,8 +49,6 @@ export default function Parkrun() {
   const [results, setResults] = useState<ParkrunResult[]>([]);
   const [stats, setStats] = useState<ParkrunStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [importing, setImporting] = useState(false);
-  const [importMessage, setImportMessage] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({
     athlete: '',
     event: '',
@@ -126,72 +124,11 @@ export default function Parkrun() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}/km`;
   }
 
-  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setImporting(true);
-    setImportMessage(null);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/parkrun/import', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setImportMessage(
-          `Successfully imported ${data.imported} results (${data.skipped} skipped, ${data.errors} errors)`
-        );
-        // Refresh the data
-        fetchResults();
-        fetchStats();
-      } else {
-        setImportMessage(`Error: ${data.message || 'Failed to import'}`);
-      }
-    } catch (error) {
-      setImportMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setImporting(false);
-      // Clear the file input
-      event.target.value = '';
-    }
-  }
-
   return (
     <div className="parkrun-page">
       <div className="parkrun-header">
         <h1>Parkrun Results</h1>
         <p className="subtitle">Woodstock Running Club (Club #19959)</p>
-
-        <div className="import-section">
-          <div className="import-instructions">
-            <p><strong>Import Results:</strong> Download CSV from <a href="https://www.parkrun.com/results/consolidatedclub/?clubNum=19959" target="_blank" rel="noopener noreferrer">parkrun.com</a></p>
-          </div>
-          <div className="import-controls">
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handleFileUpload}
-              disabled={importing}
-              className="file-input"
-              id="csv-upload"
-            />
-            <label htmlFor="csv-upload" className="file-label">
-              {importing ? 'Importing...' : 'Choose CSV File'}
-            </label>
-          </div>
-          {importMessage && (
-            <div className={`import-message ${importMessage.startsWith('Error') ? 'error' : 'success'}`}>
-              {importMessage}
-            </div>
-          )}
-        </div>
       </div>
 
       {stats && (
@@ -208,14 +145,6 @@ export default function Parkrun() {
             <div className="stat-value">{stats.uniqueEvents}</div>
             <div className="stat-label">Different Events</div>
           </div>
-          {stats.fastestTime && (
-            <div className="stat-card">
-              <div className="stat-value">{stats.fastestTime.time_string}</div>
-              <div className="stat-label">
-                Fastest Time - {stats.fastestTime.athlete_name}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -278,8 +207,6 @@ export default function Parkrun() {
                   <th>Position</th>
                   <th>Time</th>
                   <th>Pace</th>
-                  <th>Age Grade</th>
-                  <th>Category</th>
                 </tr>
               </thead>
               <tbody>
@@ -288,14 +215,12 @@ export default function Parkrun() {
                     <td>{new Date(result.date).toLocaleDateString()}</td>
                     <td>
                       <div className="event-name">{result.event_name}</div>
-                      <div className="event-number">#{result.event_number}</div>
+                      <div className="event-number">Event #{result.event_number}</div>
                     </td>
                     <td className="athlete-name">{result.athlete_name}</td>
                     <td className="position">{result.position}</td>
                     <td className="time">{result.time_string}</td>
                     <td className="pace">{formatPace(result.time_seconds)}</td>
-                    <td className="age-grade">{result.age_grade || '-'}</td>
-                    <td className="age-category">{result.age_category || '-'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -99,11 +99,13 @@ export async function ensureValidToken(
 /**
  * Fetch activities for an athlete from Strava API
  * @param after - Unix timestamp to fetch activities after
+ * @param before - Unix timestamp to fetch activities before (optional, for date range queries)
  * @param perPage - Number of activities per page (max 200)
  */
 export async function fetchAthleteActivities(
   accessToken: string,
   after?: number,
+  before?: number,
   perPage: number = 200
 ): Promise<{ activities: StravaActivity[]; rateLimits: RateLimitInfo }> {
   const allActivities: StravaActivity[] = [];
@@ -122,6 +124,9 @@ export async function fetchAthleteActivities(
     url.searchParams.set('page', page.toString());
     if (after) {
       url.searchParams.set('after', after.toString());
+    }
+    if (before) {
+      url.searchParams.set('before', before.toString());
     }
 
     const response = await fetch(url.toString(), {

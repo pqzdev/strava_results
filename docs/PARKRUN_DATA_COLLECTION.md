@@ -2,7 +2,41 @@
 
 Parkrun blocks automated scraping from servers (403/450 errors), but you can collect data using these methods:
 
-## Method 1: Browser Console Script (Easiest)
+## Method 1: Smart Browser Scraper (Recommended - Multi-Date)
+
+**Best for:** Collecting data from multiple dates automatically (e.g., all Saturdays since 2024)
+
+### Quick Start:
+
+1. **Open parkrun page:**
+   ```
+   https://www.parkrun.com/results/consolidatedclub/?clubNum=19959
+   ```
+
+2. **Open Browser Console:**
+   - Chrome/Edge: `F12` or `Ctrl+Shift+J` (Windows) / `Cmd+Option+J` (Mac)
+   - Firefox: `F12` or `Ctrl+Shift+K`
+   - Safari: Enable Developer menu, then `Cmd+Option+C`
+
+3. **Copy and paste** the entire `parkrun-smart-scraper.js` file into console
+
+4. **Press Enter** - The script will automatically:
+   - Fetch data from every Saturday since January 1, 2024
+   - Include special dates (Dec 25, Jan 1)
+   - Add delays to be respectful to parkrun's servers
+   - Show progress in console (~3-4 minutes for 100+ dates)
+   - Copy CSV to clipboard when complete
+
+5. **Save and upload:**
+   - CSV is automatically copied to clipboard
+   - Save as `parkrun-results.csv`
+   - Upload to your parkrun dashboard
+
+See [PARKRUN_SCRAPER_GUIDE.md](./PARKRUN_SCRAPER_GUIDE.md) for detailed instructions.
+
+---
+
+## Method 2: Single-Date Browser Script (Quick Testing)
 
 ### Steps:
 
@@ -46,7 +80,7 @@ You can upload multiple CSV files sequentially - the system handles duplicates a
 
 ---
 
-## Method 2: Manual CSV Export (If parkrun provides it)
+## Method 3: Manual CSV Export (If parkrun provides it)
 
 Some parkrun pages offer a "Download CSV" or "Export" button. If available:
 
@@ -54,9 +88,7 @@ Some parkrun pages offer a "Download CSV" or "Export" button. If available:
 2. Save the CSV file
 3. Upload directly to your parkrun page
 
----
-
-## Method 3: Python Script (For Bulk Collection)
+## Method 4: Python Script (Alternative - May Be Blocked)
 
 If you need to collect data for many dates, create a local Python script:
 

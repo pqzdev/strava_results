@@ -33,6 +33,43 @@ export async function syncAthlete(
 ): Promise<void> {
   console.log(`Starting sync for athlete ${athleteStravaId} (initial: ${isInitialSync}, full: ${fullSync})`);
 
+  // Wrap entire sync in a timeout to prevent hanging
+  const timeoutMs = 25000; // 25 seconds - leave buffer before Cloudflare's 30s limit
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Sync timeout - operation took too long')), timeoutMs);
+  });
+
+  try {
+    await Promise.race([
+      syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync),
+      timeoutPromise
+    ]);
+  } catch (error) {
+    console.error(`Error syncing athlete ${athleteStravaId}:`, error);
+
+    // Update athlete sync status to error
+    const athlete = await getAthleteByStravaId(athleteStravaId, env);
+    if (athlete) {
+      await env.DB.prepare(
+        `UPDATE athletes SET sync_status = 'error', sync_error = ? WHERE id = ?`
+      )
+        .bind(error instanceof Error ? error.message : 'Unknown error', athlete.id)
+        .run();
+    }
+
+    throw error; // Re-throw to let queue handle retry
+  }
+}
+
+/**
+ * Internal sync implementation (wrapped by timeout in syncAthlete)
+ */
+async function syncAthleteInternal(
+  athleteStravaId: number,
+  env: Env,
+  isInitialSync: boolean,
+  fullSync: boolean
+): Promise<void> {
   try {
     // Get athlete from database
     const athlete = await getAthleteByStravaId(athleteStravaId, env);
@@ -72,25 +109,45 @@ export async function syncAthlete(
     const accessToken = await ensureValidToken(athlete, env);
 
     // Fetch activities
-    // For full syncs, fetch from start of previous year (balance between freshness and performance)
+    // For full syncs, fetch from start of previous year but in smaller batches to avoid timeouts
     // For incremental syncs, fetch from last_synced_at or start of previous year
     let afterTimestamp: number;
+    let allActivities: any[] = [];
+
     if (fullSync) {
-      // Fetch activities from the start of previous year for a manageable refresh
-      // This is fast enough to avoid Worker timeouts while still getting recent data
-      const startOfPreviousYear = new Date(`${new Date().getFullYear() - 1}-01-01`);
+      // For full syncs, fetch from start of previous year (up to 24 months of data)
+      // This ensures we catch all racing activity for the current and previous year
+      const currentYear = new Date().getFullYear();
+      const startOfPreviousYear = new Date(`${currentYear - 1}-01-01`);
       afterTimestamp = Math.floor(startOfPreviousYear.getTime() / 1000);
+
       console.log(`Full sync requested - fetching activities from ${startOfPreviousYear.toISOString()}`);
+
+      // Fetch in batches to avoid timeouts - limit to 200 activities per request
+      const { activities } = await fetchAthleteActivities(
+        accessToken,
+        afterTimestamp,
+        200  // Limit to 200 activities per request to avoid timeouts
+      );
+      allActivities = activities;
+
+      // If we hit the limit, log a warning but continue with what we have
+      if (activities.length === 200) {
+        console.warn(`Hit activity limit of 200 - may not have all activities. Consider running sync multiple times.`);
+      }
     } else {
       afterTimestamp = athlete.last_synced_at
         ? athlete.last_synced_at
         : Math.floor(new Date(`${new Date().getFullYear() - 1}-01-01`).getTime() / 1000);
+
+      const { activities, rateLimits } = await fetchAthleteActivities(
+        accessToken,
+        afterTimestamp
+      );
+      allActivities = activities;
     }
 
-    const { activities, rateLimits } = await fetchAthleteActivities(
-      accessToken,
-      afterTimestamp
-    );
+    const activities = allActivities;
 
     console.log(`Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
 
@@ -205,19 +262,8 @@ export async function syncAthlete(
 
     console.log(`Athlete ${athleteStravaId} sync complete: ${newRacesAdded} races added (${racesRemoved} removed). Total activities processed: ${activities.length}`);
   } catch (error) {
-    console.error(`Error syncing athlete ${athleteStravaId}:`, error);
-
-    // Update athlete sync status to error
-    const athlete = await getAthleteByStravaId(athleteStravaId, env);
-    if (athlete) {
-      await env.DB.prepare(
-        `UPDATE athletes SET sync_status = 'error', sync_error = ? WHERE id = ?`
-      )
-        .bind(error instanceof Error ? error.message : 'Unknown error', athlete.id)
-        .run();
-    }
-
-    throw error; // Re-throw to let queue handle retry
+    // Error handling is done in the outer syncAthlete function
+    throw error;
   }
 }
 

@@ -31,6 +31,11 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<Set<number>>(new Set());
+  const [parkrunStartDate, setParkrunStartDate] = useState('2024-01-01');
+  const [parkrunEndDate, setParkrunEndDate] = useState(
+    new Date().toISOString().split('T')[0]
+  );
+  const [replaceExistingData, setReplaceExistingData] = useState(false);
 
   // Get admin strava ID from localStorage
   const currentAthleteId = parseInt(
@@ -222,6 +227,51 @@ export default function Admin() {
       );
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update parkrun athlete');
+    }
+  };
+
+  const triggerParkrunSync = async () => {
+    // Build the parkrun URL with parameters
+    const apiEndpoint = `${window.location.origin}/api/parkrun/import${replaceExistingData ? '?replace=true' : ''}`;
+    const parkrunUrl = new URL('https://www.parkrun.com/results/consolidatedclub/');
+    parkrunUrl.searchParams.set('clubNum', '19959');
+    parkrunUrl.searchParams.set('startDate', parkrunStartDate);
+    parkrunUrl.searchParams.set('endDate', parkrunEndDate);
+    parkrunUrl.searchParams.set('apiEndpoint', apiEndpoint);
+    parkrunUrl.searchParams.set('autoUpload', 'true');
+
+    // Fetch the scraper script
+    try {
+      const response = await fetch(`${window.location.origin}/parkrun-smart-scraper.js`);
+      const scriptText = await response.text();
+
+      // Copy script to clipboard
+      await navigator.clipboard.writeText(scriptText);
+
+      // Open parkrun page in new tab
+      const parkrunTab = window.open(parkrunUrl.toString(), '_blank');
+
+      if (!parkrunTab) {
+        alert('Please allow popups to use the automatic parkrun sync feature.');
+        return;
+      }
+
+      // Show simple instructions
+      alert(`✅ Script copied to clipboard!
+
+Steps:
+1. Go to the parkrun tab that just opened
+2. Press F12 to open console
+3. Paste the script (Ctrl+V or Cmd+V)
+4. Press Enter
+
+The scraper will automatically:
+• Fetch all Saturdays from ${parkrunStartDate} to ${parkrunEndDate}
+• Include Dec 25 and Jan 1
+• Upload results to your database
+• Take ~3-4 minutes for 100+ dates`);
+    } catch (err) {
+      alert(`Failed to load scraper script. Please try again or use the manual method at ${window.location.origin}/parkrun-bookmarklet.html`);
     }
   };
 
@@ -425,6 +475,84 @@ export default function Admin() {
       </div>
 
       <div className="admin-header" style={{ marginTop: '3rem' }}>
+        <h2>Parkrun Data Sync</h2>
+        <p className="subtitle">Automatically scrape and import parkrun results</p>
+      </div>
+
+      <div className="parkrun-sync-section" style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1', minWidth: '200px' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              Start Date
+            </label>
+            <input
+              type="date"
+              value={parkrunStartDate}
+              onChange={(e) => setParkrunStartDate(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+              }}
+            />
+          </div>
+          <div style={{ flex: '1', minWidth: '200px' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              End Date
+            </label>
+            <input
+              type="date"
+              value={parkrunEndDate}
+              onChange={(e) => setParkrunEndDate(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+              }}
+            />
+          </div>
+          <button
+            onClick={triggerParkrunSync}
+            className="button"
+            style={{
+              padding: '0.5rem 1.5rem',
+              backgroundColor: '#fc4c02',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
+          >
+            🏃 Sync Parkrun Data
+          </button>
+        </div>
+        <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <input
+            type="checkbox"
+            id="replaceExistingData"
+            checked={replaceExistingData}
+            onChange={(e) => setReplaceExistingData(e.target.checked)}
+            style={{ cursor: 'pointer' }}
+          />
+          <label htmlFor="replaceExistingData" style={{ cursor: 'pointer', fontSize: '0.9rem' }}>
+            Replace all existing parkrun data (⚠️ This will delete all current parkrun results)
+          </label>
+        </div>
+        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
+          {replaceExistingData
+            ? '⚠️ All existing parkrun data will be deleted and replaced with new results from the date range.'
+            : '✓ New results will be merged with existing data (duplicates skipped automatically).'}
+        </p>
+        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
+          This will open parkrun in a new tab and automatically scrape results for all Saturdays in the date range
+          (~3-4 minutes for 100+ dates).
+        </p>
+      </div>
+
+      <div className="admin-header">
         <h2>Parkrun Athletes</h2>
         <p className="subtitle">Manage visibility of parkrun athletes</p>
       </div>
