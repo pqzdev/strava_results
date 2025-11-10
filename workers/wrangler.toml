@@ -29,4 +29,3 @@ STRAVA_CLUB_ID = "4497" # Woodstock Runners club ID
 enabled = true
 head_sampling_rate = 1
 invocation_logs = true
-persist = true
