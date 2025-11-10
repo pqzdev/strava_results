@@ -16,9 +16,9 @@ interface CSVRow {
 export async function importParkrunCSV(request: Request, env: Env): Promise<Response> {
   try {
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const fileEntry = formData.get('file');
 
-    if (!file) {
+    if (!fileEntry || typeof fileEntry === 'string') {
       return new Response(
         JSON.stringify({ error: 'No file provided' }),
         {
@@ -31,6 +31,8 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
       );
     }
 
+    // At this point, fileEntry is guaranteed to be a File
+    const file = fileEntry as File;
     const csvText = await file.text();
     const rows = parseCSV(csvText);
 

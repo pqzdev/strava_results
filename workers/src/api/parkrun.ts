@@ -296,7 +296,7 @@ export async function updateParkrunAthlete(
   athleteName: string
 ): Promise<Response> {
   try {
-    const body = await request.json();
+    const body = await request.json() as { is_hidden: number };
     const { is_hidden } = body;
 
     // Insert or update athlete record
