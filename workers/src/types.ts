@@ -31,6 +31,7 @@ export interface Race {
   elapsed_time: number;
   moving_time: number;
   manual_time?: number;
+  manual_distance?: number;
   date: string;
   elevation_gain?: number;
   average_heartrate?: number;

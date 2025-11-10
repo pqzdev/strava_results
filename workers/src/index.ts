@@ -3,7 +3,8 @@
 import { Env } from './types';
 import { handleAuthorize, handleCallback, handleDisconnect } from './auth/oauth';
 import { syncAllAthletes } from './cron/sync';
-import { getRaces, getStats, getAthletes, updateRaceTime } from './api/races';
+import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance } from './api/races';
+import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync } from './api/admin';
 
 export default {
   /**
@@ -56,6 +57,31 @@ export default {
       const raceTimeMatch = path.match(/^\/api\/races\/(\d+)\/time$/);
       if (raceTimeMatch && request.method === 'PATCH') {
         return updateRaceTime(request, env, parseInt(raceTimeMatch[1]));
+      }
+
+      // Update race manual distance
+      const raceDistanceMatch = path.match(/^\/api\/races\/(\d+)\/distance$/);
+      if (raceDistanceMatch && request.method === 'PATCH') {
+        return updateRaceDistance(request, env, parseInt(raceDistanceMatch[1]));
+      }
+
+      // Admin routes
+      if (path === '/api/admin/athletes' && request.method === 'GET') {
+        return getAdminAthletes(request, env);
+      }
+
+      const adminAthleteMatch = path.match(/^\/api\/admin\/athletes\/(\d+)$/);
+      if (adminAthleteMatch && request.method === 'PATCH') {
+        return updateAthlete(request, env, parseInt(adminAthleteMatch[1]));
+      }
+
+      if (adminAthleteMatch && request.method === 'DELETE') {
+        return deleteAthlete(request, env, parseInt(adminAthleteMatch[1]));
+      }
+
+      const adminSyncMatch = path.match(/^\/api\/admin\/athletes\/(\d+)\/sync$/);
+      if (adminSyncMatch && request.method === 'POST') {
+        return triggerAthleteSync(request, env, parseInt(adminSyncMatch[1]));
       }
 
       // Manual sync trigger (for testing)

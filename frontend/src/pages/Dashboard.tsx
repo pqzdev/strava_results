@@ -11,6 +11,7 @@ interface Race {
   elapsed_time: number;
   moving_time: number;
   manual_time?: number;
+  manual_distance?: number;
   date: string;
   elevation_gain: number;
   average_heartrate?: number;
@@ -24,6 +25,7 @@ interface Race {
 
 interface Filters {
   athlete: string;
+  activityName: string;
   dateFrom: string;
   dateTo: string;
   minDistance: string;
@@ -35,6 +37,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filters>({
     athlete: '',
+    activityName: '',
     dateFrom: '',
     dateTo: '',
     minDistance: '',
@@ -77,6 +80,7 @@ export default function Dashboard() {
     try {
       const params = new URLSearchParams();
       if (filters.athlete) params.set('athlete', filters.athlete);
+      if (filters.activityName) params.set('activity_name', filters.activityName);
       if (filters.dateFrom) params.set('date_from', filters.dateFrom);
       if (filters.dateTo) params.set('date_to', filters.dateTo);
       if (filters.minDistance) params.set('min_distance', filters.minDistance);
@@ -99,6 +103,7 @@ export default function Dashboard() {
   const handleClearFilters = () => {
     setFilters({
       athlete: '',
+      activityName: '',
       dateFrom: '',
       dateTo: '',
       minDistance: '',

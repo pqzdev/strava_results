@@ -2,6 +2,7 @@ import './RaceFilters.css';
 
 interface Filters {
   athlete: string;
+  activityName: string;
   dateFrom: string;
   dateTo: string;
   minDistance: string;
@@ -32,6 +33,17 @@ export default function RaceFilters({
             placeholder="Search by name..."
             value={filters.athlete}
             onChange={(e) => onFilterChange({ athlete: e.target.value })}
+          />
+        </div>
+
+        <div className="filter-group">
+          <label htmlFor="activityName">Activity Name</label>
+          <input
+            id="activityName"
+            type="text"
+            placeholder="Search by activity..."
+            value={filters.activityName}
+            onChange={(e) => onFilterChange({ activityName: e.target.value })}
           />
         </div>
 
@@ -87,42 +99,6 @@ export default function RaceFilters({
             </button>
           </div>
         )}
-      </div>
-
-      <div className="quick-filters">
-        <span className="quick-filters-label">Quick filters:</span>
-        <button
-          className="quick-filter-button"
-          onClick={() =>
-            onFilterChange({ minDistance: '4900', maxDistance: '5100' })
-          }
-        >
-          Parkrun (5km)
-        </button>
-        <button
-          className="quick-filter-button"
-          onClick={() =>
-            onFilterChange({ minDistance: '9900', maxDistance: '10100' })
-          }
-        >
-          10km
-        </button>
-        <button
-          className="quick-filter-button"
-          onClick={() =>
-            onFilterChange({ minDistance: '21000', maxDistance: '21200' })
-          }
-        >
-          Half Marathon
-        </button>
-        <button
-          className="quick-filter-button"
-          onClick={() =>
-            onFilterChange({ minDistance: '42000', maxDistance: '42500' })
-          }
-        >
-          Marathon
-        </button>
       </div>
     </div>
   );

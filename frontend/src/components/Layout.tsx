@@ -1,8 +1,31 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import './Layout.css';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function Layout() {
   const location = useLocation();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    // Check if current user is an admin
+    const checkAdmin = async () => {
+      const athleteId = localStorage.getItem('strava_athlete_id');
+      if (!athleteId) return;
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/admin/athletes?admin_strava_id=${athleteId}`
+        );
+        setIsAdmin(response.ok);
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdmin();
+  }, []);
 
   return (
     <div className="layout">
@@ -26,6 +49,14 @@ export default function Layout() {
               >
                 Dashboard
               </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}
+                >
+                  Admin
+                </Link>
+              )}
             </nav>
           </div>
         </div>

@@ -51,7 +51,7 @@ export async function handleCallback(
     // Exchange code for tokens
     const tokenData = await exchangeCodeForToken(code, env);
 
-    // Check club membership
+    // Check club membership (TEMPORARILY DISABLED - logging only)
     const clubs = await getAthleteClubs(tokenData.access_token);
     console.log(`Athlete ${tokenData.athlete.id} clubs:`, JSON.stringify(clubs.map((c: any) => ({ id: c.id, name: c.name }))));
     console.log(`Looking for club ID: ${env.STRAVA_CLUB_ID}`);
@@ -60,6 +60,14 @@ export async function handleCallback(
       (club: any) => club.id.toString() === env.STRAVA_CLUB_ID
     );
 
+    if (!isWoodstockMember) {
+      console.log(`WARNING: Athlete ${tokenData.athlete.id} is not a Woodstock Runners member - allowing anyway for debugging`);
+      console.log(`Club IDs found:`, clubs.map((c: any) => c.id));
+      console.log(`Full clubs response:`, JSON.stringify(clubs));
+    }
+
+    // TEMPORARILY DISABLED: Return error page for non-members
+    /*
     if (!isWoodstockMember) {
       console.log(`Athlete ${tokenData.athlete.id} is not a Woodstock Runners member`);
       console.log(`Club IDs found:`, clubs.map((c: any) => c.id));
@@ -119,7 +127,7 @@ export async function handleCallback(
 </head>
 <body>
   <div class="error-box">
-    <div class="error-icon">🏃</div>
+    <div class="error-icon">&#x1F3C3;</div>
     <h1>Club Members Only</h1>
     <p>This application is exclusively for active members of <strong>Woodstock Runners</strong>.</p>
     <p>If you're already a member, please make sure you've joined our Strava club first.</p>
@@ -135,6 +143,7 @@ export async function handleCallback(
         }
       );
     }
+    */
 
     // Store athlete and tokens in database
     await upsertAthlete(

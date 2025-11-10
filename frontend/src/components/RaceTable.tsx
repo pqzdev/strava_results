@@ -9,6 +9,7 @@ interface Race {
   elapsed_time: number;
   moving_time: number;
   manual_time?: number;
+  manual_distance?: number;
   date: string;
   elevation_gain: number;
   average_heartrate?: number;
@@ -176,7 +177,149 @@ function EditableTime({ race, isOwner, onSave }: EditableTimeProps) {
   );
 }
 
+interface EditableDistanceProps {
+  race: Race;
+  isOwner: boolean;
+  onSave: (raceId: number, newDistance: number | null) => Promise<void>;
+}
+
+function EditableDistance({ race, isOwner, onSave }: EditableDistanceProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const displayDistance = race.manual_distance ?? race.distance;
+  const hasManualDistance = race.manual_distance !== null && race.manual_distance !== undefined;
+
+  const handleEdit = () => {
+    // Show current distance in km with 2 decimals
+    setEditValue((displayDistance / 1000).toFixed(2));
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditValue('');
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const km = parseFloat(editValue);
+      if (isNaN(km) || km <= 0) {
+        alert('Invalid distance. Please enter a positive number in kilometers.');
+        return;
+      }
+
+      const meters = Math.round(km * 1000);
+      await onSave(race.id, meters);
+      setIsEditing(false);
+      setEditValue('');
+    } catch (error) {
+      alert('Failed to update distance');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleClear = async () => {
+    if (confirm('Remove manual distance and use Strava distance?')) {
+      setIsSaving(true);
+      try {
+        await onSave(race.id, null);
+        setIsEditing(false);
+      } catch (error) {
+        alert('Failed to clear manual distance');
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="time-edit">
+        <input
+          type="text"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          placeholder="5.00"
+          className="time-input"
+          autoFocus
+        />
+        <span style={{ fontSize: '12px', color: '#666' }}>km</span>
+        <button onClick={handleSave} disabled={isSaving} className="btn-save">
+          {isSaving ? '...' : '✓'}
+        </button>
+        <button onClick={handleCancel} disabled={isSaving} className="btn-cancel">
+          ✕
+        </button>
+        {hasManualDistance && (
+          <button onClick={handleClear} disabled={isSaving} className="btn-clear" title="Clear manual distance">
+            ↺
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="time-display">
+      <span>{formatDistance(displayDistance)}</span>
+      {hasManualDistance && <span className="manual-indicator" title="Manually edited distance">✏️</span>}
+      {isOwner && (
+        <button onClick={handleEdit} className="btn-edit" title="Edit distance">
+          Edit
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function RaceTable({ races, currentAthleteId, onTimeUpdate }: RaceTableProps) {
+  const [sortField, setSortField] = useState<keyof Race | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: keyof Race) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedRaces = [...races].sort((a, b) => {
+    if (!sortField) return 0;
+
+    let aValue: any = a[sortField];
+    let bValue: any = b[sortField];
+
+    // Use manual values if they exist
+    if (sortField === 'elapsed_time') {
+      aValue = a.manual_time ?? a.elapsed_time;
+      bValue = b.manual_time ?? b.elapsed_time;
+    }
+    if (sortField === 'distance') {
+      aValue = a.manual_distance ?? a.distance;
+      bValue = b.manual_distance ?? b.distance;
+    }
+
+    // Handle null/undefined
+    if (aValue === null || aValue === undefined) return 1;
+    if (bValue === null || bValue === undefined) return -1;
+
+    // Compare
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const getSortIndicator = (field: keyof Race) => {
+    if (sortField !== field) return ' ↕';
+    return sortDirection === 'asc' ? ' ↑' : ' ↓';
+  };
+
   const handleTimeUpdate = async (raceId: number, newTime: number | null) => {
     try {
       const response = await fetch(`/api/races/${raceId}/time`, {
@@ -205,20 +348,58 @@ export default function RaceTable({ races, currentAthleteId, onTimeUpdate }: Rac
     }
   };
 
+  const handleDistanceUpdate = async (raceId: number, newDistance: number | null) => {
+    try {
+      const response = await fetch(`/api/races/${raceId}/distance`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          manual_distance: newDistance,
+          athlete_strava_id: currentAthleteId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update distance');
+      }
+
+      // Refresh the races list
+      if (onTimeUpdate) {
+        onTimeUpdate();
+      }
+    } catch (error) {
+      console.error('Error updating distance:', error);
+      throw error;
+    }
+  };
+
   return (
     <div className="race-table-container">
       <table className="race-table">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Date</th>
-            <th>Activity Name</th>
-            <th>Distance</th>
-            <th>Time</th>
+            <th onClick={() => handleSort('firstname')} style={{ cursor: 'pointer' }}>
+              Name{getSortIndicator('firstname')}
+            </th>
+            <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
+              Date{getSortIndicator('date')}
+            </th>
+            <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
+              Activity Name{getSortIndicator('name')}
+            </th>
+            <th onClick={() => handleSort('distance')} style={{ cursor: 'pointer' }}>
+              Distance{getSortIndicator('distance')}
+            </th>
+            <th onClick={() => handleSort('elapsed_time')} style={{ cursor: 'pointer' }}>
+              Time{getSortIndicator('elapsed_time')}
+            </th>
           </tr>
         </thead>
         <tbody>
-          {races.map((race) => (
+          {sortedRaces.map((race) => (
             <tr key={race.id}>
               <td className="athlete-name">
                 {race.profile_photo && (
@@ -237,7 +418,13 @@ export default function RaceTable({ races, currentAthleteId, onTimeUpdate }: Rac
                   {race.name}
                 </a>
               </td>
-              <td>{formatDistance(race.distance)}</td>
+              <td>
+                <EditableDistance
+                  race={race}
+                  isOwner={race.strava_id === currentAthleteId}
+                  onSave={handleDistanceUpdate}
+                />
+              </td>
               <td>
                 <EditableTime
                   race={race}

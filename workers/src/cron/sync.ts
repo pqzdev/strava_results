@@ -59,6 +59,13 @@ export async function syncAllAthletes(env: Env): Promise<void> {
         try {
           athletesProcessed++;
 
+          // Set athlete status to in_progress
+          await env.DB.prepare(
+            `UPDATE athletes SET sync_status = 'in_progress', sync_error = NULL WHERE id = ?`
+          )
+            .bind(athlete.id)
+            .run();
+
           // Ensure valid access token
           const accessToken = await ensureValidToken(athlete, env);
 
@@ -93,8 +100,17 @@ export async function syncAllAthletes(env: Env): Promise<void> {
             }
           }
 
-          // Update last synced timestamp
-          await updateLastSyncedAt(athlete.id, env);
+          // Update last synced timestamp and activity count, mark as completed
+          await env.DB.prepare(
+            `UPDATE athletes
+             SET last_synced_at = ?,
+                 sync_status = 'completed',
+                 total_activities_count = total_activities_count + ?,
+                 sync_error = NULL
+             WHERE id = ?`
+          )
+            .bind(Math.floor(Date.now() / 1000), activities.length, athlete.id)
+            .run();
 
           // Check rate limits - if approaching limit, slow down
           if (rateLimits.usage_15min >= 90) {
@@ -111,6 +127,14 @@ export async function syncAllAthletes(env: Env): Promise<void> {
         } catch (error) {
           console.error(`Error syncing athlete ${athlete.strava_id}:`, error);
           errorsEncountered++;
+
+          // Update athlete sync status to error
+          await env.DB.prepare(
+            `UPDATE athletes SET sync_status = 'error', sync_error = ? WHERE id = ?`
+          )
+            .bind(error instanceof Error ? error.message : 'Unknown error', athlete.id)
+            .run();
+
           // Continue with next athlete
         }
 

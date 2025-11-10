@@ -32,6 +32,13 @@ export async function syncAthlete(athleteStravaId: number, env: Env, isInitialSy
       return;
     }
 
+    // Set athlete status to in_progress
+    await env.DB.prepare(
+      `UPDATE athletes SET sync_status = 'in_progress', sync_error = NULL WHERE id = ?`
+    )
+      .bind(athlete.id)
+      .run();
+
     // Ensure valid access token
     const accessToken = await ensureValidToken(athlete, env);
 
@@ -61,12 +68,32 @@ export async function syncAthlete(athleteStravaId: number, env: Env, isInitialSy
       }
     }
 
-    // Update last synced timestamp
-    await updateLastSyncedAt(athlete.id, env);
+    // Update last synced timestamp, activity count, and mark as completed
+    await env.DB.prepare(
+      `UPDATE athletes
+       SET last_synced_at = ?,
+           sync_status = 'completed',
+           total_activities_count = total_activities_count + ?,
+           sync_error = NULL
+       WHERE id = ?`
+    )
+      .bind(Math.floor(Date.now() / 1000), activities.length, athlete.id)
+      .run();
 
     console.log(`Athlete ${athleteStravaId} sync complete: ${newRacesAdded} new races added`);
   } catch (error) {
     console.error(`Error syncing athlete ${athleteStravaId}:`, error);
+
+    // Update athlete sync status to error
+    const athlete = await getAthleteByStravaId(athleteStravaId, env);
+    if (athlete) {
+      await env.DB.prepare(
+        `UPDATE athletes SET sync_status = 'error', sync_error = ? WHERE id = ?`
+      )
+        .bind(error instanceof Error ? error.message : 'Unknown error', athlete.id)
+        .run();
+    }
+
     throw error; // Re-throw to let queue handle retry
   }
 }

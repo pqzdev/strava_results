@@ -10,6 +10,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
   const limit = parseInt(url.searchParams.get('limit') || '50');
   const offset = parseInt(url.searchParams.get('offset') || '0');
   const athleteName = url.searchParams.get('athlete');
+  const activityName = url.searchParams.get('activity_name');
   const dateFrom = url.searchParams.get('date_from');
   const dateTo = url.searchParams.get('date_to');
   const minDistance = parseFloat(url.searchParams.get('min_distance') || '0');
@@ -26,6 +27,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
         r.elapsed_time,
         r.moving_time,
         r.manual_time,
+        r.manual_distance,
         r.date,
         r.elevation_gain,
         r.average_heartrate,
@@ -37,7 +39,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
         a.strava_id
       FROM races r
       JOIN athletes a ON r.athlete_id = a.id
-      WHERE 1=1
+      WHERE a.is_hidden = 0
     `;
 
     const bindings: any[] = [];
@@ -45,6 +47,11 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
     if (athleteName) {
       query += ` AND (a.firstname LIKE ? OR a.lastname LIKE ?)`;
       bindings.push(`%${athleteName}%`, `%${athleteName}%`);
+    }
+
+    if (activityName) {
+      query += ` AND r.name LIKE ?`;
+      bindings.push(`%${activityName}%`);
     }
 
     if (dateFrom) {
@@ -77,13 +84,17 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
       SELECT COUNT(*) as total
       FROM races r
       JOIN athletes a ON r.athlete_id = a.id
-      WHERE 1=1
+      WHERE a.is_hidden = 0
     `;
     const countBindings: any[] = [];
 
     if (athleteName) {
       countQuery += ` AND (a.firstname LIKE ? OR a.lastname LIKE ?)`;
       countBindings.push(`%${athleteName}%`, `%${athleteName}%`);
+    }
+    if (activityName) {
+      countQuery += ` AND r.name LIKE ?`;
+      countBindings.push(`%${activityName}%`);
     }
     if (dateFrom) {
       countQuery += ` AND r.date >= ?`;
@@ -265,6 +276,77 @@ export async function updateRaceTime(
     console.error('Error updating race time:', error);
     return new Response(
       JSON.stringify({ error: 'Failed to update race time' }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+}
+
+/**
+ * PATCH /api/races/:id/distance - Update manual distance for a race
+ */
+export async function updateRaceDistance(
+  request: Request,
+  env: Env,
+  raceId: number
+): Promise<Response> {
+  try {
+    const body = await request.json() as { manual_distance: number | null; athlete_strava_id: number };
+
+    // Verify the athlete owns this race
+    const race = await env.DB.prepare(
+      `SELECT r.athlete_id, a.strava_id
+       FROM races r
+       JOIN athletes a ON r.athlete_id = a.id
+       WHERE r.id = ?`
+    )
+      .bind(raceId)
+      .first<{ athlete_id: number; strava_id: number }>();
+
+    if (!race) {
+      return new Response(
+        JSON.stringify({ error: 'Race not found' }),
+        {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Verify athlete owns this race
+    if (race.strava_id !== body.athlete_strava_id) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: You can only edit your own race distances' }),
+        {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Update manual_distance
+    await env.DB.prepare(
+      `UPDATE races SET manual_distance = ? WHERE id = ?`
+    )
+      .bind(body.manual_distance, raceId)
+      .run();
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error updating race distance:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to update race distance' }),
       {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
