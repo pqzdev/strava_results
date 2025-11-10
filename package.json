@@ -10,7 +10,10 @@
   "scripts": {
     "dev": "npm run dev --workspace=workers & npm run dev --workspace=frontend",
     "build": "npm run build --workspace=workers && npm run build --workspace=frontend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "build:workers": "npm run build --workspace=workers",
     "deploy": "cd workers && npx wrangler deploy",
+    "deploy:frontend": "cd frontend && npx wrangler pages deploy dist --project-name=strava-club-results",
     "db:migrate": "wrangler d1 execute strava-club-db --file=database/schema.sql"
   },
   "keywords": [
