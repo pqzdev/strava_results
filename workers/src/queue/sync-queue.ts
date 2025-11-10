@@ -20,9 +20,18 @@ interface SyncMessage {
 
 /**
  * Sync a single athlete's activities
+ * @param athleteStravaId - Strava ID of the athlete to sync
+ * @param env - Cloudflare environment
+ * @param isInitialSync - Whether this is the initial sync for a new athlete
+ * @param fullSync - If true, fetches all activities from the beginning (for admin-triggered syncs)
  */
-export async function syncAthlete(athleteStravaId: number, env: Env, isInitialSync: boolean = false): Promise<void> {
-  console.log(`Starting sync for athlete ${athleteStravaId} (initial: ${isInitialSync})`);
+export async function syncAthlete(
+  athleteStravaId: number,
+  env: Env,
+  isInitialSync: boolean = false,
+  fullSync: boolean = false
+): Promise<void> {
+  console.log(`Starting sync for athlete ${athleteStravaId} (initial: ${isInitialSync}, full: ${fullSync})`);
 
   try {
     // Get athlete from database
@@ -43,9 +52,16 @@ export async function syncAthlete(athleteStravaId: number, env: Env, isInitialSy
     const accessToken = await ensureValidToken(athlete, env);
 
     // Fetch activities since last sync (or from start of previous year if never synced)
-    const afterTimestamp = athlete.last_synced_at
-      ? athlete.last_synced_at
-      : Math.floor(new Date(`${new Date().getFullYear() - 1}-01-01`).getTime() / 1000);
+    // For full syncs, fetch from beginning of time (2009 - when Strava was founded)
+    let afterTimestamp: number;
+    if (fullSync) {
+      afterTimestamp = Math.floor(new Date('2009-01-01').getTime() / 1000);
+      console.log(`Full sync requested - fetching all activities since ${new Date('2009-01-01').toISOString()}`);
+    } else {
+      afterTimestamp = athlete.last_synced_at
+        ? athlete.last_synced_at
+        : Math.floor(new Date(`${new Date().getFullYear() - 1}-01-01`).getTime() / 1000);
+    }
 
     const { activities, rateLimits } = await fetchAthleteActivities(
       accessToken,
