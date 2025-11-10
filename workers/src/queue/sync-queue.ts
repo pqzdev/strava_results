@@ -72,15 +72,15 @@ export async function syncAthlete(
     const accessToken = await ensureValidToken(athlete, env);
 
     // Fetch activities
-    // For full syncs, fetch from start of current year (balance between freshness and performance)
+    // For full syncs, fetch from start of previous year (balance between freshness and performance)
     // For incremental syncs, fetch from last_synced_at or start of previous year
     let afterTimestamp: number;
     if (fullSync) {
-      // Fetch activities from the start of current year for a manageable refresh
+      // Fetch activities from the start of previous year for a manageable refresh
       // This is fast enough to avoid Worker timeouts while still getting recent data
-      const startOfCurrentYear = new Date(`${new Date().getFullYear()}-01-01`);
-      afterTimestamp = Math.floor(startOfCurrentYear.getTime() / 1000);
-      console.log(`Full sync requested - fetching activities from ${startOfCurrentYear.toISOString()}`);
+      const startOfPreviousYear = new Date(`${new Date().getFullYear() - 1}-01-01`);
+      afterTimestamp = Math.floor(startOfPreviousYear.getTime() / 1000);
+      console.log(`Full sync requested - fetching activities from ${startOfPreviousYear.toISOString()}`);
     } else {
       afterTimestamp = athlete.last_synced_at
         ? athlete.last_synced_at
