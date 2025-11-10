@@ -132,6 +132,8 @@ export default function Dashboard() {
             <p>
               {Object.values(filters).some((f) => f)
                 ? 'Try adjusting your filters'
+                : currentAthleteId
+                ? 'Your races are being synced and will appear within a few hours. Initial sync may take 1-2 days during busy periods.'
                 : 'Connect your Strava account to start syncing race results'}
             </p>
           </div>
