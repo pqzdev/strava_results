@@ -18,8 +18,16 @@ interface AdminAthlete {
   race_count: number;
 }
 
+interface ParkrunAthlete {
+  athlete_name: string;
+  id?: number;
+  is_hidden: number;
+  run_count: number;
+}
+
 export default function Admin() {
   const [athletes, setAthletes] = useState<AdminAthlete[]>([]);
+  const [parkrunAthletes, setParkrunAthletes] = useState<ParkrunAthlete[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<Set<number>>(new Set());
@@ -31,6 +39,7 @@ export default function Admin() {
 
   useEffect(() => {
     fetchAthletes();
+    fetchParkrunAthletes();
   }, []);
 
   const fetchAthletes = async () => {
@@ -54,6 +63,21 @@ export default function Admin() {
       setError(err instanceof Error ? err.message : 'Failed to fetch athletes');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchParkrunAthletes = async () => {
+    try {
+      const response = await fetch('/api/parkrun/athletes');
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch parkrun athletes');
+      }
+
+      const data = await response.json();
+      setParkrunAthletes(data.athletes || []);
+    } catch (err) {
+      console.error('Error fetching parkrun athletes:', err);
     }
   };
 
@@ -170,6 +194,35 @@ export default function Admin() {
   const formatDate = (timestamp?: number) => {
     if (!timestamp) return 'Never';
     return new Date(timestamp * 1000).toLocaleString();
+  };
+
+  const updateParkrunAthleteVisibility = async (
+    athleteName: string,
+    isHidden: boolean
+  ) => {
+    try {
+      const response = await fetch(
+        `/api/parkrun/athletes/${encodeURIComponent(athleteName)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_hidden: isHidden }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update parkrun athlete');
+      }
+
+      // Update local state
+      setParkrunAthletes((prev) =>
+        prev.map((a) =>
+          a.athlete_name === athleteName ? { ...a, is_hidden: isHidden ? 1 : 0 } : a
+        )
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update parkrun athlete');
+    }
   };
 
   const getSyncStatusBadge = (status: string) => {
@@ -364,6 +417,67 @@ export default function Admin() {
                       🗑️
                     </button>
                   </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="admin-header" style={{ marginTop: '3rem' }}>
+        <h2>Parkrun Athletes</h2>
+        <p className="subtitle">Manage visibility of parkrun athletes</p>
+      </div>
+
+      <div className="admin-stats">
+        <div className="stat-card">
+          <div className="stat-value">{parkrunAthletes.length}</div>
+          <div className="stat-label">Total Parkrun Athletes</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">
+            {parkrunAthletes.filter((a) => a.is_hidden === 1).length}
+          </div>
+          <div className="stat-label">Hidden</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">
+            {parkrunAthletes.filter((a) => !a.is_hidden || a.is_hidden === 0).length}
+          </div>
+          <div className="stat-label">Visible</div>
+        </div>
+      </div>
+
+      <div className="admin-table-container">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Athlete Name</th>
+              <th>Total Runs</th>
+              <th>Hidden</th>
+            </tr>
+          </thead>
+          <tbody>
+            {parkrunAthletes.map((athlete) => (
+              <tr key={athlete.athlete_name}>
+                <td>
+                  <div className="athlete-cell">
+                    <span>{athlete.athlete_name}</span>
+                  </div>
+                </td>
+                <td className="number-cell">{athlete.run_count}</td>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={athlete.is_hidden === 1}
+                    onChange={(e) =>
+                      updateParkrunAthleteVisibility(
+                        athlete.athlete_name,
+                        e.target.checked
+                      )
+                    }
+                    className="checkbox"
+                  />
                 </td>
               </tr>
             ))}
