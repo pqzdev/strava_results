@@ -52,13 +52,12 @@ export async function syncAthlete(
     const accessToken = await ensureValidToken(athlete, env);
 
     // Fetch activities since last sync (or from start of previous year if never synced)
-    // For full syncs, fetch from 1 year ago (balances completeness with Worker time limits)
+    // For full syncs, fetch from start of previous year (e.g., Jan 1, 2024 when in 2025)
     let afterTimestamp: number;
     if (fullSync) {
-      const oneYearAgo = new Date();
-      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-      afterTimestamp = Math.floor(oneYearAgo.getTime() / 1000);
-      console.log(`Full sync requested - fetching all activities since ${oneYearAgo.toISOString()}`);
+      const startOfPreviousYear = new Date(`${new Date().getFullYear() - 1}-01-01`);
+      afterTimestamp = Math.floor(startOfPreviousYear.getTime() / 1000);
+      console.log(`Full sync requested - fetching all activities since ${startOfPreviousYear.toISOString()}`);
     } else {
       afterTimestamp = athlete.last_synced_at
         ? athlete.last_synced_at
