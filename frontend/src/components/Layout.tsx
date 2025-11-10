@@ -42,16 +42,10 @@ export default function Layout() {
                 Home
               </Link>
               <Link
-                to="/races"
-                className={`nav-link ${location.pathname === '/races' || location.pathname === '/dashboard' ? 'active' : ''}`}
+                to="/dashboard"
+                className={`nav-link ${location.pathname === '/dashboard' || location.pathname === '/races' ? 'active' : ''}`}
               >
-                Races
-              </Link>
-              <Link
-                to="/parkrun"
-                className={`nav-link ${location.pathname === '/parkrun' ? 'active' : ''}`}
-              >
-                Parkrun
+                Dashboard
               </Link>
               {isAdmin && (
                 <Link
