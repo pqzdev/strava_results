@@ -92,21 +92,45 @@ export async function syncAthlete(
       afterTimestamp
     );
 
+    console.log(`Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
+
     // Filter for race activities
     const races = filterRaceActivities(activities);
     console.log(
-      `Athlete ${athlete.strava_id}: ${races.length} races out of ${activities.length} activities`
+      `Athlete ${athlete.strava_id}: Found ${races.length} races out of ${activities.length} activities`
     );
+
+    // Debug logging to understand what's being found
+    if (activities.length > 0 && races.length === 0) {
+      console.log(`No races found. Sample activities:`, JSON.stringify(activities.slice(0, 3).map(a => ({
+        name: a.name,
+        type: a.type,
+        workout_type: a.workout_type,
+        date: a.start_date_local
+      }))));
+    } else if (races.length > 0) {
+      console.log(`Found races:`, JSON.stringify(races.map(r => ({
+        id: r.id,
+        name: r.name,
+        workout_type: r.workout_type,
+        date: r.start_date_local
+      }))));
+    }
 
     let racesRemoved = 0;
     let newRacesAdded = 0;
 
     // For full syncs, we already deleted all races, so just insert everything
     if (fullSync) {
-      console.log(`Full sync - inserting all ${races.length} races`);
+      console.log(`Full sync - attempting to insert ${races.length} races`);
       for (const race of races) {
-        await insertRace(athlete.id, race, env);
-        newRacesAdded++;
+        try {
+          await insertRace(athlete.id, race, env);
+          newRacesAdded++;
+          console.log(`Inserted race: ${race.name} (ID: ${race.id})`);
+        } catch (error) {
+          console.error(`Failed to insert race ${race.id}:`, error);
+        }
       }
     } else {
       // For incremental syncs, handle race additions and removals intelligently
