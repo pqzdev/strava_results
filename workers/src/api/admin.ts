@@ -228,8 +228,8 @@ export async function triggerAthleteSync(
       .bind(athleteId)
       .run();
 
-    // Trigger sync in background
-    syncAthlete(athlete.strava_id, env, false).catch(error => {
+    // Trigger full sync in background (admin-triggered syncs are always full syncs)
+    syncAthlete(athlete.strava_id, env, false, true).catch(error => {
       console.error(`Failed to sync athlete ${athlete.strava_id}:`, error);
       // Update status to error
       env.DB.prepare(
