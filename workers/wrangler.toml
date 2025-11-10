@@ -23,3 +23,10 @@ crons = ["0 2 * * 1"] # Run at 2 AM UTC every Monday
 [vars]
 STRAVA_REDIRECT_URI = "https://strava-club-workers.pedroqueiroz.workers.dev/auth/callback"
 STRAVA_CLUB_ID = "4497" # Woodstock Runners club ID
+
+[observability]
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
