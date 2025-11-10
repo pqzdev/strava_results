@@ -58,6 +58,37 @@ export async function syncAthlete(athleteStravaId: number, env: Env, isInitialSy
       `Athlete ${athlete.strava_id}: ${races.length} races out of ${activities.length} activities`
     );
 
+    // Get all activity IDs that are currently races from the sync
+    const raceActivityIds = new Set(races.map(r => r.id));
+
+    // Get all activity IDs from fetched activities
+    const fetchedActivityIds = new Set(activities.map(a => a.id));
+
+    // Get all existing races from database
+    const existingRaces = await env.DB.prepare(
+      `SELECT strava_activity_id FROM races WHERE athlete_id = ?`
+    )
+      .bind(athlete.id)
+      .all<{ strava_activity_id: number }>();
+
+    let racesRemoved = 0;
+
+    // Check each existing race to see if it should be removed
+    for (const existingRace of existingRaces.results || []) {
+      const activityId = existingRace.strava_activity_id;
+
+      // If this activity was in the sync window but is no longer a race, remove it
+      if (fetchedActivityIds.has(activityId) && !raceActivityIds.has(activityId)) {
+        await env.DB.prepare(
+          `DELETE FROM races WHERE strava_activity_id = ? AND athlete_id = ?`
+        )
+          .bind(activityId, athlete.id)
+          .run();
+        racesRemoved++;
+        console.log(`Removed activity ${activityId} - no longer marked as race`);
+      }
+    }
+
     // Insert new races
     let newRacesAdded = 0;
     for (const race of races) {
@@ -66,6 +97,10 @@ export async function syncAthlete(athleteStravaId: number, env: Env, isInitialSy
         await insertRace(athlete.id, race, env);
         newRacesAdded++;
       }
+    }
+
+    if (racesRemoved > 0) {
+      console.log(`Removed ${racesRemoved} activities no longer marked as races`);
     }
 
     // Update last synced timestamp, activity count, and mark as completed

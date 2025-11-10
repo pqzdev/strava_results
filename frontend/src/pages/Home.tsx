@@ -42,7 +42,7 @@ export default function Home() {
       <div className="container">
         <div className="hero">
           <h1 className="hero-title">
-            Track Your Running Club's
+            Track Woodstock Runners'
             <br />
             <span className="gradient-text">Race Results</span>
           </h1>

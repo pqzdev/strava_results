@@ -164,26 +164,11 @@ export async function fetchAthleteActivities(
 
 /**
  * Filter activities to only include races (workout_type === 1)
- * and parkruns (Saturday runs with "parkrun" or "park run" in the name)
  */
 export function filterRaceActivities(activities: StravaActivity[]): StravaActivity[] {
   return activities.filter((activity) => {
-    if (activity.type !== 'Run') {
-      return false;
-    }
-
-    // Include if marked as a race
-    if (activity.workout_type === 1) {
-      return true;
-    }
-
-    // Include if it's a parkrun (Saturday activity with "parkrun" or "park run" in name)
-    const activityDate = new Date(activity.start_date_local);
-    const isSaturday = activityDate.getDay() === 6; // 6 = Saturday
-    const nameLower = activity.name.toLowerCase();
-    const isParkrun = nameLower.includes('parkrun') || nameLower.includes('park run');
-
-    return isSaturday && isParkrun;
+    // Only include running activities marked as a race
+    return activity.type === 'Run' && activity.workout_type === 1;
   });
 }
 
@@ -218,23 +203,50 @@ export async function isClubMember(
 }
 
 /**
- * Get athlete's clubs
+ * Get athlete's clubs (with pagination support)
  */
 export async function getAthleteClubs(accessToken: string): Promise<any[]> {
   try {
-    const url = `${STRAVA_API_BASE}/athlete/clubs`;
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+    const allClubs: any[] = [];
+    let page = 1;
+    const perPage = 200; // Maximum allowed by Strava
 
-    if (!response.ok) {
-      console.error(`Failed to fetch clubs: ${response.statusText}`);
-      return [];
+    // Fetch all pages of clubs
+    while (true) {
+      const url = new URL(`${STRAVA_API_BASE}/athlete/clubs`);
+      url.searchParams.set('per_page', perPage.toString());
+      url.searchParams.set('page', page.toString());
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to fetch clubs: ${response.statusText}`);
+        return allClubs; // Return what we have so far
+      }
+
+      const clubs = await response.json();
+
+      // If no clubs returned, we've reached the end
+      if (!Array.isArray(clubs) || clubs.length === 0) {
+        break;
+      }
+
+      allClubs.push(...clubs);
+
+      // If we got fewer than perPage clubs, this is the last page
+      if (clubs.length < perPage) {
+        break;
+      }
+
+      page++;
     }
 
-    return await response.json();
+    console.log(`Fetched ${allClubs.length} total clubs across ${page} page(s)`);
+    return allClubs;
   } catch (error) {
     console.error('Error fetching athlete clubs:', error);
     return [];

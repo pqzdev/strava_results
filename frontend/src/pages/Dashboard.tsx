@@ -44,41 +44,53 @@ export default function Dashboard() {
     maxDistance: '',
   });
   const [currentAthleteId, setCurrentAthleteId] = useState<number | undefined>();
+  const [pagination, setPagination] = useState({ total: 0, limit: 50, offset: 0 });
+  const [earliestDate, setEarliestDate] = useState<string>();
 
   useEffect(() => {
-    // Check if athlete_id is in URL params (from OAuth callback)
     const urlParams = new URLSearchParams(window.location.search);
     const athleteIdFromUrl = urlParams.get('athlete_id');
 
     if (athleteIdFromUrl) {
-      // Store in localStorage for future visits
       localStorage.setItem('strava_athlete_id', athleteIdFromUrl);
       setCurrentAthleteId(parseInt(athleteIdFromUrl, 10));
-      console.log('Athlete ID from URL and stored:', athleteIdFromUrl);
-
-      // Clean up URL (remove query param)
       window.history.replaceState({}, '', '/dashboard');
     } else {
-      // Try to get from localStorage
       const stravaId = localStorage.getItem('strava_athlete_id');
-      console.log('Stored strava_athlete_id:', stravaId);
       if (stravaId) {
         setCurrentAthleteId(parseInt(stravaId, 10));
-        console.log('Current athlete ID set to:', parseInt(stravaId, 10));
-      } else {
-        console.log('No strava_athlete_id found - you need to connect with Strava');
       }
     }
   }, []);
 
   useEffect(() => {
+    fetchEarliestDate();
+  }, []);
+
+  useEffect(() => {
     fetchRaces();
-  }, [filters]);
+  }, [filters, pagination.offset]);
+
+  const fetchEarliestDate = async () => {
+    try {
+      const response = await fetch('/api/races?limit=1000');
+      const data = await response.json();
+      if (data.races && data.races.length > 0) {
+        const dates = data.races.map((r: Race) => r.date);
+        setEarliestDate(dates.sort()[0]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch earliest date:', error);
+    }
+  };
 
   const fetchRaces = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
+      params.set('limit', pagination.limit.toString());
+      params.set('offset', pagination.offset.toString());
+
       if (filters.athlete) params.set('athlete', filters.athlete);
       if (filters.activityName) params.set('activity_name', filters.activityName);
       if (filters.dateFrom) params.set('date_from', filters.dateFrom);
@@ -89,6 +101,10 @@ export default function Dashboard() {
       const response = await fetch(`/api/races?${params.toString()}`);
       const data = await response.json();
       setRaces(data.races || []);
+      setPagination({
+        ...pagination,
+        total: data.pagination?.total || 0,
+      });
     } catch (error) {
       console.error('Failed to fetch races:', error);
     } finally {
@@ -98,6 +114,7 @@ export default function Dashboard() {
 
   const handleFilterChange = (newFilters: Partial<Filters>) => {
     setFilters({ ...filters, ...newFilters });
+    setPagination({ ...pagination, offset: 0 });
   };
 
   const handleClearFilters = () => {
@@ -109,7 +126,16 @@ export default function Dashboard() {
       minDistance: '',
       maxDistance: '',
     });
+    setPagination({ ...pagination, offset: 0 });
   };
+
+  const handlePageChange = (newOffset: number) => {
+    setPagination({ ...pagination, offset: newOffset });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const totalPages = Math.ceil(pagination.total / pagination.limit);
+  const currentPage = Math.floor(pagination.offset / pagination.limit) + 1;
 
   return (
     <div className="dashboard">
@@ -123,6 +149,7 @@ export default function Dashboard() {
           filters={filters}
           onFilterChange={handleFilterChange}
           onClearFilters={handleClearFilters}
+          earliestDate={earliestDate}
         />
 
         {loading ? (
@@ -145,13 +172,35 @@ export default function Dashboard() {
         ) : (
           <>
             <div className="results-count">
-              Showing {races.length} race{races.length !== 1 ? 's' : ''}
+              Showing {pagination.offset + 1}-{Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} race{pagination.total !== 1 ? 's' : ''}
             </div>
             <RaceTable
               races={races}
               currentAthleteId={currentAthleteId}
               onTimeUpdate={fetchRaces}
             />
+
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="pagination-button"
+                  onClick={() => handlePageChange(pagination.offset - pagination.limit)}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </button>
+                <span className="pagination-info">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  className="pagination-button"
+                  onClick={() => handlePageChange(pagination.offset + pagination.limit)}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

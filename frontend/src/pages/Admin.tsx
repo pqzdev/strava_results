@@ -62,6 +62,21 @@ export default function Admin() {
     field: 'is_admin' | 'is_hidden' | 'is_blocked',
     value: number
   ) => {
+    // Check if user is trying to remove their own admin access
+    const athlete = athletes.find((a) => a.id === athleteId);
+    if (
+      field === 'is_admin' &&
+      value === 0 &&
+      athlete?.strava_id === currentAthleteId
+    ) {
+      const confirmed = confirm(
+        'If you remove your admin access, you will require another administrator to reinstate it. Are you sure you want to be removed as an admin?'
+      );
+      if (!confirmed) {
+        return; // Cancel the operation
+      }
+    }
+
     try {
       const response = await fetch(
         `/api/admin/athletes/${athleteId}`,

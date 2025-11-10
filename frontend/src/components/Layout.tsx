@@ -2,8 +2,6 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import './Layout.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
 export default function Layout() {
   const location = useLocation();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -16,7 +14,7 @@ export default function Layout() {
 
       try {
         const response = await fetch(
-          `${API_BASE_URL}/api/admin/athletes?admin_strava_id=${athleteId}`
+          `/api/admin/athletes?admin_strava_id=${athleteId}`
         );
         setIsAdmin(response.ok);
       } catch {

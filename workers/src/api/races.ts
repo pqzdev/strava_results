@@ -17,7 +17,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
   const maxDistance = parseFloat(url.searchParams.get('max_distance') || '999999');
 
   try {
-    // Build query with filters
+    // Build query with filters - JOIN with race_edits to get manual overrides
     let query = `
       SELECT
         r.id,
@@ -26,8 +26,8 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
         r.distance,
         r.elapsed_time,
         r.moving_time,
-        r.manual_time,
-        r.manual_distance,
+        COALESCE(re.manual_time, r.manual_time) as manual_time,
+        COALESCE(re.manual_distance, r.manual_distance) as manual_distance,
         r.date,
         r.elevation_gain,
         r.average_heartrate,
@@ -39,6 +39,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
         a.strava_id
       FROM races r
       JOIN athletes a ON r.athlete_id = a.id
+      LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
       WHERE a.is_hidden = 0
     `;
 
@@ -226,13 +227,13 @@ export async function updateRaceTime(
 
     // Verify the athlete owns this race
     const race = await env.DB.prepare(
-      `SELECT r.athlete_id, a.strava_id
+      `SELECT r.athlete_id, r.strava_activity_id, a.strava_id
        FROM races r
        JOIN athletes a ON r.athlete_id = a.id
        WHERE r.id = ?`
     )
       .bind(raceId)
-      .first<{ athlete_id: number; strava_id: number }>();
+      .first<{ athlete_id: number; strava_activity_id: number; strava_id: number }>();
 
     if (!race) {
       return new Response(
@@ -255,12 +256,25 @@ export async function updateRaceTime(
       );
     }
 
-    // Update manual_time
-    await env.DB.prepare(
-      `UPDATE races SET manual_time = ? WHERE id = ?`
-    )
-      .bind(body.manual_time, raceId)
-      .run();
+    // Insert or update race_edits table
+    if (body.manual_time === null) {
+      // Remove the edit (revert to original)
+      await env.DB.prepare(
+        `DELETE FROM race_edits WHERE strava_activity_id = ? AND athlete_id = ?`
+      )
+        .bind(race.strava_activity_id, race.athlete_id)
+        .run();
+    } else {
+      // Upsert the manual time
+      await env.DB.prepare(
+        `INSERT INTO race_edits (strava_activity_id, athlete_id, manual_time, edited_at)
+         VALUES (?, ?, ?, strftime('%s', 'now'))
+         ON CONFLICT(strava_activity_id, athlete_id)
+         DO UPDATE SET manual_time = excluded.manual_time, edited_at = excluded.edited_at`
+      )
+        .bind(race.strava_activity_id, race.athlete_id, body.manual_time)
+        .run();
+    }
 
     return new Response(
       JSON.stringify({ success: true }),
@@ -297,13 +311,13 @@ export async function updateRaceDistance(
 
     // Verify the athlete owns this race
     const race = await env.DB.prepare(
-      `SELECT r.athlete_id, a.strava_id
+      `SELECT r.athlete_id, r.strava_activity_id, a.strava_id
        FROM races r
        JOIN athletes a ON r.athlete_id = a.id
        WHERE r.id = ?`
     )
       .bind(raceId)
-      .first<{ athlete_id: number; strava_id: number }>();
+      .first<{ athlete_id: number; strava_activity_id: number; strava_id: number }>();
 
     if (!race) {
       return new Response(
@@ -326,12 +340,25 @@ export async function updateRaceDistance(
       );
     }
 
-    // Update manual_distance
-    await env.DB.prepare(
-      `UPDATE races SET manual_distance = ? WHERE id = ?`
-    )
-      .bind(body.manual_distance, raceId)
-      .run();
+    // Insert or update race_edits table
+    if (body.manual_distance === null) {
+      // Remove the edit (revert to original)
+      await env.DB.prepare(
+        `DELETE FROM race_edits WHERE strava_activity_id = ? AND athlete_id = ?`
+      )
+        .bind(race.strava_activity_id, race.athlete_id)
+        .run();
+    } else {
+      // Upsert the manual distance
+      await env.DB.prepare(
+        `INSERT INTO race_edits (strava_activity_id, athlete_id, manual_distance, edited_at)
+         VALUES (?, ?, ?, strftime('%s', 'now'))
+         ON CONFLICT(strava_activity_id, athlete_id)
+         DO UPDATE SET manual_distance = excluded.manual_distance, edited_at = excluded.edited_at`
+      )
+        .bind(race.strava_activity_id, race.athlete_id, body.manual_distance)
+        .run();
+    }
 
     return new Response(
       JSON.stringify({ success: true }),
