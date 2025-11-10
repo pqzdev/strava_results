@@ -8,13 +8,13 @@
    - Or check the page source for the logo file URL
 
 2. **Save the logo here:**
-   - Save as `favicon.png` in this folder
+   - Save as `favicon.ico` in this folder
    - Recommended size: 512x512px or larger
    - Format: PNG with transparent background (preferred)
 
 3. **Alternative: Use online converter**
    - If you have a different format (SVG, JPG, etc.)
    - Use https://favicon.io/ to convert to multiple sizes
-   - Place the main icon as `favicon.png`
+   - Place the main icon as `favicon.ico`
 
-The HTML is already configured to use `/favicon.png` as the site icon.
+The HTML is already configured to use `/favicon.ico` as the site icon.
