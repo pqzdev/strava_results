@@ -257,3 +257,50 @@ export async function triggerAthleteSync(
     );
   }
 }
+
+/**
+ * POST /api/admin/reset-stuck-syncs - Reset all athletes stuck in "in_progress"
+ */
+export async function resetStuckSyncs(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  try {
+    const body = await request.json() as { admin_strava_id: number };
+
+    if (!body.admin_strava_id || !(await isAdmin(body.admin_strava_id, env))) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Reset all stuck syncs
+    const result = await env.DB.prepare(
+      `UPDATE athletes
+       SET sync_status = 'completed',
+           sync_error = 'Reset from stuck state'
+       WHERE sync_status = 'in_progress'`
+    ).run();
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Reset ${result.meta.changes} stuck athlete(s)`
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error resetting stuck syncs:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to reset stuck syncs' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}
