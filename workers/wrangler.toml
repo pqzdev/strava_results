@@ -21,5 +21,5 @@ crons = ["0 2 * * 1"] # Run at 2 AM UTC every Monday
 # STRAVA_CLIENT_SECRET - set via: wrangler secret put STRAVA_CLIENT_SECRET
 
 [vars]
-STRAVA_REDIRECT_URI = "https://strava-club-workers.pedroqueiroz.workers.dev/auth/callback"
+STRAVA_REDIRECT_URI = "https://strava.woodstock.workers.dev/auth/callback"
 STRAVA_CLUB_ID = "4497" # Woodstock Runners club ID
