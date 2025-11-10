@@ -52,11 +52,13 @@ export async function syncAthlete(
     const accessToken = await ensureValidToken(athlete, env);
 
     // Fetch activities since last sync (or from start of previous year if never synced)
-    // For full syncs, fetch from beginning of time (2009 - when Strava was founded)
+    // For full syncs, fetch from 3 years ago (balances completeness with Worker time limits)
     let afterTimestamp: number;
     if (fullSync) {
-      afterTimestamp = Math.floor(new Date('2009-01-01').getTime() / 1000);
-      console.log(`Full sync requested - fetching all activities since ${new Date('2009-01-01').toISOString()}`);
+      const threeYearsAgo = new Date();
+      threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+      afterTimestamp = Math.floor(threeYearsAgo.getTime() / 1000);
+      console.log(`Full sync requested - fetching all activities since ${threeYearsAgo.toISOString()}`);
     } else {
       afterTimestamp = athlete.last_synced_at
         ? athlete.last_synced_at
