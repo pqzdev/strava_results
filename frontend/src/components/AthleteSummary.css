@@ -35,15 +35,6 @@
   border-bottom: 2px solid #dee2e6;
 }
 
-.summary-table th.text-center,
-.summary-table td.text-center {
-  text-align: center;
-}
-
-.summary-table th.text-right,
-.summary-table td.text-right {
-  text-align: right;
-}
 
 .summary-table tbody tr {
   border-bottom: 1px solid #e9ecef;

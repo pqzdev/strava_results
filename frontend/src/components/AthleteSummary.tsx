@@ -125,10 +125,10 @@ export default function AthleteSummary({ races }: AthleteSummaryProps) {
                     <span>{stat.athleteName}</span>
                   </div>
                 </td>
-                <td className="text-center">{stat.activityCount}</td>
-                <td className="text-right">{formatDistance(stat.totalDistance)} km</td>
-                <td className="text-right">{formatTime(stat.totalTime)}</td>
-                <td className="text-right">{formatPace(stat.averagePace)} /km</td>
+                <td>{stat.activityCount}</td>
+                <td>{formatDistance(stat.totalDistance)} km</td>
+                <td>{formatTime(stat.totalTime)}</td>
+                <td>{formatPace(stat.averagePace)} /km</td>
               </tr>
             ))}
           </tbody>
