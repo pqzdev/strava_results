@@ -232,15 +232,25 @@ export async function triggerAthleteSync(
     // Trigger full sync in background using waitUntil to extend execution time
     // Admin-triggered syncs are always full syncs
     ctx.waitUntil(
-      syncAthlete(athlete.strava_id, env, false, true).catch(error => {
-        console.error(`Failed to sync athlete ${athlete.strava_id}:`, error);
-        // Update status to error
-        return env.DB.prepare(
-          "UPDATE athletes SET sync_status = 'error', sync_error = ? WHERE id = ?"
-        )
-          .bind(error.message, athleteId)
-          .run();
-      })
+      (async () => {
+        try {
+          console.log(`Admin triggering full sync for athlete ${athlete.strava_id} (ID: ${athleteId})`);
+          await syncAthlete(athlete.strava_id, env, false, true);
+          console.log(`Admin sync completed successfully for athlete ${athlete.strava_id}`);
+        } catch (error) {
+          console.error(`Admin sync failed for athlete ${athlete.strava_id}:`, error);
+          // Ensure status is updated to error
+          try {
+            await env.DB.prepare(
+              "UPDATE athletes SET sync_status = 'error', sync_error = ? WHERE id = ?"
+            )
+              .bind(error instanceof Error ? error.message : String(error), athleteId)
+              .run();
+          } catch (dbError) {
+            console.error(`Failed to update error status for athlete ${athleteId}:`, dbError);
+          }
+        }
+      })()
     );
 
     return new Response(

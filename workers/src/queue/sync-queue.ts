@@ -23,7 +23,7 @@ interface SyncMessage {
  * @param athleteStravaId - Strava ID of the athlete to sync
  * @param env - Cloudflare environment
  * @param isInitialSync - Whether this is the initial sync for a new athlete
- * @param fullSync - If true, fetches all activities from the beginning (for admin-triggered syncs)
+ * @param fullSync - If true, deletes all existing data and fetches ALL activities from the beginning
  */
 export async function syncAthlete(
   athleteStravaId: number,
@@ -38,26 +38,49 @@ export async function syncAthlete(
     const athlete = await getAthleteByStravaId(athleteStravaId, env);
     if (!athlete) {
       console.error(`Athlete ${athleteStravaId} not found in database`);
-      return;
+      throw new Error(`Athlete ${athleteStravaId} not found in database`);
     }
 
-    // Set athlete status to in_progress
-    await env.DB.prepare(
-      `UPDATE athletes SET sync_status = 'in_progress', sync_error = NULL WHERE id = ?`
+    // For full sync, delete all existing races first for a true refresh
+    if (fullSync) {
+      console.log(`Full sync - deleting all existing races for athlete ${athleteStravaId}`);
+      const deleteResult = await env.DB.prepare(
+        `DELETE FROM races WHERE athlete_id = ?`
+      )
+        .bind(athlete.id)
+        .run();
+      console.log(`Deleted ${deleteResult.meta.changes} existing races`);
+    }
+
+    // Set athlete status to in_progress (only if not already set by caller)
+    // This ensures status is tracked even if called directly
+    const currentStatus = await env.DB.prepare(
+      `SELECT sync_status FROM athletes WHERE id = ?`
     )
       .bind(athlete.id)
-      .run();
+      .first<{ sync_status: string }>();
+
+    if (currentStatus?.sync_status !== 'in_progress') {
+      await env.DB.prepare(
+        `UPDATE athletes SET sync_status = 'in_progress', sync_error = NULL WHERE id = ?`
+      )
+        .bind(athlete.id)
+        .run();
+    }
 
     // Ensure valid access token
     const accessToken = await ensureValidToken(athlete, env);
 
-    // Fetch activities since last sync (or from start of previous year if never synced)
-    // For full syncs, fetch from start of previous year (e.g., Jan 1, 2024 when in 2025)
+    // Fetch activities
+    // For full syncs, fetch from 3 years ago (reasonable window for full refresh)
+    // For incremental syncs, fetch from last_synced_at or start of previous year
     let afterTimestamp: number;
     if (fullSync) {
-      const startOfPreviousYear = new Date(`${new Date().getFullYear() - 1}-01-01`);
-      afterTimestamp = Math.floor(startOfPreviousYear.getTime() / 1000);
-      console.log(`Full sync requested - fetching all activities since ${startOfPreviousYear.toISOString()}`);
+      // Fetch activities from 3 years ago for a comprehensive but manageable refresh
+      const threeYearsAgo = new Date();
+      threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+      afterTimestamp = Math.floor(threeYearsAgo.getTime() / 1000);
+      console.log(`Full sync requested - fetching activities from ${threeYearsAgo.toISOString()}`);
     } else {
       afterTimestamp = athlete.last_synced_at
         ? athlete.last_synced_at
@@ -75,64 +98,88 @@ export async function syncAthlete(
       `Athlete ${athlete.strava_id}: ${races.length} races out of ${activities.length} activities`
     );
 
-    // Get all activity IDs that are currently races from the sync
-    const raceActivityIds = new Set(races.map(r => r.id));
-
-    // Get all activity IDs from fetched activities
-    const fetchedActivityIds = new Set(activities.map(a => a.id));
-
-    // Get all existing races from database
-    const existingRaces = await env.DB.prepare(
-      `SELECT strava_activity_id FROM races WHERE athlete_id = ?`
-    )
-      .bind(athlete.id)
-      .all<{ strava_activity_id: number }>();
-
     let racesRemoved = 0;
-
-    // Check each existing race to see if it should be removed
-    for (const existingRace of existingRaces.results || []) {
-      const activityId = existingRace.strava_activity_id;
-
-      // If this activity was in the sync window but is no longer a race, remove it
-      if (fetchedActivityIds.has(activityId) && !raceActivityIds.has(activityId)) {
-        await env.DB.prepare(
-          `DELETE FROM races WHERE strava_activity_id = ? AND athlete_id = ?`
-        )
-          .bind(activityId, athlete.id)
-          .run();
-        racesRemoved++;
-        console.log(`Removed activity ${activityId} - no longer marked as race`);
-      }
-    }
-
-    // Insert new races
     let newRacesAdded = 0;
-    for (const race of races) {
-      const exists = await raceExists(race.id, env);
-      if (!exists) {
+
+    // For full syncs, we already deleted all races, so just insert everything
+    if (fullSync) {
+      console.log(`Full sync - inserting all ${races.length} races`);
+      for (const race of races) {
         await insertRace(athlete.id, race, env);
         newRacesAdded++;
       }
-    }
+    } else {
+      // For incremental syncs, handle race additions and removals intelligently
+      // Get all activity IDs that are currently races from the sync
+      const raceActivityIds = new Set(races.map(r => r.id));
 
-    if (racesRemoved > 0) {
-      console.log(`Removed ${racesRemoved} activities no longer marked as races`);
+      // Get all activity IDs from fetched activities
+      const fetchedActivityIds = new Set(activities.map(a => a.id));
+
+      // Get all existing races from database
+      const existingRaces = await env.DB.prepare(
+        `SELECT strava_activity_id FROM races WHERE athlete_id = ?`
+      )
+        .bind(athlete.id)
+        .all<{ strava_activity_id: number }>();
+
+      // Check each existing race to see if it should be removed
+      for (const existingRace of existingRaces.results || []) {
+        const activityId = existingRace.strava_activity_id;
+
+        // If this activity was in the sync window but is no longer a race, remove it
+        if (fetchedActivityIds.has(activityId) && !raceActivityIds.has(activityId)) {
+          await env.DB.prepare(
+            `DELETE FROM races WHERE strava_activity_id = ? AND athlete_id = ?`
+          )
+            .bind(activityId, athlete.id)
+            .run();
+          racesRemoved++;
+          console.log(`Removed activity ${activityId} - no longer marked as race`);
+        }
+      }
+
+      // Insert new races
+      for (const race of races) {
+        const exists = await raceExists(race.id, env);
+        if (!exists) {
+          await insertRace(athlete.id, race, env);
+          newRacesAdded++;
+        }
+      }
+
+      if (racesRemoved > 0) {
+        console.log(`Removed ${racesRemoved} activities no longer marked as races`);
+      }
     }
 
     // Update last synced timestamp, activity count, and mark as completed
-    await env.DB.prepare(
-      `UPDATE athletes
-       SET last_synced_at = ?,
-           sync_status = 'completed',
-           total_activities_count = total_activities_count + ?,
-           sync_error = NULL
-       WHERE id = ?`
-    )
-      .bind(Math.floor(Date.now() / 1000), activities.length, athlete.id)
-      .run();
+    // For full syncs, reset the activity count; for incremental syncs, add to it
+    if (fullSync) {
+      await env.DB.prepare(
+        `UPDATE athletes
+         SET last_synced_at = ?,
+             sync_status = 'completed',
+             total_activities_count = ?,
+             sync_error = NULL
+         WHERE id = ?`
+      )
+        .bind(Math.floor(Date.now() / 1000), activities.length, athlete.id)
+        .run();
+    } else {
+      await env.DB.prepare(
+        `UPDATE athletes
+         SET last_synced_at = ?,
+             sync_status = 'completed',
+             total_activities_count = total_activities_count + ?,
+             sync_error = NULL
+         WHERE id = ?`
+      )
+        .bind(Math.floor(Date.now() / 1000), activities.length, athlete.id)
+        .run();
+    }
 
-    console.log(`Athlete ${athleteStravaId} sync complete: ${newRacesAdded} new races added`);
+    console.log(`Athlete ${athleteStravaId} sync complete: ${newRacesAdded} races added (${racesRemoved} removed). Total activities processed: ${activities.length}`);
   } catch (error) {
     console.error(`Error syncing athlete ${athleteStravaId}:`, error);
 
