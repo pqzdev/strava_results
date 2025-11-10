@@ -195,6 +195,7 @@ export async function deleteAthlete(
 export async function triggerAthleteSync(
   request: Request,
   env: Env,
+  ctx: ExecutionContext,
   athleteId: number
 ): Promise<Response> {
   try {
@@ -228,16 +229,19 @@ export async function triggerAthleteSync(
       .bind(athleteId)
       .run();
 
-    // Trigger full sync in background (admin-triggered syncs are always full syncs)
-    syncAthlete(athlete.strava_id, env, false, true).catch(error => {
-      console.error(`Failed to sync athlete ${athlete.strava_id}:`, error);
-      // Update status to error
-      env.DB.prepare(
-        "UPDATE athletes SET sync_status = 'error', sync_error = ? WHERE id = ?"
-      )
-        .bind(error.message, athleteId)
-        .run();
-    });
+    // Trigger full sync in background using waitUntil to extend execution time
+    // Admin-triggered syncs are always full syncs
+    ctx.waitUntil(
+      syncAthlete(athlete.strava_id, env, false, true).catch(error => {
+        console.error(`Failed to sync athlete ${athlete.strava_id}:`, error);
+        // Update status to error
+        return env.DB.prepare(
+          "UPDATE athletes SET sync_status = 'error', sync_error = ? WHERE id = ?"
+        )
+          .bind(error.message, athleteId)
+          .run();
+      })
+    );
 
     return new Response(
       JSON.stringify({ success: true, message: 'Sync triggered' }),

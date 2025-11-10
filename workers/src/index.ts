@@ -13,7 +13,7 @@ export default {
   /**
    * Handle HTTP requests
    */
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -84,7 +84,7 @@ export default {
 
       const adminSyncMatch = path.match(/^\/api\/admin\/athletes\/(\d+)\/sync$/);
       if (adminSyncMatch && request.method === 'POST') {
-        return triggerAthleteSync(request, env, parseInt(adminSyncMatch[1]));
+        return triggerAthleteSync(request, env, ctx, parseInt(adminSyncMatch[1]));
       }
 
       // Reset stuck syncs
