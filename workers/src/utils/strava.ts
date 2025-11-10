@@ -164,32 +164,12 @@ export async function fetchAthleteActivities(
 
 /**
  * Filter activities to only include races
- * Detects races by:
- * 1. workout_type === 1 (explicitly marked as race in Strava)
- * 2. Name contains race-related keywords (fallback detection)
+ * Only includes activities explicitly marked as race (workout_type === 1) in Strava
  */
 export function filterRaceActivities(activities: StravaActivity[]): StravaActivity[] {
-  // Common race keywords to detect in activity names (fallback if not tagged)
-  const raceKeywords = [
-    'race', 'parkrun', 'marathon', 'half marathon', '10k', '5k',
-    '10km', '5km', 'ultra', 'trail race', 'fun run', 'charity run',
-    'xc', 'cross country', 'track meet', '800m', '1500m', '3000m', '5000m', '10000m'
-  ];
-
   return activities.filter((activity) => {
-    // Must be a running activity
-    if (activity.type !== 'Run') {
-      return false;
-    }
-
-    // Check if explicitly marked as race (primary detection)
-    if (activity.workout_type === 1) {
-      return true;
-    }
-
-    // Fallback: Check if activity name contains race keywords
-    const nameLower = activity.name.toLowerCase();
-    return raceKeywords.some(keyword => nameLower.includes(keyword));
+    // Must be a running activity with workout_type === 1 (race)
+    return activity.type === 'Run' && activity.workout_type === 1;
   });
 }
 
