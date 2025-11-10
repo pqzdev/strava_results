@@ -1,0 +1,104 @@
+.athlete-summary {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.summary-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.summary-table-container {
+  overflow-x: auto;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.summary-table thead {
+  background-color: #f8f9fa;
+}
+
+.summary-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.summary-table th.text-center,
+.summary-table td.text-center {
+  text-align: center;
+}
+
+.summary-table th.text-right,
+.summary-table td.text-right {
+  text-align: right;
+}
+
+.summary-table tbody tr {
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s ease;
+}
+
+.summary-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.summary-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.summary-table td {
+  padding: 0.75rem 1rem;
+  color: #212529;
+}
+
+.athlete-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.athlete-avatar-small {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e9ecef;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .athlete-summary {
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+
+  .summary-title {
+    font-size: 1.25rem;
+  }
+
+  .summary-table {
+    font-size: 0.875rem;
+  }
+
+  .summary-table th,
+  .summary-table td {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .athlete-avatar-small {
+    width: 28px;
+    height: 28px;
+  }
+}
