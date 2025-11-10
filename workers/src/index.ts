@@ -3,8 +3,10 @@
 import { Env } from './types';
 import { handleAuthorize, handleCallback, handleDisconnect } from './auth/oauth';
 import { syncAllAthletes } from './cron/sync';
+import { syncParkrunResults } from './cron/parkrun-sync';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync } from './api/admin';
+import { getParkrunResults, getParkrunStats, triggerParkrunSync, getParkrunAthletes, updateParkrunAthlete } from './api/parkrun';
 
 export default {
   /**
@@ -97,6 +99,30 @@ export default {
         );
       }
 
+      // Parkrun API routes
+      if (path === '/api/parkrun' && request.method === 'GET') {
+        return getParkrunResults(request, env);
+      }
+
+      if (path === '/api/parkrun/stats' && request.method === 'GET') {
+        return getParkrunStats(request, env);
+      }
+
+      if (path === '/api/parkrun/sync' && request.method === 'POST') {
+        return triggerParkrunSync(request, env);
+      }
+
+      if (path === '/api/parkrun/athletes' && request.method === 'GET') {
+        return getParkrunAthletes(request, env);
+      }
+
+      // Update parkrun athlete visibility
+      const parkrunAthleteMatch = path.match(/^\/api\/parkrun\/athletes\/(.+)$/);
+      if (parkrunAthleteMatch && request.method === 'PATCH') {
+        const athleteName = decodeURIComponent(parkrunAthleteMatch[1]);
+        return updateParkrunAthlete(request, env, athleteName);
+      }
+
       // Health check
       if (path === '/health') {
         return new Response(JSON.stringify({ status: 'healthy' }), {
@@ -132,7 +158,11 @@ export default {
     console.log('Cron trigger fired:', new Date(event.scheduledTime).toISOString());
 
     try {
+      // Sync Strava activities
       await syncAllAthletes(env);
+
+      // Sync parkrun results
+      await syncParkrunResults(env);
     } catch (error) {
       console.error('Scheduled sync failed:', error);
       // Error is already logged in sync function
