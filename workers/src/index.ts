@@ -5,7 +5,7 @@ import { handleAuthorize, handleCallback, handleDisconnect } from './auth/oauth'
 import { syncAllAthletes } from './cron/sync';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, resetStuckSyncs } from './api/admin';
-import { getParkrunResults, getParkrunStats, triggerParkrunSync, getParkrunAthletes, updateParkrunAthlete } from './api/parkrun';
+import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
 
 export default {
@@ -113,10 +113,6 @@ export default {
         return getParkrunStats(request, env);
       }
 
-      if (path === '/api/parkrun/sync' && request.method === 'POST') {
-        return triggerParkrunSync(request, env, ctx);
-      }
-
       if (path === '/api/parkrun/import' && request.method === 'POST') {
         return importParkrunCSV(request, env);
       }
@@ -162,8 +158,8 @@ export default {
 
   /**
    * Handle scheduled cron triggers
-   * Note: Only Strava sync runs on schedule. Parkrun sync must be triggered manually
-   * via /api/parkrun/sync endpoint due to anti-scraping measures.
+   * Note: Only Strava sync runs on schedule. Parkrun data must be collected manually
+   * using the browser console scraper (docs/parkrun-smart-scraper.js) due to anti-scraping measures.
    */
   async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
     console.log('Cron trigger fired:', new Date(event.scheduledTime).toISOString());

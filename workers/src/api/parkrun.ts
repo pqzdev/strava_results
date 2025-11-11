@@ -227,47 +227,6 @@ export async function getParkrunStats(request: Request, env: Env): Promise<Respo
 }
 
 /**
- * POST /api/parkrun/sync - Disabled automatic parkrun sync
- *
- * NOTE: Automated server-side parkrun scraping doesn't work due to parkrun's
- * anti-scraping measures (403/450 errors). Use the browser console scraper instead.
- *
- * To sync parkrun data:
- * 1. Go to: https://www.parkrun.com/results/consolidatedclub/?clubNum=19959
- * 2. Open browser console (F12)
- * 3. Use the browser console scraper script from docs/parkrun-smart-scraper.js
- */
-export async function triggerParkrunSync(
-  request: Request,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<Response> {
-  return new Response(
-    JSON.stringify({
-      success: false,
-      error: 'Automated parkrun sync is not available',
-      message: 'Server-side parkrun scraping is blocked by parkrun\'s anti-scraping measures. ' +
-               'Please use the browser console scraper instead. ' +
-               'Visit https://www.parkrun.com/results/consolidatedclub/?clubNum=19959 and run the script from docs/parkrun-smart-scraper.js in your browser console.',
-      instructions: {
-        step1: 'Go to https://www.parkrun.com/results/consolidatedclub/?clubNum=19959',
-        step2: 'Open browser developer console (F12 or right-click → Inspect)',
-        step3: 'Copy the script from docs/parkrun-smart-scraper.js',
-        step4: 'Paste into console and press Enter',
-        step5: 'Wait for completion and data will auto-upload to the API',
-      }
-    }),
-    {
-      status: 501, // Not Implemented
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-    }
-  );
-}
-
-/**
  * GET /api/parkrun/athletes - Get all parkrun athletes (for admin management)
  */
 export async function getParkrunAthletes(request: Request, env: Env): Promise<Response> {

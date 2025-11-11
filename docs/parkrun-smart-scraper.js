@@ -37,7 +37,6 @@
     clubName: 'Woodstock Runners', // Exact club name to filter
     maxFibonacciWait: 34, // Maximum fibonacci backoff in seconds (matches server-side)
     batchSize: 10, // Upload to API every 10 dates (matches server-side)
-    includeSpecialDates: ['2024-12-25', '2025-01-01'], // Christmas and New Year parkruns
     apiEndpoint: urlParams.get('apiEndpoint') || '', // API endpoint to POST results
     autoUpload: urlParams.get('autoUpload') === 'true', // Auto-upload to API
     replaceMode: urlParams.get('replaceMode') === 'true', // Replace all existing data on first upload
@@ -75,6 +74,36 @@
     }
 
     return saturdays;
+  }
+
+  /**
+   * Get special parkrun dates (Christmas Day and New Year's Day) within range
+   * Parkrun often runs on these days even though they're not Saturdays
+   */
+  function getSpecialParkrunDates(startDate, endDate) {
+    const specialDates = [];
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    const startYear = start.getFullYear();
+    const endYear = end.getFullYear();
+
+    // Generate Christmas (Dec 25) and New Year (Jan 1) for each year in range
+    for (let year = startYear; year <= endYear; year++) {
+      // Christmas Day
+      const christmas = new Date(`${year}-12-25`);
+      if (christmas >= start && christmas <= end) {
+        specialDates.push(christmas.toISOString().split('T')[0]);
+      }
+
+      // New Year's Day
+      const newYear = new Date(`${year}-01-01`);
+      if (newYear >= start && newYear <= end) {
+        specialDates.push(newYear.toISOString().split('T')[0]);
+      }
+    }
+
+    return specialDates;
   }
 
   function sleep(ms) {
@@ -345,12 +374,7 @@
 
   // Get all dates to scrape (Saturdays + special dates like Christmas/New Year)
   const saturdays = getSaturdaysInRange(CONFIG.startDate, CONFIG.endDate);
-  const specialDates = CONFIG.includeSpecialDates.filter(d => {
-    const date = new Date(d);
-    const start = new Date(CONFIG.startDate);
-    const end = new Date(CONFIG.endDate);
-    return date >= start && date <= end;
-  });
+  const specialDates = getSpecialParkrunDates(CONFIG.startDate, CONFIG.endDate);
 
   const allDates = [...new Set([...saturdays, ...specialDates])].sort();
 
