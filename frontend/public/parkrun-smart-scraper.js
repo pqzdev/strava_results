@@ -137,7 +137,11 @@
 
     for (const h2 of eventHeaders) {
       // Get event name and clean it
-      const eventName = h2.textContent.trim().replace(/\s+parkrun$/i, '').trim();
+      // Remove " parkrun" from the name (handles both "Name parkrun" and "Name parkrun, Location")
+      let eventName = h2.textContent.trim();
+      eventName = eventName.replace(/\s+parkrun,/i, ','); // "Name parkrun, Location" → "Name, Location"
+      eventName = eventName.replace(/\s+parkrun$/i, '');  // "Name parkrun" → "Name"
+      eventName = eventName.trim();
 
       // Skip if not an event name (like "Consolidated club report")
       if (!eventName || eventName.toLowerCase().includes('consolidated') || eventName.toLowerCase().includes('report')) {
