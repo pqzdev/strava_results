@@ -327,6 +327,9 @@
 
     // Properly construct URL with query parameters
     const url = new URL(CONFIG.apiEndpoint);
+    // Always remove any existing 'replace' parameter first
+    url.searchParams.delete('replace');
+    // Only add it if we want to replace
     if (shouldReplace) {
       url.searchParams.set('replace', 'true');
     }
