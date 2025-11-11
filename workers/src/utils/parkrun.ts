@@ -6,6 +6,7 @@ export interface ParkrunResult {
   eventName: string;
   eventNumber: number;
   position: number;
+  genderPosition?: number;
   time: string; // Format: MM:SS or HH:MM:SS
   ageGrade?: string; // Format: XX.XX%
   ageCategory?: string; // e.g., "SM25-29"
@@ -126,12 +127,14 @@ function parseParkrunClubHTML(html: string): ParkrunResult[] {
     }
 
     // Skip header rows or empty rows
-    if (cells.length < 5 || cells[0].toLowerCase().includes('name')) {
+    if (cells.length < 5 || cells[0].toLowerCase().includes('name') || cells[0].toLowerCase().includes('date')) {
       continue;
     }
 
     // Typical parkrun consolidated club format:
-    // Date | Event | Position | Runner | Time | Age Grade | Age Category
+    // Date | Event | Event# | Position | Gender Position | Runner | Time | Age Grade | Age Category
+    // OR older format without gender position:
+    // Date | Event | Event# | Position | Runner | Time | Age Grade | Age Category
     // The exact order may vary, so this is a best-guess implementation
     try {
       if (cells.length >= 5) {
@@ -146,16 +149,36 @@ function parseParkrunClubHTML(html: string): ParkrunResult[] {
           }
         }
 
-        results.push({
-          date: dateStr,
-          eventName: cells[1] || 'Unknown',
-          eventNumber: parseInt(cells[2]) || 0,
-          position: parseInt(cells[3]) || 0,
-          athleteName: cells[4] || 'Unknown',
-          time: cells[5] || '00:00',
-          ageGrade: cells[6] || undefined,
-          ageCategory: cells[7] || undefined,
-        });
+        // Detect if gender position column exists by checking cell count
+        // If we have 9+ cells, assume new format with gender position
+        const hasGenderPosition = cells.length >= 9;
+
+        if (hasGenderPosition) {
+          // New format: Date | Event | Event# | Pos | Gender Pos | Name | Time | AG% | Cat
+          results.push({
+            date: dateStr,
+            eventName: cells[1] || 'Unknown',
+            eventNumber: parseInt(cells[2]) || 0,
+            position: parseInt(cells[3]) || 0,
+            genderPosition: parseInt(cells[4]) || undefined,
+            athleteName: cells[5] || 'Unknown',
+            time: cells[6] || '00:00',
+            ageGrade: cells[7] || undefined,
+            ageCategory: cells[8] || undefined,
+          });
+        } else {
+          // Old format: Date | Event | Event# | Pos | Name | Time | AG% | Cat
+          results.push({
+            date: dateStr,
+            eventName: cells[1] || 'Unknown',
+            eventNumber: parseInt(cells[2]) || 0,
+            position: parseInt(cells[3]) || 0,
+            athleteName: cells[4] || 'Unknown',
+            time: cells[5] || '00:00',
+            ageGrade: cells[6] || undefined,
+            ageCategory: cells[7] || undefined,
+          });
+        }
       }
     } catch (error) {
       console.warn('Error parsing parkrun result row:', error);

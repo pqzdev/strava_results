@@ -33,6 +33,7 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
         pr.event_name,
         pr.event_number,
         pr.position,
+        pr.gender_position,
         pr.time_seconds,
         pr.time_string,
         pr.age_grade,
@@ -48,26 +49,30 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
     const bindings: any[] = [];
 
     if (athleteName) {
-      query += ` AND athlete_name LIKE ?`;
+      query += ` AND pr.athlete_name LIKE ?`;
       bindings.push(`%${athleteName}%`);
     }
 
     if (eventName) {
-      query += ` AND event_name LIKE ?`;
+      query += ` AND pr.event_name LIKE ?`;
       bindings.push(`%${eventName}%`);
     }
 
     if (dateFrom) {
-      query += ` AND date >= ?`;
+      query += ` AND pr.date >= ?`;
       bindings.push(dateFrom);
     }
 
     if (dateTo) {
-      query += ` AND date <= ?`;
+      query += ` AND pr.date <= ?`;
       bindings.push(dateTo);
     }
 
-    query += ` ORDER BY ${validSortBy} ${validSortDir} LIMIT ? OFFSET ?`;
+    // Add table prefix for sortable columns to avoid ambiguity
+    const sortColumn = validSortBy === 'athlete_name' || validSortBy === 'event_name' || validSortBy === 'date' || validSortBy === 'position' || validSortBy === 'time_seconds'
+      ? `pr.${validSortBy}`
+      : validSortBy;
+    query += ` ORDER BY ${sortColumn} ${validSortDir} LIMIT ? OFFSET ?`;
     bindings.push(limit, offset);
 
     const result = await env.DB.prepare(query).bind(...bindings).all();
@@ -82,19 +87,19 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
     const countBindings: any[] = [];
 
     if (athleteName) {
-      countQuery += ` AND athlete_name LIKE ?`;
+      countQuery += ` AND pr.athlete_name LIKE ?`;
       countBindings.push(`%${athleteName}%`);
     }
     if (eventName) {
-      countQuery += ` AND event_name LIKE ?`;
+      countQuery += ` AND pr.event_name LIKE ?`;
       countBindings.push(`%${eventName}%`);
     }
     if (dateFrom) {
-      countQuery += ` AND date >= ?`;
+      countQuery += ` AND pr.date >= ?`;
       countBindings.push(dateFrom);
     }
     if (dateTo) {
-      countQuery += ` AND date <= ?`;
+      countQuery += ` AND pr.date <= ?`;
       countBindings.push(dateTo);
     }
 
