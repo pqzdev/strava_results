@@ -23,7 +23,7 @@
 
 (async function() {
   console.clear();
-  console.log('🏃 Parkrun Smart Scraper v3.0');
+  console.log('🏃 Parkrun Smart Scraper v4.0');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   // ========== CONFIGURATION ==========
@@ -35,13 +35,28 @@
     endDate: urlParams.get('endDate') || new Date().toISOString().split('T')[0], // Today
     delayBetweenRequests: 2000, // 2 seconds (be respectful)
     clubName: 'Woodstock Runners', // Exact club name to filter
-    maxRetries: 2, // Retry failed requests
+    maxFibonacciWait: 34, // Maximum fibonacci backoff in seconds (matches server-side)
+    batchSize: 10, // Upload to API every 10 dates (matches server-side)
     includeSpecialDates: ['2024-12-25', '2025-01-01'], // Christmas and New Year parkruns
     apiEndpoint: urlParams.get('apiEndpoint') || '', // API endpoint to POST results
     autoUpload: urlParams.get('autoUpload') === 'true', // Auto-upload to API
   };
 
   // ========== HELPER FUNCTIONS ==========
+
+  /**
+   * Generate Fibonacci sequence up to max value
+   * Used for progressive backoff when pages return no results
+   */
+  function getFibonacciSequence(maxValue) {
+    const fib = [1, 1];
+    while (true) {
+      const next = fib[fib.length - 1] + fib[fib.length - 2];
+      if (next > maxValue) break;
+      fib.push(next);
+    }
+    return fib;
+  }
 
   function getSaturdaysInRange(startDate, endDate) {
     const saturdays = [];
@@ -175,7 +190,12 @@
     return allResults;
   }
 
-  async function fetchDateResults(eventDate, retryCount = 0) {
+  /**
+   * Fetch results for a specific date with Fibonacci backoff
+   * If no results found, retries with progressively longer delays: 1s, 1s, 2s, 3s, 5s, 8s, 13s, 21s, 34s
+   * This matches the server-side implementation for consistency
+   */
+  async function fetchDateResults(eventDate, fibonacciWaits, consecutiveEmptyResults = 0) {
     const url = `https://www.parkrun.com/results/consolidatedclub/?clubNum=${CONFIG.clubNum}&eventdate=${eventDate}`;
 
     try {
@@ -195,26 +215,29 @@
       const html = await response.text();
       const results = extractResultsFromHTML(html, eventDate);
 
-      // If we got 0 results and haven't retried yet, try again after a delay
-      // The page might have loaded but the data wasn't fully rendered
-      if (results.length === 0 && retryCount < CONFIG.maxRetries) {
-        console.log(`  ⚠️  No results found, page may still be loading...`);
-        console.log(`  🔄 Retrying after 3 seconds (${retryCount + 1}/${CONFIG.maxRetries})...`);
-        await sleep(3000); // Wait 3 seconds for page to fully load
-        return fetchDateResults(eventDate, retryCount + 1);
+      if (results.length === 0) {
+        consecutiveEmptyResults++;
+
+        // Check if we've exhausted all Fibonacci waits
+        if (consecutiveEmptyResults > fibonacciWaits.length) {
+          console.log(`  ℹ️  No results after ${fibonacciWaits.length} retries, moving on`);
+          return { success: true, results: [], date: eventDate };
+        }
+
+        // Apply Fibonacci backoff
+        const waitSeconds = fibonacciWaits[consecutiveEmptyResults - 1];
+        console.log(`  ⏳ 0 results, waiting ${waitSeconds}s before retry (attempt ${consecutiveEmptyResults}/${fibonacciWaits.length})`);
+        await sleep(waitSeconds * 1000);
+
+        // Retry with incremented counter
+        return fetchDateResults(eventDate, fibonacciWaits, consecutiveEmptyResults);
       }
 
+      // Success - found results
       return { success: true, results, date: eventDate };
 
     } catch (error) {
       console.error(`  ❌ Error: ${error.message}`);
-
-      if (retryCount < CONFIG.maxRetries) {
-        console.log(`  🔄 Retrying (${retryCount + 1}/${CONFIG.maxRetries})...`);
-        await sleep(CONFIG.delayBetweenRequests);
-        return fetchDateResults(eventDate, retryCount + 1);
-      }
-
       return { success: false, results: [], date: eventDate, error: error.message };
     }
   }
@@ -294,11 +317,13 @@
   console.log(`  Club: ${CONFIG.clubName} (#${CONFIG.clubNum})`);
   console.log(`  Date range: ${CONFIG.startDate} to ${CONFIG.endDate}`);
   console.log(`  Delay: ${CONFIG.delayBetweenRequests}ms between requests`);
+  console.log(`  Fibonacci backoff: up to ${CONFIG.maxFibonacciWait}s`);
+  console.log(`  Batch upload: every ${CONFIG.batchSize} dates`);
   console.log(`  API endpoint: ${CONFIG.apiEndpoint || 'None (manual copy)'}`);
   console.log(`  Auto-upload: ${CONFIG.autoUpload ? 'Yes' : 'No'}`);
   console.log('');
 
-  // Get all dates to scrape
+  // Get all dates to scrape (Saturdays + special dates like Christmas/New Year)
   const saturdays = getSaturdaysInRange(CONFIG.startDate, CONFIG.endDate);
   const specialDates = CONFIG.includeSpecialDates.filter(d => {
     const date = new Date(d);
@@ -310,12 +335,23 @@
   const allDates = [...new Set([...saturdays, ...specialDates])].sort();
 
   console.log(`📅 Dates to scrape: ${allDates.length} days`);
+  console.log(`   - Saturdays: ${saturdays.length}`);
+  if (specialDates.length > 0) {
+    console.log(`   - Special dates (Christmas/New Year): ${specialDates.length}`);
+  }
   console.log('');
 
-  // Fetch all dates
+  // Generate Fibonacci sequence for backoff
+  const fibonacciWaits = getFibonacciSequence(CONFIG.maxFibonacciWait);
+  console.log(`🔄 Fibonacci backoff sequence: ${fibonacciWaits.join(', ')}s`);
+  console.log('');
+
+  // Fetch all dates with batched uploads
   const allResults = [];
   let successCount = 0;
   let failCount = 0;
+  let totalUploaded = 0;
+  let datesProcessed = 0;
 
   for (let i = 0; i < allDates.length; i++) {
     const date = allDates[i];
@@ -323,7 +359,7 @@
 
     console.log(`[${i + 1}/${allDates.length}] ${progress}% - ${date}`);
 
-    const { success, results } = await fetchDateResults(date);
+    const { success, results } = await fetchDateResults(date, fibonacciWaits);
 
     if (success) {
       successCount++;
@@ -331,6 +367,24 @@
       console.log(`  ✓ Found ${results.length} results`);
     } else {
       failCount++;
+    }
+
+    datesProcessed++;
+
+    // Upload batch every BATCH_SIZE dates (if auto-upload enabled and API configured)
+    if (CONFIG.autoUpload && CONFIG.apiEndpoint && datesProcessed % CONFIG.batchSize === 0 && allResults.length > totalUploaded) {
+      const batchResults = allResults.slice(totalUploaded);
+      console.log(`\n📤 Uploading batch of ${batchResults.length} results (dates ${datesProcessed - CONFIG.batchSize + 1}-${datesProcessed})...`);
+
+      const csvData = convertToCSV(batchResults);
+      const uploadSuccess = await uploadToAPI(csvData);
+
+      if (uploadSuccess) {
+        totalUploaded = allResults.length;
+        console.log(`✅ Batch uploaded! Total uploaded so far: ${totalUploaded} results\n`);
+      } else {
+        console.log(`⚠️  Batch upload failed, will include in final upload\n`);
+      }
     }
 
     // Add delay between requests (except on last one)
@@ -349,6 +403,10 @@
   console.log(`   Successful: ${successCount}`);
   console.log(`   Failed: ${failCount}`);
   console.log(`   Total results: ${allResults.length}`);
+  if (CONFIG.autoUpload && CONFIG.apiEndpoint) {
+    console.log(`   Uploaded: ${totalUploaded} results`);
+    console.log(`   Remaining: ${allResults.length - totalUploaded} results`);
+  }
   console.log('');
 
   if (allResults.length === 0) {
@@ -362,14 +420,26 @@
   // Convert to CSV
   const csvData = convertToCSV(allResults);
 
-  // Auto-upload if configured
-  if (CONFIG.autoUpload && CONFIG.apiEndpoint) {
-    const uploadSuccess = await uploadToAPI(csvData);
+  // Upload any remaining results (final batch)
+  if (CONFIG.autoUpload && CONFIG.apiEndpoint && allResults.length > totalUploaded) {
+    const remainingResults = allResults.slice(totalUploaded);
+    console.log(`\n📤 Uploading final batch of ${remainingResults.length} results...`);
+
+    const remainingCSV = convertToCSV(remainingResults);
+    const uploadSuccess = await uploadToAPI(remainingCSV);
+
     if (uploadSuccess) {
-      console.log('\n🎉 All done! Data uploaded successfully.');
+      totalUploaded = allResults.length;
+      console.log(`✅ Final batch uploaded! Total: ${totalUploaded} results`);
+      console.log('\n🎉 All done! All data uploaded successfully.');
       return;
     }
-    console.log('\n⚠️  Upload failed, showing CSV for manual copy...\n');
+    console.log('\n⚠️  Final upload failed, showing full CSV for manual copy...\n');
+  } else if (CONFIG.autoUpload && CONFIG.apiEndpoint && totalUploaded === allResults.length) {
+    // All results were uploaded in batches
+    console.log('\n🎉 All done! All data uploaded successfully in batches.');
+    console.log(`   Total uploaded: ${totalUploaded} results across ${Math.ceil(datesProcessed / CONFIG.batchSize)} batches`);
+    return;
   }
 
   // Show CSV for manual copy
