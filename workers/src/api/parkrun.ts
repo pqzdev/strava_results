@@ -228,17 +228,34 @@ export async function getParkrunStats(request: Request, env: Env): Promise<Respo
 
 /**
  * POST /api/parkrun/sync - Manually trigger a parkrun sync
+ * Runs in background to avoid timeouts. Uses fibonacci backoff and batch upload from parkrun-sync.ts.
  */
-export async function triggerParkrunSync(request: Request, env: Env): Promise<Response> {
+export async function triggerParkrunSync(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext
+): Promise<Response> {
   try {
-    // Import and call the sync function
-    const { syncParkrunResults } = await import('../cron/parkrun-sync');
-    await syncParkrunResults(env);
+    // Start sync in background using waitUntil to extend execution time
+    // This prevents timeouts since parkrun sync can take several minutes with fibonacci backoff
+    ctx.waitUntil(
+      (async () => {
+        try {
+          console.log('Admin triggering parkrun sync with fibonacci backoff and batch upload...');
+          const { syncParkrunResults } = await import('../cron/parkrun-sync');
+          await syncParkrunResults(env);
+          console.log('Parkrun sync completed successfully');
+        } catch (error) {
+          console.error('Parkrun sync failed:', error);
+          // Error is already logged in sync function
+        }
+      })()
+    );
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Parkrun sync completed successfully',
+        message: 'Parkrun sync triggered in background. Check sync logs for progress.',
       }),
       {
         headers: {
@@ -251,7 +268,7 @@ export async function triggerParkrunSync(request: Request, env: Env): Promise<Re
     console.error('Error triggering parkrun sync:', error);
     return new Response(
       JSON.stringify({
-        error: 'Failed to sync parkrun results',
+        error: 'Failed to trigger parkrun sync',
         message: error instanceof Error ? error.message : 'Unknown error',
       }),
       {
