@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './Parkrun.css';
+import ParkrunChart from '../components/ParkrunChart';
 
 interface ParkrunResult {
   id: number;
@@ -115,6 +116,12 @@ export default function Parkrun() {
 
   function handleFilterChange(newFilters: Partial<Filters>) {
     setFilters(prev => ({ ...prev, ...newFilters }));
+    setPagination(prev => ({ ...prev, offset: 0 })); // Reset to first page
+  }
+
+  function handleDateClick(date: string) {
+    // Filter to show only results from the clicked date
+    setFilters(prev => ({ ...prev, dateFrom: date, dateTo: date }));
     setPagination(prev => ({ ...prev, offset: 0 })); // Reset to first page
   }
 
@@ -262,6 +269,8 @@ export default function Parkrun() {
           Clear Filters
         </button>
       </div>
+
+      <ParkrunChart filters={filters} onDateClick={handleDateClick} />
 
       {loading ? (
         <div className="loading">Loading parkrun results...</div>

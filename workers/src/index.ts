@@ -5,7 +5,7 @@ import { handleAuthorize, handleCallback, handleDisconnect } from './auth/oauth'
 import { syncAllAthletes } from './cron/sync';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, resetStuckSyncs } from './api/admin';
-import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete } from './api/parkrun';
+import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
 
 export default {
@@ -111,6 +111,10 @@ export default {
 
       if (path === '/api/parkrun/stats' && request.method === 'GET') {
         return getParkrunStats(request, env);
+      }
+
+      if (path === '/api/parkrun/by-date' && request.method === 'GET') {
+        return getParkrunByDate(request, env);
       }
 
       if (path === '/api/parkrun/import' && request.method === 'POST') {

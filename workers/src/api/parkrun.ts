@@ -270,6 +270,84 @@ export async function getParkrunAthletes(request: Request, env: Env): Promise<Re
 }
 
 /**
+ * GET /api/parkrun/by-date - Get parkrun results aggregated by date
+ * Supports the same filters as the main results endpoint
+ */
+export async function getParkrunByDate(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const athleteName = url.searchParams.get('athlete');
+  const eventName = url.searchParams.get('event');
+  const dateFrom = url.searchParams.get('date_from');
+  const dateTo = url.searchParams.get('date_to');
+
+  try {
+    // Build query with filters - exclude hidden athletes
+    let query = `
+      SELECT
+        pr.date,
+        COUNT(*) as run_count,
+        COUNT(DISTINCT pr.event_name) as event_count
+      FROM parkrun_results pr
+      LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+      WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+    `;
+
+    const bindings: any[] = [];
+
+    if (athleteName) {
+      query += ` AND pr.athlete_name LIKE ?`;
+      bindings.push(`%${athleteName}%`);
+    }
+
+    if (eventName) {
+      query += ` AND pr.event_name LIKE ?`;
+      bindings.push(`%${eventName}%`);
+    }
+
+    if (dateFrom) {
+      query += ` AND pr.date >= ?`;
+      bindings.push(dateFrom);
+    }
+
+    if (dateTo) {
+      query += ` AND pr.date <= ?`;
+      bindings.push(dateTo);
+    }
+
+    query += ` GROUP BY pr.date ORDER BY pr.date ASC`;
+
+    const result = await env.DB.prepare(query).bind(...bindings).all();
+
+    return new Response(
+      JSON.stringify({
+        data: result.results || [],
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error fetching parkrun by date:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to fetch parkrun data by date',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  }
+}
+
+/**
  * PATCH /api/parkrun/athletes/:name - Update parkrun athlete visibility
  */
 export async function updateParkrunAthlete(
