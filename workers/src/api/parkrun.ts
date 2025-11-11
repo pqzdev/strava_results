@@ -227,62 +227,6 @@ export async function getParkrunStats(request: Request, env: Env): Promise<Respo
 }
 
 /**
- * POST /api/parkrun/sync - Manually trigger a parkrun sync
- * Runs in background to avoid timeouts. Uses fibonacci backoff and batch upload from parkrun-sync.ts.
- */
-export async function triggerParkrunSync(
-  request: Request,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<Response> {
-  try {
-    // Start sync in background using waitUntil to extend execution time
-    // This prevents timeouts since parkrun sync can take several minutes with fibonacci backoff
-    ctx.waitUntil(
-      (async () => {
-        try {
-          console.log('Admin triggering parkrun sync with fibonacci backoff and batch upload...');
-          const { syncParkrunResults } = await import('../cron/parkrun-sync');
-          await syncParkrunResults(env);
-          console.log('Parkrun sync completed successfully');
-        } catch (error) {
-          console.error('Parkrun sync failed:', error);
-          // Error is already logged in sync function
-        }
-      })()
-    );
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Parkrun sync triggered in background. Check sync logs for progress.',
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
-  } catch (error) {
-    console.error('Error triggering parkrun sync:', error);
-    return new Response(
-      JSON.stringify({
-        error: 'Failed to trigger parkrun sync',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
-  }
-}
-
-/**
  * GET /api/parkrun/athletes - Get all parkrun athletes (for admin management)
  */
 export async function getParkrunAthletes(request: Request, env: Env): Promise<Response> {

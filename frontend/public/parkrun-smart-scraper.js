@@ -37,7 +37,6 @@
     clubName: 'Woodstock Runners', // Exact club name to filter
     maxFibonacciWait: 34, // Maximum fibonacci backoff in seconds (matches server-side)
     batchSize: 10, // Upload to API every 10 dates (matches server-side)
-    includeSpecialDates: ['2024-12-25', '2025-01-01'], // Christmas and New Year parkruns
     apiEndpoint: urlParams.get('apiEndpoint') || '', // API endpoint to POST results
     autoUpload: urlParams.get('autoUpload') === 'true', // Auto-upload to API
     replaceMode: urlParams.get('replaceMode') === 'true', // Replace all existing data on first upload
@@ -75,6 +74,36 @@
     }
 
     return saturdays;
+  }
+
+  /**
+   * Get special parkrun dates (Christmas Day and New Year's Day) within range
+   * Parkrun often runs on these days even though they're not Saturdays
+   */
+  function getSpecialParkrunDates(startDate, endDate) {
+    const specialDates = [];
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    const startYear = start.getFullYear();
+    const endYear = end.getFullYear();
+
+    // Generate Christmas (Dec 25) and New Year (Jan 1) for each year in range
+    for (let year = startYear; year <= endYear; year++) {
+      // Christmas Day
+      const christmas = new Date(`${year}-12-25`);
+      if (christmas >= start && christmas <= end) {
+        specialDates.push(christmas.toISOString().split('T')[0]);
+      }
+
+      // New Year's Day
+      const newYear = new Date(`${year}-01-01`);
+      if (newYear >= start && newYear <= end) {
+        specialDates.push(newYear.toISOString().split('T')[0]);
+      }
+    }
+
+    return specialDates;
   }
 
   function sleep(ms) {
@@ -229,6 +258,17 @@
         const hasClubName = html.includes(CONFIG.clubName);
         console.log(`  🔍 Diagnostics: table=${hasTable}, rows=${hasRows}, club="${CONFIG.clubName}"=${hasClubName}`);
 
+        // On 4th attempt, open a new tab to help bypass anti-scraping measures
+        if (consecutiveEmptyResults === 4) {
+          console.log(`  🆕 Opening new tab to refresh session (attempt 4/${fibonacciWaits.length})`);
+          try {
+            window.open(url, '_blank');
+            console.log(`  💡 New tab opened - this can help bypass parkrun's anti-scraping measures`);
+          } catch (err) {
+            console.warn(`  ⚠️  Could not open new tab (popups may be blocked): ${err.message}`);
+          }
+        }
+
         // Check if we've exhausted all Fibonacci waits
         if (consecutiveEmptyResults > fibonacciWaits.length) {
           console.log(`  ℹ️  No results after ${fibonacciWaits.length} retries, moving on`);
@@ -345,12 +385,7 @@
 
   // Get all dates to scrape (Saturdays + special dates like Christmas/New Year)
   const saturdays = getSaturdaysInRange(CONFIG.startDate, CONFIG.endDate);
-  const specialDates = CONFIG.includeSpecialDates.filter(d => {
-    const date = new Date(d);
-    const start = new Date(CONFIG.startDate);
-    const end = new Date(CONFIG.endDate);
-    return date >= start && date <= end;
-  });
+  const specialDates = getSpecialParkrunDates(CONFIG.startDate, CONFIG.endDate);
 
   const allDates = [...new Set([...saturdays, ...specialDates])].sort();
 
@@ -407,9 +442,15 @@
       const csvData = convertToCSV(batchResults);
       const uploadSuccess = await uploadToAPI(csvData, shouldReplace);
 
+      // Always disable replace mode after first batch attempt (success or fail)
+      // This prevents subsequent batches from deleting data if first batch failed
+      if (isFirstBatch) {
+        isFirstBatch = false;
+        console.log(`   📍 Replace mode disabled for subsequent batches`);
+      }
+
       if (uploadSuccess) {
         totalUploaded = allResults.length;
-        isFirstBatch = false; // After first successful upload, disable replace mode
         console.log(`✅ Batch ${batchNum} uploaded! Total uploaded so far: ${totalUploaded} results\n`);
       } else {
         console.log(`⚠️  Batch ${batchNum} upload failed, will include in final upload\n`);
@@ -462,6 +503,12 @@
 
     const remainingCSV = convertToCSV(remainingResults);
     const uploadSuccess = await uploadToAPI(remainingCSV, shouldReplace);
+
+    // Disable replace mode after attempt
+    if (isFirstBatch) {
+      isFirstBatch = false;
+      console.log(`   📍 Replace mode disabled`);
+    }
 
     if (uploadSuccess) {
       totalUploaded = allResults.length;
