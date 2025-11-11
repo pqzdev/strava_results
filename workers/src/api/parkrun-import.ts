@@ -83,7 +83,7 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
         try {
           // Parse CSV row
           const date = parseParkrunDate(row.Date || row.date);
-          const eventName = row.Event || row.event;
+          let eventName = row.Event || row.event;
           const position = parseInt(row.Pos || row.pos || row.Position || '0');
           const genderPositionStr = row['Gender Pos'] || row.genderPos || row['gender pos'] || row.GenderPos || '';
           const genderPosition = genderPositionStr ? parseInt(genderPositionStr) : null;
@@ -97,6 +97,13 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
             skipped++;
             continue;
           }
+
+          // Normalize event name: remove " parkrun" from middle or end
+          // Examples: "Albert parkrun, Melbourne" → "Albert, Melbourne"
+          //          "Cooks River parkrun" → "Cooks River"
+          eventName = eventName.replace(/\s+parkrun,/i, ','); // "Name parkrun, Location" → "Name, Location"
+          eventName = eventName.replace(/\s+parkrun$/i, '');  // "Name parkrun" → "Name"
+          eventName = eventName.trim();
 
           // Extract event number from event name (e.g., "Event name #123" -> 123)
           const eventNumberMatch = eventName.match(/#(\d+)/);
