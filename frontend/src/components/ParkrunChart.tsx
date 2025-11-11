@@ -123,11 +123,15 @@ export default function ParkrunChart({ filters, onDateClick }: ParkrunChartProps
           <Bar
             dataKey="run_count"
             fill="#667eea"
-            onClick={(data: DateData) => onDateClick(data.date)}
+            onClick={(data: any) => {
+              if (data && data.date) {
+                onDateClick(data.date);
+              }
+            }}
             onMouseEnter={(_, index) => setHoveredIndex(index)}
             cursor="pointer"
           >
-            {data.map((entry, index) => (
+            {data.map((_, index) => (
               <Cell
                 key={`cell-${index}`}
                 fill={hoveredIndex === index ? '#764ba2' : '#667eea'}
