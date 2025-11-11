@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import './Parkrun.css';
 import ParkrunChart from '../components/ParkrunChart';
+import MultiSelectAutocomplete from '../components/MultiSelectAutocomplete';
+
+// Default date range for parkrun filters
+const DEFAULT_DATE_FROM = '2022-01-01';
+const getDefaultDateTo = () => new Date().toISOString().split('T')[0];
 
 interface ParkrunResult {
   id: number;
@@ -19,8 +25,8 @@ interface ParkrunResult {
 }
 
 interface Filters {
-  athlete: string;
-  event: string;
+  athletes: string[];
+  events: string[];
   dateFrom: string;
   dateTo: string;
 }
@@ -53,23 +59,37 @@ interface ParkrunStats {
 }
 
 export default function Parkrun() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [results, setResults] = useState<ParkrunResult[]>([]);
   const [stats, setStats] = useState<ParkrunStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<Filters>({
-    athlete: '',
-    event: '',
-    dateFrom: '',
-    dateTo: '',
+
+  // Initialize filters from URL params using lazy initializer
+  const [filters, setFilters] = useState<Filters>(() => {
+    const athletesParam = searchParams.get('athletes');
+    const eventsParam = searchParams.get('events');
+    return {
+      athletes: athletesParam ? athletesParam.split('|').filter(Boolean) : [],
+      events: eventsParam ? eventsParam.split('|').filter(Boolean) : [],
+      dateFrom: searchParams.get('dateFrom') || DEFAULT_DATE_FROM,
+      dateTo: searchParams.get('dateTo') || getDefaultDateTo(),
+    };
   });
+  const [availableAthletes, setAvailableAthletes] = useState<string[]>([]);
+  const [availableEvents, setAvailableEvents] = useState<string[]>([]);
   const [pagination, setPagination] = useState({ total: 0, limit: 50, offset: 0 });
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   useEffect(() => {
     fetchResults();
-    fetchStats();
   }, [filters, pagination.offset, sortField, sortDirection]);
+
+  useEffect(() => {
+    fetchStats();
+    fetchAvailableOptions();
+  }, []);
 
   async function fetchResults() {
     setLoading(true);
@@ -79,8 +99,10 @@ export default function Parkrun() {
         offset: pagination.offset.toString(),
       });
 
-      if (filters.athlete) params.append('athlete', filters.athlete);
-      if (filters.event) params.append('event', filters.event);
+      // Handle multi-select filters
+      filters.athletes.forEach(athlete => params.append('athlete', athlete));
+      filters.events.forEach(event => params.append('event', event));
+
       if (filters.dateFrom) params.append('date_from', filters.dateFrom);
       if (filters.dateTo) params.append('date_to', filters.dateTo);
       params.append('sort_by', sortField);
@@ -114,15 +136,66 @@ export default function Parkrun() {
     }
   }
 
+  async function fetchAvailableOptions() {
+    try {
+      // Fetch all results without pagination to get unique athletes and events
+      const response = await fetch('/api/parkrun?limit=10000');
+      const data = await response.json();
+
+      if (data.results) {
+        const athletes = Array.from(
+          new Set(data.results.map((r: ParkrunResult) => r.athlete_name))
+        ).sort() as string[];
+
+        const events = Array.from(
+          new Set(data.results.map((r: ParkrunResult) => r.event_name))
+        ).sort() as string[];
+
+        setAvailableAthletes(athletes);
+        setAvailableEvents(events);
+      }
+    } catch (error) {
+      console.error('Error fetching available options:', error);
+    }
+  }
+
   function handleFilterChange(newFilters: Partial<Filters>) {
-    setFilters(prev => ({ ...prev, ...newFilters }));
+    let updatedFilters = { ...filters, ...newFilters };
+
+    // Enforce minimum date to earliest available data
+    if (stats?.earliestDate && updatedFilters.dateFrom && updatedFilters.dateFrom < stats.earliestDate) {
+      updatedFilters.dateFrom = stats.earliestDate;
+    }
+
+    // Enforce maximum date to today
+    const today = getDefaultDateTo();
+    if (updatedFilters.dateTo && updatedFilters.dateTo > today) {
+      updatedFilters.dateTo = today;
+    }
+
+    setFilters(updatedFilters);
     setPagination(prev => ({ ...prev, offset: 0 })); // Reset to first page
+
+    // Update URL params (use pipe separator to avoid conflicts with commas in names)
+    const params = new URLSearchParams();
+    if (updatedFilters.athletes.length > 0) {
+      params.set('athletes', updatedFilters.athletes.join('|'));
+    }
+    if (updatedFilters.events.length > 0) {
+      params.set('events', updatedFilters.events.join('|'));
+    }
+    if (updatedFilters.dateFrom) {
+      params.set('dateFrom', updatedFilters.dateFrom);
+    }
+    if (updatedFilters.dateTo) {
+      params.set('dateTo', updatedFilters.dateTo);
+    }
+    setSearchParams(params, { replace: true });
   }
 
   function handleDateClick(date: string) {
     // Filter to show only results from the clicked date
-    setFilters(prev => ({ ...prev, dateFrom: date, dateTo: date }));
-    setPagination(prev => ({ ...prev, offset: 0 })); // Reset to first page
+    handleFilterChange({ dateFrom: date, dateTo: date });
   }
 
   function handleNextPage() {
@@ -217,62 +290,47 @@ export default function Parkrun() {
       )}
 
       <div className="filters-section">
-        <input
-          type="text"
-          placeholder="Search athlete name..."
-          value={filters.athlete}
-          onChange={e => handleFilterChange({ athlete: e.target.value })}
-          className="filter-input"
+        <MultiSelectAutocomplete
+          options={availableAthletes}
+          selected={filters.athletes}
+          onChange={athletes => handleFilterChange({ athletes })}
+          placeholder="Select athletes..."
+          label="Filter by Athletes"
         />
-        <input
-          type="text"
-          placeholder="Search event name..."
-          value={filters.event}
-          onChange={e => handleFilterChange({ event: e.target.value })}
-          className="filter-input"
+        <MultiSelectAutocomplete
+          options={availableEvents}
+          selected={filters.events}
+          onChange={events => handleFilterChange({ events })}
+          placeholder="Select events..."
+          label="Filter by Events"
         />
         {stats?.earliestDate && stats?.latestDate && (
           <div className="date-range-filter">
-            <label>
-              Date range: {filters.dateFrom || stats.earliestDate} to {filters.dateTo || stats.latestDate}
-            </label>
-            <div className="date-range-wrapper">
-              <div className="date-range-track"></div>
-              <div
-                className="date-range-selected"
-                style={{
-                  left: `${((new Date(filters.dateFrom || stats.earliestDate).getTime() - new Date(stats.earliestDate).getTime()) / (new Date(stats.latestDate).getTime() - new Date(stats.earliestDate).getTime())) * 100}%`,
-                  width: `${((new Date(filters.dateTo || stats.latestDate).getTime() - new Date(filters.dateFrom || stats.earliestDate).getTime()) / (new Date(stats.latestDate).getTime() - new Date(stats.earliestDate).getTime())) * 100}%`
-                }}
-              ></div>
+            <label>Date Range</label>
+            <div className="date-inputs">
               <input
-                type="range"
-                min={new Date(stats.earliestDate).getTime()}
-                max={new Date(stats.latestDate).getTime()}
-                value={filters.dateFrom ? new Date(filters.dateFrom).getTime() : new Date(stats.earliestDate).getTime()}
-                onChange={e => {
-                  const date = new Date(parseInt(e.target.value));
-                  handleFilterChange({ dateFrom: date.toISOString().split('T')[0] });
-                }}
-                className="date-slider date-slider-from"
+                type="date"
+                min={stats.earliestDate}
+                max={filters.dateTo || getDefaultDateTo()}
+                value={filters.dateFrom || DEFAULT_DATE_FROM}
+                onChange={e => handleFilterChange({ dateFrom: e.target.value })}
+                className="date-input"
               />
+              <span className="date-separator">to</span>
               <input
-                type="range"
-                min={new Date(stats.earliestDate).getTime()}
-                max={new Date(stats.latestDate).getTime()}
-                value={filters.dateTo ? new Date(filters.dateTo).getTime() : new Date(stats.latestDate).getTime()}
-                onChange={e => {
-                  const date = new Date(parseInt(e.target.value));
-                  handleFilterChange({ dateTo: date.toISOString().split('T')[0] });
-                }}
-                className="date-slider date-slider-to"
+                type="date"
+                min={filters.dateFrom || DEFAULT_DATE_FROM}
+                max={getDefaultDateTo()}
+                value={filters.dateTo || getDefaultDateTo()}
+                onChange={e => handleFilterChange({ dateTo: e.target.value })}
+                className="date-input"
               />
             </div>
           </div>
         )}
         <button
           onClick={() =>
-            handleFilterChange({ athlete: '', event: '', dateFrom: '', dateTo: '' })
+            handleFilterChange({ athletes: [], events: [], dateFrom: DEFAULT_DATE_FROM, dateTo: getDefaultDateTo() })
           }
           className="clear-filters-btn"
         >

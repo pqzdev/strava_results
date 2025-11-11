@@ -67,6 +67,11 @@
   color: var(--text-dark);
   text-transform: uppercase;
   white-space: nowrap;
+  user-select: none;
+}
+
+.admin-table th[style*="cursor: pointer"]:hover {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .admin-table td {
@@ -236,4 +241,41 @@
     width: 32px;
     height: 32px;
   }
+
+  .top-events {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+
+  .event-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+  }
+}
+
+.top-events-cell {
+  max-width: 400px;
+}
+
+.top-events {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.event-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.no-events {
+  color: var(--text-light);
+  font-style: italic;
 }

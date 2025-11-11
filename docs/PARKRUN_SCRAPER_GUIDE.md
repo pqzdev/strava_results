@@ -30,10 +30,12 @@ This is the Woodstock Runners consolidated club results page.
 
 ### Step 3: Run the Scraper
 
-1. Open the file: `/Users/pqz/Code/strava_results/docs/parkrun-smart-scraper.js`
-2. Copy the entire contents
+1. Go to your deployed site at `https://strava-club-results.pages.dev/parkrun-smart-scraper.js`
+2. Copy the entire script contents
 3. Paste into the browser console
 4. Press Enter
+
+Alternatively, open the file at `/Users/pqz/Code/strava_results/frontend/public/parkrun-smart-scraper.js` and copy its contents.
 
 The scraper will automatically:
 - Collect data from every Saturday since January 1, 2024
@@ -219,7 +221,7 @@ If you encounter issues:
 
 ## Updates
 
-Check `/Users/pqz/Code/strava_results/docs/parkrun-smart-scraper.js` for the latest version of the scraper.
+The latest version of the scraper is available at `https://strava-club-results.pages.dev/parkrun-smart-scraper.js` or in the source code at `/Users/pqz/Code/strava_results/frontend/public/parkrun-smart-scraper.js`.
 
 Version history:
 - **v2.0** (2025-11-10): Multi-date support, special dates, progress tracking

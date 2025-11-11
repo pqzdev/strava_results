@@ -18,7 +18,10 @@ Parkrun blocks automated scraping from servers (403/450 errors), but you can col
    - Firefox: `F12` or `Ctrl+Shift+K`
    - Safari: Enable Developer menu, then `Cmd+Option+C`
 
-3. **Copy and paste** the entire `parkrun-smart-scraper.js` file into console
+3. **Get the scraper:**
+   - Go to `https://strava-club-results.pages.dev/parkrun-smart-scraper.js`
+   - Copy the entire script
+   - Paste into the browser console
 
 4. **Press Enter** - The script will automatically:
    - Fetch data from every Saturday since January 1, 2024
@@ -36,51 +39,7 @@ See [PARKRUN_SCRAPER_GUIDE.md](./PARKRUN_SCRAPER_GUIDE.md) for detailed instruct
 
 ---
 
-## Method 2: Single-Date Browser Script (Quick Testing)
-
-### Steps:
-
-1. **Open the parkrun page** for a specific date:
-   ```
-   https://www.parkrun.com/results/consolidatedclub/?clubNum=19959&eventdate=2025-10-25
-   ```
-   Replace `2025-10-25` with the Saturday you want to fetch.
-
-2. **Open Browser Console:**
-   - Chrome/Edge: Press `F12` or `Ctrl+Shift+J` (Windows) / `Cmd+Option+J` (Mac)
-   - Firefox: Press `F12` or `Ctrl+Shift+K`
-   - Safari: Enable Developer menu, then `Cmd+Option+C`
-
-3. **Copy and paste** the entire `parkrun-browser-scraper.js` script into the console
-
-4. **Press Enter** - The script will:
-   - Find the results table
-   - Extract only Woodstock Runners members
-   - Generate CSV output
-   - Copy it to your clipboard (if possible)
-
-5. **Save the CSV:**
-   - Copy the output between the `=== CSV OUTPUT ===` markers
-   - Save as `parkrun-YYYY-MM-DD.csv`
-
-6. **Upload to your app:**
-   - Go to your parkrun page
-   - Click "Choose CSV File"
-   - Select the saved file
-
-### For Multiple Dates:
-
-Repeat for each Saturday:
-- 2025-10-25
-- 2025-11-01
-- 2025-11-08
-- etc.
-
-You can upload multiple CSV files sequentially - the system handles duplicates automatically.
-
----
-
-## Method 3: Manual CSV Export (If parkrun provides it)
+## Method 2: Manual CSV Export (If parkrun provides it)
 
 Some parkrun pages offer a "Download CSV" or "Export" button. If available:
 
@@ -88,7 +47,7 @@ Some parkrun pages offer a "Download CSV" or "Export" button. If available:
 2. Save the CSV file
 3. Upload directly to your parkrun page
 
-## Method 4: Python Script (Alternative - May Be Blocked)
+## Method 3: Python Script (Alternative - May Be Blocked)
 
 If you need to collect data for many dates, create a local Python script:
 

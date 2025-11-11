@@ -23,7 +23,14 @@ interface ParkrunAthlete {
   id?: number;
   is_hidden: number;
   run_count: number;
+  top_events?: Array<{ event_name: string; count: number }>;
 }
+
+type SortField = 'name' | 'activities' | 'races' | 'runs';
+type SortDirection = 'asc' | 'desc';
+
+type ParkrunSortField = 'name' | 'runs' | 'events';
+type ParkrunSortDirection = 'asc' | 'desc';
 
 export default function Admin() {
   const [athletes, setAthletes] = useState<AdminAthlete[]>([]);
@@ -37,6 +44,10 @@ export default function Admin() {
   );
   const [replaceExistingData, setReplaceExistingData] = useState(false);
   const [showParkrunInstructions, setShowParkrunInstructions] = useState(false);
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [parkrunSortField, setParkrunSortField] = useState<ParkrunSortField>('runs');
+  const [parkrunSortDirection, setParkrunSortDirection] = useState<ParkrunSortDirection>('desc');
 
   // Get admin strava ID from localStorage
   const currentAthleteId = parseInt(
@@ -260,7 +271,7 @@ export default function Admin() {
       // Show instructions section
       setShowParkrunInstructions(true);
     } catch (err) {
-      alert(`Failed to load scraper script. Please try again or use the manual method at ${window.location.origin}/parkrun-bookmarklet.html`);
+      alert('Failed to load scraper script. Please try again.');
     }
   };
 
@@ -278,6 +289,67 @@ export default function Admin() {
       </span>
     );
   };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const handleParkrunSort = (field: ParkrunSortField) => {
+    if (parkrunSortField === field) {
+      setParkrunSortDirection(parkrunSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setParkrunSortField(field);
+      setParkrunSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField | ParkrunSortField, currentField: SortField | ParkrunSortField, currentDirection: SortDirection | ParkrunSortDirection): string => {
+    if (currentField !== field) return '↕️';
+    return currentDirection === 'asc' ? '↑' : '↓';
+  };
+
+  const sortedAthletes = [...athletes].sort((a, b) => {
+    let comparison = 0;
+    switch (sortField) {
+      case 'name':
+        comparison = `${a.firstname} ${a.lastname}`.localeCompare(`${b.firstname} ${b.lastname}`);
+        break;
+      case 'activities':
+        comparison = a.total_activities_count - b.total_activities_count;
+        break;
+      case 'races':
+        comparison = a.race_count - b.race_count;
+        break;
+      default:
+        comparison = 0;
+    }
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  const sortedParkrunAthletes = [...parkrunAthletes].sort((a, b) => {
+    let comparison = 0;
+    switch (parkrunSortField) {
+      case 'name':
+        comparison = a.athlete_name.localeCompare(b.athlete_name);
+        break;
+      case 'runs':
+        comparison = a.run_count - b.run_count;
+        break;
+      case 'events':
+        const aEventCount = a.top_events?.length || 0;
+        const bEventCount = b.top_events?.length || 0;
+        comparison = aEventCount - bEventCount;
+        break;
+      default:
+        comparison = 0;
+    }
+    return parkrunSortDirection === 'asc' ? comparison : -comparison;
+  });
 
   if (loading) {
     return (
@@ -337,12 +409,18 @@ export default function Admin() {
         <table className="admin-table">
           <thead>
             <tr>
-              <th>Athlete</th>
+              <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
+                Athlete {getSortIcon('name', sortField, sortDirection)}
+              </th>
               <th>Strava ID</th>
               <th>Sync Status</th>
               <th>Last Sync</th>
-              <th>Activities</th>
-              <th>Races</th>
+              <th onClick={() => handleSort('activities')} style={{ cursor: 'pointer' }}>
+                Activities {getSortIcon('activities', sortField, sortDirection)}
+              </th>
+              <th onClick={() => handleSort('races')} style={{ cursor: 'pointer' }}>
+                Races {getSortIcon('races', sortField, sortDirection)}
+              </th>
               <th>Admin</th>
               <th>Hidden</th>
               <th>Blocked</th>
@@ -350,7 +428,7 @@ export default function Admin() {
             </tr>
           </thead>
           <tbody>
-            {athletes.map((athlete) => (
+            {sortedAthletes.map((athlete) => (
               <tr key={athlete.id}>
                 <td>
                   <div className="athlete-cell">
@@ -610,13 +688,20 @@ export default function Admin() {
         <table className="admin-table">
           <thead>
             <tr>
-              <th>Athlete Name</th>
-              <th>Total Runs</th>
+              <th onClick={() => handleParkrunSort('name')} style={{ cursor: 'pointer' }}>
+                Athlete Name {getSortIcon('name', parkrunSortField, parkrunSortDirection)}
+              </th>
+              <th onClick={() => handleParkrunSort('runs')} style={{ cursor: 'pointer' }}>
+                Total Runs {getSortIcon('runs', parkrunSortField, parkrunSortDirection)}
+              </th>
+              <th onClick={() => handleParkrunSort('events')} style={{ cursor: 'pointer' }}>
+                Top Events {getSortIcon('events', parkrunSortField, parkrunSortDirection)}
+              </th>
               <th>Hidden</th>
             </tr>
           </thead>
           <tbody>
-            {parkrunAthletes.map((athlete) => (
+            {sortedParkrunAthletes.map((athlete) => (
               <tr key={athlete.athlete_name}>
                 <td>
                   <div className="athlete-cell">
@@ -624,6 +709,19 @@ export default function Admin() {
                   </div>
                 </td>
                 <td className="number-cell">{athlete.run_count}</td>
+                <td className="top-events-cell">
+                  {athlete.top_events && athlete.top_events.length > 0 ? (
+                    <div className="top-events">
+                      {athlete.top_events.slice(0, 3).map((event, idx) => (
+                        <span key={idx} className="event-badge">
+                          {event.event_name} ({event.count})
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="no-events">-</span>
+                  )}
+                </td>
                 <td>
                   <input
                     type="checkbox"

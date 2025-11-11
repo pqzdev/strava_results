@@ -10,8 +10,8 @@ interface DateData {
 
 interface ParkrunChartProps {
   filters: {
-    athlete: string;
-    event: string;
+    athletes: string[];
+    events: string[];
     dateFrom: string;
     dateTo: string;
   };
@@ -59,8 +59,8 @@ export default function ParkrunChart({ filters, onDateClick }: ParkrunChartProps
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filters.athlete) params.append('athlete', filters.athlete);
-      if (filters.event) params.append('event', filters.event);
+      filters.athletes.forEach(athlete => params.append('athlete', athlete));
+      filters.events.forEach(event => params.append('event', event));
       if (filters.dateFrom) params.append('date_from', filters.dateFrom);
       if (filters.dateTo) params.append('date_to', filters.dateTo);
 
@@ -112,12 +112,16 @@ export default function ParkrunChart({ filters, onDateClick }: ParkrunChartProps
             height={60}
             tickFormatter={(value: string) => {
               const date = new Date(value);
-              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              const month = date.toLocaleDateString('en-US', { month: 'short' });
+              const year = date.getFullYear().toString().slice(-2);
+              return `${month}'${year}`;
             }}
           />
           <YAxis
             tick={{ fontSize: 11 }}
             label={{ value: 'Runs', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+            domain={[0, 'dataMax']}
+            allowDataOverflow={false}
           />
           <Tooltip
             content={<CustomTooltip />}
@@ -127,6 +131,7 @@ export default function ParkrunChart({ filters, onDateClick }: ParkrunChartProps
           <Bar
             dataKey="run_count"
             fill="#667eea"
+            minPointSize={0}
             onClick={(data: any) => {
               if (data && data.date) {
                 onDateClick(data.date);

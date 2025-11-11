@@ -163,7 +163,7 @@ export default {
   /**
    * Handle scheduled cron triggers
    * Note: Only Strava sync runs on schedule. Parkrun data must be collected manually
-   * using the browser console scraper (docs/parkrun-smart-scraper.js) due to anti-scraping measures.
+   * using the browser console scraper (parkrun-smart-scraper.js) due to anti-scraping measures.
    */
   async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
     console.log('Cron trigger fired:', new Date(event.scheduledTime).toISOString());

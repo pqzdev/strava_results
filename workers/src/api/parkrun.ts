@@ -231,7 +231,7 @@ export async function getParkrunStats(request: Request, env: Env): Promise<Respo
  */
 export async function getParkrunAthletes(request: Request, env: Env): Promise<Response> {
   try {
-    // Get all unique athlete names from parkrun results
+    // Get all unique athlete names from parkrun results with run counts
     const athleteResults = await env.DB.prepare(
       `SELECT DISTINCT pr.athlete_name, pa.id, pa.is_hidden, COUNT(pr.id) as run_count
        FROM parkrun_results pr
@@ -240,9 +240,28 @@ export async function getParkrunAthletes(request: Request, env: Env): Promise<Re
        ORDER BY pr.athlete_name ASC`
     ).all();
 
+    // For each athlete, get their top 3 events by count
+    const athletesWithTopEvents = await Promise.all(
+      (athleteResults.results || []).map(async (athlete: any) => {
+        const topEvents = await env.DB.prepare(
+          `SELECT event_name, COUNT(*) as count
+           FROM parkrun_results
+           WHERE athlete_name = ?
+           GROUP BY event_name
+           ORDER BY count DESC
+           LIMIT 3`
+        ).bind(athlete.athlete_name).all();
+
+        return {
+          ...athlete,
+          top_events: topEvents.results || [],
+        };
+      })
+    );
+
     return new Response(
       JSON.stringify({
-        athletes: athleteResults.results || [],
+        athletes: athletesWithTopEvents,
       }),
       {
         headers: {
@@ -275,8 +294,8 @@ export async function getParkrunAthletes(request: Request, env: Env): Promise<Re
  */
 export async function getParkrunByDate(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-  const athleteName = url.searchParams.get('athlete');
-  const eventName = url.searchParams.get('event');
+  const athleteNames = url.searchParams.getAll('athlete');
+  const eventNames = url.searchParams.getAll('event');
   const dateFrom = url.searchParams.get('date_from');
   const dateTo = url.searchParams.get('date_to');
 
@@ -294,14 +313,18 @@ export async function getParkrunByDate(request: Request, env: Env): Promise<Resp
 
     const bindings: any[] = [];
 
-    if (athleteName) {
-      query += ` AND pr.athlete_name LIKE ?`;
-      bindings.push(`%${athleteName}%`);
+    // Handle multiple athlete filters
+    if (athleteNames.length > 0) {
+      const athleteConditions = athleteNames.map(() => 'pr.athlete_name = ?').join(' OR ');
+      query += ` AND (${athleteConditions})`;
+      athleteNames.forEach(name => bindings.push(name));
     }
 
-    if (eventName) {
-      query += ` AND pr.event_name LIKE ?`;
-      bindings.push(`%${eventName}%`);
+    // Handle multiple event filters
+    if (eventNames.length > 0) {
+      const eventConditions = eventNames.map(() => 'pr.event_name = ?').join(' OR ');
+      query += ` AND (${eventConditions})`;
+      eventNames.forEach(name => bindings.push(name));
     }
 
     if (dateFrom) {
@@ -318,9 +341,80 @@ export async function getParkrunByDate(request: Request, env: Env): Promise<Resp
 
     const result = await env.DB.prepare(query).bind(...bindings).all();
 
+    // Fill in missing parkrun dates (Saturdays + special dates) with zero counts
+    let filledData: any[] = [];
+
+    if (dateFrom && dateTo) {
+      const start = new Date(dateFrom);
+      const end = new Date(dateTo);
+      const dataMap = new Map();
+
+      // Create a map of existing data
+      if (result.results) {
+        for (const row of result.results as any[]) {
+          dataMap.set(row.date, row);
+        }
+      }
+
+      const allDates: string[] = [];
+
+      // Generate all Saturdays in the range
+      let current = new Date(start);
+      // Find first Saturday
+      while (current.getDay() !== 6 && current <= end) {
+        current.setDate(current.getDate() + 1);
+      }
+
+      // Add all Saturdays
+      while (current <= end) {
+        const dateStr = current.toISOString().split('T')[0];
+        allDates.push(dateStr);
+        current.setDate(current.getDate() + 7); // Next Saturday
+      }
+
+      // Add special dates (Dec 25 and Jan 1) if they fall in range
+      const startYear = start.getFullYear();
+      const endYear = end.getFullYear();
+
+      for (let year = startYear; year <= endYear; year++) {
+        const dec25 = new Date(year, 11, 25); // December 25
+        const jan1 = new Date(year, 0, 1);    // January 1
+
+        if (dec25 >= start && dec25 <= end) {
+          const dateStr = dec25.toISOString().split('T')[0];
+          if (!allDates.includes(dateStr)) {
+            allDates.push(dateStr);
+          }
+        }
+
+        if (jan1 >= start && jan1 <= end) {
+          const dateStr = jan1.toISOString().split('T')[0];
+          if (!allDates.includes(dateStr)) {
+            allDates.push(dateStr);
+          }
+        }
+      }
+
+      // Sort dates and build filled data
+      allDates.sort();
+      for (const dateStr of allDates) {
+        if (dataMap.has(dateStr)) {
+          filledData.push(dataMap.get(dateStr));
+        } else {
+          filledData.push({
+            date: dateStr,
+            run_count: 0,
+            event_count: 0,
+          });
+        }
+      }
+    } else {
+      filledData = result.results || [];
+    }
+
     return new Response(
       JSON.stringify({
-        data: result.results || [],
+        data: filledData,
       }),
       {
         headers: {

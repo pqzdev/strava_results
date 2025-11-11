@@ -16,26 +16,7 @@ This solution allows you to automatically scrape and import parkrun data directl
 
 ## How to Use
 
-### Method 1: Bookmarklet (Recommended - One-Time Setup)
-
-#### First-Time Setup:
-
-1. Go to `http://localhost:5173/parkrun-bookmarklet.html` (or your deployed URL)
-2. Drag the **"🏃 Sync Parkrun"** button to your browser's bookmarks bar
-3. That's it! You're set up for easy syncing.
-
-#### Every Time You Want to Sync:
-
-1. Go to your **Admin Dashboard**
-2. Scroll to **"Parkrun Data Sync"** section
-3. Set your date range (e.g., `2024-01-01` to today)
-4. Click **"🏃 Sync Parkrun Data"** button
-5. A new tab opens with parkrun
-6. Click the **"🏃 Sync Parkrun"** bookmarklet in your bookmarks bar
-7. Wait ~3-4 minutes for completion
-8. Results automatically uploaded!
-
-### Method 2: Manual Console (No Setup Required)
+### Browser Console Method
 
 1. Go to **Admin Dashboard**
 2. Set your date range
@@ -122,9 +103,7 @@ The scraper reads these parameters and:
 |------|---------|
 | `/frontend/src/pages/Admin.tsx` | Admin UI with sync button and date pickers |
 | `/frontend/public/parkrun-smart-scraper.js` | Main scraper script (served statically) |
-| `/frontend/public/parkrun-bookmarklet.html` | Bookmarklet setup instructions |
 | `/workers/src/api/parkrun-import.ts` | API endpoint that receives CSV uploads |
-| `/docs/parkrun-smart-scraper.js` | Source script (copied to public/) |
 
 ### Security
 
@@ -173,13 +152,8 @@ The scraper handles:
 
 ### Updating the Scraper
 
-1. Edit `/docs/parkrun-smart-scraper.js`
-2. Copy to public directory:
-   ```bash
-   cp docs/parkrun-smart-scraper.js frontend/public/
-   ```
-3. Deploy frontend
-4. Bookmarklet automatically uses new version
+1. Edit `/frontend/public/parkrun-smart-scraper.js`
+2. Deploy frontend
 
 ### Monitoring
 

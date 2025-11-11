@@ -245,6 +245,13 @@
       const html = await response.text();
       console.log(`  📄 Received HTML: ${html.length} bytes`);
 
+      // Check for explicit "no results" message (e.g., during COVID lockdown periods)
+      // This message appears when parkrun explicitly states no events ran on this date
+      if (html.includes('We do not appear to have any results for this club/date combination')) {
+        console.log(`  ℹ️  Parkrun explicitly states no results for this date (likely no events ran)`);
+        return { success: true, results: [], date: eventDate };
+      }
+
       // Check if we got valid parkrun HTML
       if (!html.includes('parkrun') && !html.includes('consolidatedclub')) {
         console.warn(`  ⚠️  Response doesn't look like parkrun HTML (might be error page)`);
