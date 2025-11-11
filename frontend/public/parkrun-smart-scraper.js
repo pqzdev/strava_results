@@ -142,64 +142,25 @@
 
       let clubMembersFound = 0;
 
-      // Process rows in pairs (details row + position row)
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
+      for (const row of rows) {
         const cells = Array.from(row.querySelectorAll('td'));
+        if (cells.length < 5) continue; // Need exactly 5 columns: Pos | Gender Pos | Name | Club | Time
 
-        // Detect table structure by checking cell count
-        // Structure 1: Single row with 5 columns: Position | Gender Position | Name | Club | Time
-        // Structure 2: Two rows - Row 1: Name | Club | Time (3 cells), Row 2: Position | Gender Position (2 cells)
-
-        let position = '';
-        let genderPosition = '';
-        let runnerName = '';
-        let club = '';
-        let time = '';
-
-        if (cells.length >= 5) {
-          // Structure 1: All data in one row
-          position = cells[0]?.textContent.trim() || '';
-          genderPosition = cells[1]?.textContent.trim() || '';
-          runnerName = cells[2]?.textContent.trim() || '';
-          club = cells[3]?.textContent.trim() || '';
-          time = cells[4]?.textContent.trim() || '';
-        } else if (cells.length === 3) {
-          // Structure 2: Details row (Name | Club | Time), positions in next row
-          runnerName = cells[0]?.textContent.trim() || '';
-          club = cells[1]?.textContent.trim() || '';
-          time = cells[2]?.textContent.trim() || '';
-
-          // Get next row for positions
-          const nextRow = rows[i + 1];
-          if (nextRow) {
-            const nextCells = Array.from(nextRow.querySelectorAll('td'));
-            if (nextCells.length >= 2) {
-              position = nextCells[0]?.textContent.trim() || '';
-              genderPosition = nextCells[1]?.textContent.trim() || '';
-              i++; // Skip the position row in next iteration
-            }
-          }
-        } else if (cells.length === 2) {
-          // This is a position row, already processed with previous details row
-          continue;
-        } else {
-          // Unknown structure, skip
-          continue;
-        }
+        // Column structure: [0] Overall Position | [1] Gender Position | [2] Name | [3] Club | [4] Time
+        const position = cells[0]?.textContent.trim() || '';
+        const genderPosition = cells[1]?.textContent.trim() || '';
+        const runnerName = cells[2]?.textContent.trim() || '';
+        const club = cells[3]?.textContent.trim() || '';
+        const time = cells[4]?.textContent.trim() || '';
 
         // Skip if we don't have essential data
         if (!runnerName || !time) continue;
 
         // CRITICAL: Only include Woodstock Runners members
-        // Skip first finishers who are NOT Woodstock Runners
-        // Include first finishers who ARE Woodstock Runners
         if (!club.includes(CONFIG.clubName)) {
-          // Not a Woodstock Runner - skip them
           continue;
         }
 
-        // If we get here, they ARE a Woodstock Runner
         clubMembersFound++;
 
         // Build result object
