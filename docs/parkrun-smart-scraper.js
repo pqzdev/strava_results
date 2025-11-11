@@ -380,7 +380,7 @@
   console.log(`  Batch upload: every ${CONFIG.batchSize} dates`);
   console.log(`  API endpoint: ${CONFIG.apiEndpoint || 'None (manual copy)'}`);
   console.log(`  Auto-upload: ${CONFIG.autoUpload ? 'Yes' : 'No'}`);
-  console.log(`  Replace mode: ${CONFIG.replaceMode ? 'Yes (first batch only)' : 'No'}`);
+  console.log(`  Replace mode: ${CONFIG.replaceMode ? 'Yes (delete all data before scraping)' : 'No (append to existing data)'}`);
   console.log('');
 
   // Get all dates to scrape (Saturdays + special dates like Christmas/New Year)
@@ -401,13 +401,40 @@
   console.log(`🔄 Fibonacci backoff sequence: ${fibonacciWaits.join(', ')}s`);
   console.log('');
 
+  // If replace mode is enabled, delete all existing data FIRST before scraping
+  if (CONFIG.replaceMode && CONFIG.autoUpload && CONFIG.apiEndpoint) {
+    console.log('🗑️  Replace mode: Deleting all existing parkrun data...');
+    try {
+      // Send an empty upload with replace=true to trigger the delete
+      const emptyBlob = new Blob(['Date,Event,Pos,parkrunner,Time'], { type: 'text/csv' });
+      const emptyFile = new File([emptyBlob], 'empty.csv', { type: 'text/csv' });
+      const formData = new FormData();
+      formData.append('file', emptyFile);
+
+      const response = await fetch(`${CONFIG.apiEndpoint}?replace=true`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`✅ Deleted ${result.deleted || 0} existing records`);
+      } else {
+        console.warn('⚠️  Failed to delete existing data, will try with first batch');
+      }
+    } catch (error) {
+      console.warn('⚠️  Error deleting existing data:', error.message);
+      console.log('   Will try to delete with first batch instead');
+    }
+    console.log('');
+  }
+
   // Fetch all dates with batched uploads
   const allResults = [];
   let successCount = 0;
   let failCount = 0;
   let totalUploaded = 0;
   let datesProcessed = 0;
-  let isFirstBatch = true; // Track if this is the first batch for replace mode
 
   for (let i = 0; i < allDates.length; i++) {
     const date = allDates[i];
@@ -433,21 +460,9 @@
       const batchNum = Math.ceil(datesProcessed / CONFIG.batchSize);
       console.log(`\n📤 Uploading batch ${batchNum} of ${batchResults.length} results (dates ${datesProcessed - CONFIG.batchSize + 1}-${datesProcessed})...`);
 
-      // Only use replace mode for the first batch
-      const shouldReplace = CONFIG.replaceMode && isFirstBatch;
-      if (shouldReplace) {
-        console.log('   ⚠️  Replace mode: This will delete ALL existing parkrun data first');
-      }
-
       const csvData = convertToCSV(batchResults);
-      const uploadSuccess = await uploadToAPI(csvData, shouldReplace);
-
-      // Always disable replace mode after first batch attempt (success or fail)
-      // This prevents subsequent batches from deleting data if first batch failed
-      if (isFirstBatch) {
-        isFirstBatch = false;
-        console.log(`   📍 Replace mode disabled for subsequent batches`);
-      }
+      // Never use replace mode for batch uploads (we already deleted at the start if needed)
+      const uploadSuccess = await uploadToAPI(csvData, false);
 
       if (uploadSuccess) {
         totalUploaded = allResults.length;
@@ -495,20 +510,9 @@
     const remainingResults = allResults.slice(totalUploaded);
     console.log(`\n📤 Uploading final batch of ${remainingResults.length} results...`);
 
-    // Only use replace mode for the first batch (if no batches were uploaded yet)
-    const shouldReplace = CONFIG.replaceMode && isFirstBatch;
-    if (shouldReplace) {
-      console.log('   ⚠️  Replace mode: This will delete ALL existing parkrun data first');
-    }
-
     const remainingCSV = convertToCSV(remainingResults);
-    const uploadSuccess = await uploadToAPI(remainingCSV, shouldReplace);
-
-    // Disable replace mode after attempt
-    if (isFirstBatch) {
-      isFirstBatch = false;
-      console.log(`   📍 Replace mode disabled`);
-    }
+    // Never use replace mode for batch uploads (we already deleted at the start if needed)
+    const uploadSuccess = await uploadToAPI(remainingCSV, false);
 
     if (uploadSuccess) {
       totalUploaded = allResults.length;
