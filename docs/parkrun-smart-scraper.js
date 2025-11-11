@@ -407,9 +407,15 @@
       const csvData = convertToCSV(batchResults);
       const uploadSuccess = await uploadToAPI(csvData, shouldReplace);
 
+      // Always disable replace mode after first batch attempt (success or fail)
+      // This prevents subsequent batches from deleting data if first batch failed
+      if (isFirstBatch) {
+        isFirstBatch = false;
+        console.log(`   📍 Replace mode disabled for subsequent batches`);
+      }
+
       if (uploadSuccess) {
         totalUploaded = allResults.length;
-        isFirstBatch = false; // After first successful upload, disable replace mode
         console.log(`✅ Batch ${batchNum} uploaded! Total uploaded so far: ${totalUploaded} results\n`);
       } else {
         console.log(`⚠️  Batch ${batchNum} upload failed, will include in final upload\n`);
@@ -462,6 +468,12 @@
 
     const remainingCSV = convertToCSV(remainingResults);
     const uploadSuccess = await uploadToAPI(remainingCSV, shouldReplace);
+
+    // Disable replace mode after attempt
+    if (isFirstBatch) {
+      isFirstBatch = false;
+      console.log(`   📍 Replace mode disabled`);
+    }
 
     if (uploadSuccess) {
       totalUploaded = allResults.length;
