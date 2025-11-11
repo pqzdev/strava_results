@@ -39,13 +39,23 @@ else
 fi
 
 # Check admin fields in athletes table
-echo "Checking for is_club_verified column in athletes..."
-if npx wrangler d1 execute strava-club-db --command="PRAGMA table_info(athletes)" 2>/dev/null | grep -q "is_club_verified"; then
-    echo "✅ is_club_verified column exists"
+echo "Checking for is_admin column in athletes..."
+if npx wrangler d1 execute strava-club-db --command="PRAGMA table_info(athletes)" 2>/dev/null | grep -q "is_admin"; then
+    echo "✅ is_admin column exists"
     MARK_0004=true
 else
-    echo "❌ is_club_verified column does NOT exist"
+    echo "❌ is_admin column does NOT exist"
     MARK_0004=false
+fi
+
+# Check parkrun_results for gender_position column
+echo "Checking for gender_position column in parkrun_results..."
+if npx wrangler d1 execute strava-club-db --command="PRAGMA table_info(parkrun_results)" 2>/dev/null | grep -q "gender_position"; then
+    echo "✅ gender_position column exists"
+    MARK_0006=true
+else
+    echo "❌ gender_position column does NOT exist"
+    MARK_0006=false
 fi
 
 echo ""
@@ -66,6 +76,11 @@ fi
 if [ "$MARK_0004" = true ]; then
     echo "Marking 0004_add_admin_fields.sql as applied..."
     npx wrangler d1 execute strava-club-db --command="INSERT INTO d1_migrations (id, name, applied_at) VALUES (4, '0004_add_admin_fields.sql', datetime('now')) ON CONFLICT DO NOTHING" 2>/dev/null || echo "⚠️  Could not mark migration (may already be marked)"
+fi
+
+if [ "$MARK_0006" = true ]; then
+    echo "Marking 0006_add_parkrun_gender_position.sql as applied..."
+    npx wrangler d1 execute strava-club-db --command="INSERT INTO d1_migrations (id, name, applied_at) VALUES (6, '0006_add_parkrun_gender_position.sql', datetime('now')) ON CONFLICT DO NOTHING" 2>/dev/null || echo "⚠️  Could not mark migration (may already be marked)"
 fi
 
 echo ""
