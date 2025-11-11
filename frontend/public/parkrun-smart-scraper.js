@@ -258,6 +258,17 @@
         const hasClubName = html.includes(CONFIG.clubName);
         console.log(`  🔍 Diagnostics: table=${hasTable}, rows=${hasRows}, club="${CONFIG.clubName}"=${hasClubName}`);
 
+        // On 4th attempt, open a new tab to help bypass anti-scraping measures
+        if (consecutiveEmptyResults === 4) {
+          console.log(`  🆕 Opening new tab to refresh session (attempt 4/${fibonacciWaits.length})`);
+          try {
+            window.open(url, '_blank');
+            console.log(`  💡 New tab opened - this can help bypass parkrun's anti-scraping measures`);
+          } catch (err) {
+            console.warn(`  ⚠️  Could not open new tab (popups may be blocked): ${err.message}`);
+          }
+        }
+
         // Check if we've exhausted all Fibonacci waits
         if (consecutiveEmptyResults > fibonacciWaits.length) {
           console.log(`  ℹ️  No results after ${fibonacciWaits.length} retries, moving on`);
