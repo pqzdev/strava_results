@@ -11,7 +11,7 @@ interface CSVRow {
  * POST /api/parkrun/import - Import parkrun results from CSV
  *
  * Expected CSV format from parkrun consolidated club results:
- * Date,Event,Pos,parkrunner,Time,Age Grade,Age Cat
+ * Date,Event,Pos,Gender Pos,parkrunner,Time,Age Grade,Age Cat
  */
 export async function importParkrunCSV(request: Request, env: Env): Promise<Response> {
   try {
@@ -71,6 +71,8 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
           const date = parseParkrunDate(row.Date || row.date);
           const eventName = row.Event || row.event;
           const position = parseInt(row.Pos || row.pos || row.Position || '0');
+          const genderPositionStr = row['Gender Pos'] || row.genderPos || row['gender pos'] || row.GenderPos || '';
+          const genderPosition = genderPositionStr ? parseInt(genderPositionStr) : null;
           const athleteName = row.parkrunner || row.Parkrunner || row['Park Runner'];
           const timeString = row.Time || row.time;
           const ageGrade = row['Age Grade'] || row.ageGrade || row['age grade'];
@@ -91,9 +93,9 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
           // Insert into database
           await env.DB.prepare(
             `INSERT INTO parkrun_results
-             (athlete_name, event_name, event_number, position, time_seconds,
+             (athlete_name, event_name, event_number, position, gender_position, time_seconds,
               time_string, age_grade, age_category, date, club_name)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(athlete_name, event_name, event_number, date) DO NOTHING`
           )
             .bind(
@@ -101,6 +103,7 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
               eventName.replace(/#\d+/, '').trim(), // Remove event number from name
               eventNumber,
               position,
+              genderPosition,
               timeSeconds,
               timeString,
               ageGrade || null,
