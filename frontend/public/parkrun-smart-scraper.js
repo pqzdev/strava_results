@@ -194,6 +194,7 @@
     const url = `https://www.parkrun.com/results/consolidatedclub/?clubNum=${CONFIG.clubNum}&eventdate=${eventDate}`;
 
     try {
+      console.log(`  🌐 Fetching URL: ${url}`);
       const response = await fetch(url, {
         method: 'GET',
         credentials: 'include', // Important: includes cookies
@@ -208,27 +209,45 @@
       }
 
       const html = await response.text();
+      console.log(`  📄 Received HTML: ${html.length} bytes`);
+
+      // Check if we got valid parkrun HTML
+      if (!html.includes('parkrun') && !html.includes('consolidatedclub')) {
+        console.warn(`  ⚠️  Response doesn't look like parkrun HTML (might be error page)`);
+        console.log(`  📝 First 500 chars: ${html.substring(0, 500)}`);
+      }
+
       const results = extractResultsFromHTML(html, eventDate);
+      console.log(`  📊 Extracted ${results.length} results from HTML`);
 
       if (results.length === 0) {
         consecutiveEmptyResults++;
 
+        // Log some diagnostic info
+        const hasTable = html.includes('<table');
+        const hasRows = html.includes('<tr');
+        const hasClubName = html.includes(CONFIG.clubName);
+        console.log(`  🔍 Diagnostics: table=${hasTable}, rows=${hasRows}, club="${CONFIG.clubName}"=${hasClubName}`);
+
         // Check if we've exhausted all Fibonacci waits
         if (consecutiveEmptyResults > fibonacciWaits.length) {
           console.log(`  ℹ️  No results after ${fibonacciWaits.length} retries, moving on`);
+          console.log(`  💡 This might mean: no parkruns on ${eventDate}, or club members didn't register their club`);
           return { success: true, results: [], date: eventDate };
         }
 
         // Apply Fibonacci backoff
         const waitSeconds = fibonacciWaits[consecutiveEmptyResults - 1];
-        console.log(`  ⏳ 0 results, waiting ${waitSeconds}s before retry (attempt ${consecutiveEmptyResults}/${fibonacciWaits.length})`);
+        console.log(`  ⏳ 0 results, waiting ${waitSeconds}s before fetching fresh HTML (attempt ${consecutiveEmptyResults}/${fibonacciWaits.length})`);
         await sleep(waitSeconds * 1000);
 
-        // Retry with incremented counter
+        // Retry with a fresh fetch (new request to server)
+        console.log(`  🔄 Retrying with fresh fetch...`);
         return fetchDateResults(eventDate, fibonacciWaits, consecutiveEmptyResults);
       }
 
       // Success - found results
+      console.log(`  ✅ Successfully extracted ${results.length} ${CONFIG.clubName} results`);
       return { success: true, results, date: eventDate };
 
     } catch (error) {
