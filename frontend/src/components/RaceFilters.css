@@ -46,23 +46,24 @@
 
 .filter-actions {
   justify-content: flex-end;
+  align-items: center;
 }
 
-.button-clear {
-  padding: 0.625rem 1.5rem;
-  background: white;
-  color: var(--text-light);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 600;
+.clear-filters-btn {
+  padding: 0.75rem 1.5rem;
+  background-color: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: background-color 0.2s;
+  height: 44px;
 }
 
-.button-clear:hover {
-  background: var(--background-light);
-  color: var(--text-dark);
+.clear-filters-btn:hover {
+  background-color: #5568d3;
 }
 
 .range-slider {
@@ -153,6 +154,84 @@
   color: var(--text-light);
   transform: translateX(-50%);
   white-space: nowrap;
+}
+
+.date-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.date-input {
+  flex: 1;
+  min-width: 150px;
+  padding: 0.625rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.date-separator {
+  color: var(--text-light);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.button-secondary {
+  padding: 0.625rem 1rem;
+  background: var(--background-light);
+  color: var(--text-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.button-secondary:hover {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.distance-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.distance-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 6px;
+  transition: background 0.2s;
+  font-size: 0.875rem;
+}
+
+.distance-checkbox-label:hover {
+  background: var(--background-light);
+}
+
+.distance-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary-color);
 }
 
 .quick-filters {

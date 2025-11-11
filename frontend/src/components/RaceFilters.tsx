@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import MultiSelectAutocomplete from './MultiSelectAutocomplete';
 import './RaceFilters.css';
 
 interface Filters {
-  athlete: string;
+  athletes: string[];
   activityName: string;
   dateFrom: string;
   dateTo: string;
@@ -15,16 +16,22 @@ interface RaceFiltersProps {
   onFilterChange: (filters: Partial<Filters>) => void;
   onClearFilters: () => void;
   earliestDate?: string;
+  availableAthletes?: string[];
 }
 
 // Distance categories with meters and buffer
-const DISTANCE_CATEGORIES = [
+const DISTANCE_RANGES = [
   { label: '<5K', minMeters: 0, maxMeters: 4800 },
   { label: '5K', minMeters: 4800, maxMeters: 5200 },
+  { label: '5K-10K', minMeters: 5200, maxMeters: 9700 },
   { label: '10K', minMeters: 9700, maxMeters: 10300 },
+  { label: '10K-14K', minMeters: 10300, maxMeters: 13700 },
   { label: '14K', minMeters: 13700, maxMeters: 14300 },
+  { label: '14K-HM', minMeters: 14300, maxMeters: 20800 },
   { label: 'Half Marathon', minMeters: 20800, maxMeters: 21600 },
+  { label: 'HM-30K', minMeters: 21600, maxMeters: 29500 },
   { label: '30K', minMeters: 29500, maxMeters: 30500 },
+  { label: '30K-Marathon', minMeters: 30500, maxMeters: 41700 },
   { label: 'Marathon', minMeters: 41700, maxMeters: 43200 },
   { label: 'Ultra', minMeters: 43200, maxMeters: 999999 },
 ];
@@ -34,97 +41,86 @@ export default function RaceFilters({
   onFilterChange,
   onClearFilters,
   earliestDate,
+  availableAthletes = [],
 }: RaceFiltersProps) {
-  const [minDistIndex, setMinDistIndex] = useState(0);
-  const [maxDistIndex, setMaxDistIndex] = useState(DISTANCE_CATEGORIES.length - 1);
-  const [minDateIndex, setMinDateIndex] = useState(0);
-  const [maxDateIndex, setMaxDateIndex] = useState(0);
+  const [selectedDistances, setSelectedDistances] = useState<boolean[]>(
+    new Array(DISTANCE_RANGES.length).fill(true)
+  );
 
-  const getMonthsDiff = (date1: Date, date2: Date): number => {
-    return (date2.getFullYear() - date1.getFullYear()) * 12 +
-           (date2.getMonth() - date1.getMonth());
-  };
+  const getDefaultDateTo = () => new Date().toISOString().split('T')[0];
 
-  const getStartOfMonth = (date: Date): Date => {
-    return new Date(date.getFullYear(), date.getMonth(), 1);
-  };
+  const handleDistanceToggle = (index: number) => {
+    const newSelected = [...selectedDistances];
+    newSelected[index] = !newSelected[index];
+    setSelectedDistances(newSelected);
 
-  const [totalMonths, setTotalMonths] = useState<number>(0);
-  const [startMonth, setStartMonth] = useState<string>('');
-
-  useEffect(() => {
-    if (earliestDate) {
-      const earliest = getStartOfMonth(new Date(earliestDate));
-      const today = new Date();
-      const months = getMonthsDiff(earliest, today);
-      setTotalMonths(months);
-      setStartMonth(earliest.toISOString().split('T')[0]);
-      setMinDateIndex(0);
-      setMaxDateIndex(months); // Start with full range
+    // Calculate min and max from selected ranges
+    const selectedRanges = DISTANCE_RANGES.filter((_, idx) => newSelected[idx]);
+    if (selectedRanges.length === 0) {
+      // If nothing selected, show nothing (set impossible range)
+      onFilterChange({ minDistance: '999999', maxDistance: '0' });
+    } else {
+      const minDistance = Math.min(...selectedRanges.map(r => r.minMeters)).toString();
+      const maxDistance = Math.max(...selectedRanges.map(r => r.maxMeters)).toString();
+      onFilterChange({ minDistance, maxDistance });
     }
-  }, [earliestDate]);
-
-  const handleDistanceChange = (minIdx: number, maxIdx: number) => {
-    setMinDistIndex(minIdx);
-    setMaxDistIndex(maxIdx);
-
-    const minCat = DISTANCE_CATEGORIES[minIdx];
-    const maxCat = DISTANCE_CATEGORIES[maxIdx];
-
-    onFilterChange({
-      minDistance: minCat.minMeters.toString(),
-      maxDistance: maxCat.maxMeters.toString(),
-    });
   };
 
-  const handleDateChange = (minIdx: number, maxIdx: number) => {
-    setMinDateIndex(minIdx);
-    setMaxDateIndex(maxIdx);
+  const handleDateFromChange = (value: string) => {
+    let dateFrom = value;
+    // Enforce minimum date to earliest available data
+    if (earliestDate && dateFrom && dateFrom < earliestDate) {
+      dateFrom = earliestDate;
+    }
+    // Enforce that dateFrom is not after dateTo
+    if (filters.dateTo && dateFrom > filters.dateTo) {
+      dateFrom = filters.dateTo;
+    }
+    onFilterChange({ dateFrom });
+  };
 
-    if (startMonth && totalMonths > 0) {
-      const start = new Date(startMonth);
-      start.setMonth(start.getMonth() + minIdx);
+  const handleDateToChange = (value: string) => {
+    let dateTo = value;
+    // Enforce maximum date to today
+    const today = getDefaultDateTo();
+    if (dateTo && dateTo > today) {
+      dateTo = today;
+    }
+    // Enforce that dateTo is not before dateFrom
+    if (filters.dateFrom && dateTo < filters.dateFrom) {
+      dateTo = filters.dateFrom;
+    }
+    onFilterChange({ dateTo });
+  };
 
-      const end = new Date(startMonth);
-      end.setMonth(end.getMonth() + maxIdx);
-
+  const handleSetFullRange = () => {
+    if (earliestDate) {
       onFilterChange({
-        dateFrom: start.toISOString().split('T')[0],
-        dateTo: end.toISOString().split('T')[0],
+        dateFrom: earliestDate,
+        dateTo: getDefaultDateTo(),
       });
     }
   };
 
-  const hasActiveFilters = filters.athlete || filters.activityName ||
-                           minDistIndex !== 0 || maxDistIndex !== DISTANCE_CATEGORIES.length - 1 ||
-                           minDateIndex !== 0 || maxDateIndex !== totalMonths;
+  const hasActiveFilters = filters.athletes.length > 0 || filters.activityName ||
+                           filters.dateFrom || filters.dateTo ||
+                           selectedDistances.some((selected, idx) => !selected);
 
   const handleClear = () => {
-    setMinDistIndex(0);
-    setMaxDistIndex(DISTANCE_CATEGORIES.length - 1);
-    setMinDateIndex(0);
-    setMaxDateIndex(totalMonths);
+    setSelectedDistances(new Array(DISTANCE_RANGES.length).fill(true));
     onClearFilters();
-  };
-
-  const formatDateLabel = (monthIndex: number): string => {
-    if (!startMonth || totalMonths === 0) return '';
-    const date = new Date(startMonth);
-    date.setMonth(date.getMonth() + monthIndex);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
   };
 
   return (
     <div className="race-filters">
       <div className="filters-grid">
-        <div className="filter-group">
-          <label htmlFor="athlete">Athlete Name</label>
-          <input
-            id="athlete"
-            type="text"
-            placeholder="Search by name..."
-            value={filters.athlete}
-            onChange={(e) => onFilterChange({ athlete: e.target.value })}
+        <div className="filter-group filter-group-wide">
+          <MultiSelectAutocomplete
+            options={availableAthletes}
+            selected={filters.athletes}
+            onChange={athletes => onFilterChange({ athletes })}
+            placeholder="Select athletes..."
+            label="Filter by Athletes"
           />
         </div>
 
@@ -139,115 +135,63 @@ export default function RaceFilters({
           />
         </div>
 
-        {startMonth && totalMonths > 0 && (
+        {earliestDate && (
           <div className="filter-group filter-group-wide">
-            <label>
-              Date Range: {formatDateLabel(minDateIndex)} to {formatDateLabel(maxDateIndex)}
-            </label>
-            <div className="dual-range">
-              <div className="slider-track">
-                <div
-                  className="slider-range"
-                  style={{
-                    left: `${(minDateIndex / totalMonths) * 100}%`,
-                    right: `${100 - (maxDateIndex / totalMonths) * 100}%`
-                  }}
-                />
-              </div>
+            <label>Date Range</label>
+            <div className="date-range-inputs">
               <input
-                type="range"
-                min="0"
-                max={totalMonths}
-                value={minDateIndex}
-                onChange={(e) => {
-                  const newMin = parseInt(e.target.value);
-                  if (newMin <= maxDateIndex) {
-                    handleDateChange(newMin, maxDateIndex);
-                  }
-                }}
-                className="range-slider range-slider-min"
+                type="date"
+                min={earliestDate}
+                max={filters.dateTo || getDefaultDateTo()}
+                value={filters.dateFrom || earliestDate}
+                onChange={(e) => handleDateFromChange(e.target.value)}
+                className="date-input"
               />
+              <span className="date-separator">to</span>
               <input
-                type="range"
-                min="0"
-                max={totalMonths}
-                value={maxDateIndex}
-                onChange={(e) => {
-                  const newMax = parseInt(e.target.value);
-                  if (newMax >= minDateIndex) {
-                    handleDateChange(minDateIndex, newMax);
-                  }
-                }}
-                className="range-slider range-slider-max"
+                type="date"
+                min={filters.dateFrom || earliestDate}
+                max={getDefaultDateTo()}
+                value={filters.dateTo || getDefaultDateTo()}
+                onChange={(e) => handleDateToChange(e.target.value)}
+                className="date-input"
               />
+              <button
+                onClick={handleSetFullRange}
+                className="button button-secondary"
+                title="Set to full range (earliest to today)"
+              >
+                Min/Today
+              </button>
             </div>
           </div>
         )}
 
         <div className="filter-group filter-group-wide">
-          <label>
-            Distance: {DISTANCE_CATEGORIES[minDistIndex].label} to {DISTANCE_CATEGORIES[maxDistIndex].label}
-          </label>
-          <div className="dual-range">
-            <div className="slider-track">
-              <div
-                className="slider-range"
-                style={{
-                  left: `${(minDistIndex / (DISTANCE_CATEGORIES.length - 1)) * 100}%`,
-                  right: `${100 - (maxDistIndex / (DISTANCE_CATEGORIES.length - 1)) * 100}%`
-                }}
-              />
-            </div>
-            <input
-              type="range"
-              min="0"
-              max={DISTANCE_CATEGORIES.length - 1}
-              value={minDistIndex}
-              onChange={(e) => {
-                const newMin = parseInt(e.target.value);
-                if (newMin <= maxDistIndex) {
-                  handleDistanceChange(newMin, maxDistIndex);
-                }
-              }}
-              className="range-slider range-slider-min"
-            />
-            <input
-              type="range"
-              min="0"
-              max={DISTANCE_CATEGORIES.length - 1}
-              value={maxDistIndex}
-              onChange={(e) => {
-                const newMax = parseInt(e.target.value);
-                if (newMax >= minDistIndex) {
-                  handleDistanceChange(minDistIndex, newMax);
-                }
-              }}
-              className="range-slider range-slider-max"
-            />
-          </div>
-          <div className="slider-labels">
-            {DISTANCE_CATEGORIES.map((cat, idx) => (
-              <span
-                key={idx}
-                className="slider-label"
-                style={{ left: `${(idx / (DISTANCE_CATEGORIES.length - 1)) * 100}%` }}
-              >
-                {cat.label}
-              </span>
+          <label>Distance</label>
+          <div className="distance-checkboxes">
+            {DISTANCE_RANGES.map((range, idx) => (
+              <label key={idx} className="distance-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={selectedDistances[idx]}
+                  onChange={() => handleDistanceToggle(idx)}
+                  className="distance-checkbox"
+                />
+                <span>{range.label}</span>
+              </label>
             ))}
           </div>
         </div>
 
-        {hasActiveFilters && (
-          <div className="filter-group filter-actions">
-            <button
-              className="button button-clear"
-              onClick={handleClear}
-            >
-              Clear Filters
-            </button>
-          </div>
-        )}
+        <div className="filter-group filter-actions">
+          <button
+            className="clear-filters-btn"
+            onClick={handleClear}
+          >
+            Clear Filters
+          </button>
+        </div>
       </div>
     </div>
   );
