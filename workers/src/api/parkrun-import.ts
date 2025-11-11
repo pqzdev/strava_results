@@ -1,10 +1,24 @@
 // API endpoint for manually importing parkrun CSV data
 
 import { Env } from '../types';
-import { parseTimeToSeconds } from '../utils/parkrun';
 
 interface CSVRow {
   [key: string]: string;
+}
+
+/**
+ * Parse time string (MM:SS or HH:MM:SS) to seconds
+ */
+function parseTimeToSeconds(timeStr: string): number {
+  const parts = timeStr.split(':').map(Number);
+  if (parts.length === 2) {
+    // MM:SS
+    return parts[0] * 60 + parts[1];
+  } else if (parts.length === 3) {
+    // HH:MM:SS
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return 0;
 }
 
 /**
