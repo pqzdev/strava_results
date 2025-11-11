@@ -218,16 +218,19 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
 
 /**
  * Parse CSV text into array of objects
+ * Properly handles quoted fields with commas
  */
 function parseCSV(csvText: string): CSVRow[] {
   const lines = csvText.trim().split('\n');
   if (lines.length < 2) return [];
 
-  const headers = lines[0].split(',').map(h => h.trim());
+  // Parse header row
+  const headers = parseCSVLine(lines[0]);
   const rows: CSVRow[] = [];
 
+  // Parse data rows
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim());
+    const values = parseCSVLine(lines[i]);
     const row: CSVRow = {};
 
     headers.forEach((header, index) => {
@@ -238,6 +241,53 @@ function parseCSV(csvText: string): CSVRow[] {
   }
 
   return rows;
+}
+
+/**
+ * Parse a single CSV line, properly handling quoted fields
+ * Handles: commas inside quotes, escaped quotes (""), and mixed quoted/unquoted fields
+ */
+function parseCSVLine(line: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < line.length) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // Escaped quote ("")
+        current += '"';
+        i += 2;
+        continue;
+      } else {
+        // Toggle quote mode
+        inQuotes = !inQuotes;
+        i++;
+        continue;
+      }
+    }
+
+    if (char === ',' && !inQuotes) {
+      // End of field
+      values.push(current.trim());
+      current = '';
+      i++;
+      continue;
+    }
+
+    // Regular character
+    current += char;
+    i++;
+  }
+
+  // Push the last field
+  values.push(current.trim());
+
+  return values;
 }
 
 /**
