@@ -40,6 +40,7 @@
     includeSpecialDates: ['2024-12-25', '2025-01-01'], // Christmas and New Year parkruns
     apiEndpoint: urlParams.get('apiEndpoint') || '', // API endpoint to POST results
     autoUpload: urlParams.get('autoUpload') === 'true', // Auto-upload to API
+    replaceMode: urlParams.get('replaceMode') === 'true', // Replace all existing data on first upload
   };
 
   // ========== HELPER FUNCTIONS ==========
@@ -259,13 +260,18 @@
     return csvRows.join('\n');
   }
 
-  async function uploadToAPI(csvData) {
+  async function uploadToAPI(csvData, shouldReplace = false) {
     if (!CONFIG.apiEndpoint) {
       console.log('\n⚠️  No API endpoint configured, skipping upload');
       return false;
     }
 
-    console.log(`\n📤 Uploading to ${CONFIG.apiEndpoint}...`);
+    // Add replace parameter to URL if needed
+    const uploadUrl = shouldReplace
+      ? `${CONFIG.apiEndpoint}?replace=true`
+      : CONFIG.apiEndpoint;
+
+    console.log(`\n📤 Uploading to ${uploadUrl}...`);
 
     try {
       // Create a File object from CSV data
@@ -276,7 +282,7 @@
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(CONFIG.apiEndpoint, {
+      const response = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
       });
@@ -315,6 +321,7 @@
   console.log(`  Batch upload: every ${CONFIG.batchSize} dates`);
   console.log(`  API endpoint: ${CONFIG.apiEndpoint || 'None (manual copy)'}`);
   console.log(`  Auto-upload: ${CONFIG.autoUpload ? 'Yes' : 'No'}`);
+  console.log(`  Replace mode: ${CONFIG.replaceMode ? 'Yes (first batch only)' : 'No'}`);
   console.log('');
 
   // Get all dates to scrape (Saturdays + special dates like Christmas/New Year)
@@ -346,6 +353,7 @@
   let failCount = 0;
   let totalUploaded = 0;
   let datesProcessed = 0;
+  let isFirstBatch = true; // Track if this is the first batch for replace mode
 
   for (let i = 0; i < allDates.length; i++) {
     const date = allDates[i];
@@ -368,16 +376,24 @@
     // Upload batch every BATCH_SIZE dates (if auto-upload enabled and API configured)
     if (CONFIG.autoUpload && CONFIG.apiEndpoint && datesProcessed % CONFIG.batchSize === 0 && allResults.length > totalUploaded) {
       const batchResults = allResults.slice(totalUploaded);
-      console.log(`\n📤 Uploading batch of ${batchResults.length} results (dates ${datesProcessed - CONFIG.batchSize + 1}-${datesProcessed})...`);
+      const batchNum = Math.ceil(datesProcessed / CONFIG.batchSize);
+      console.log(`\n📤 Uploading batch ${batchNum} of ${batchResults.length} results (dates ${datesProcessed - CONFIG.batchSize + 1}-${datesProcessed})...`);
+
+      // Only use replace mode for the first batch
+      const shouldReplace = CONFIG.replaceMode && isFirstBatch;
+      if (shouldReplace) {
+        console.log('   ⚠️  Replace mode: This will delete ALL existing parkrun data first');
+      }
 
       const csvData = convertToCSV(batchResults);
-      const uploadSuccess = await uploadToAPI(csvData);
+      const uploadSuccess = await uploadToAPI(csvData, shouldReplace);
 
       if (uploadSuccess) {
         totalUploaded = allResults.length;
-        console.log(`✅ Batch uploaded! Total uploaded so far: ${totalUploaded} results\n`);
+        isFirstBatch = false; // After first successful upload, disable replace mode
+        console.log(`✅ Batch ${batchNum} uploaded! Total uploaded so far: ${totalUploaded} results\n`);
       } else {
-        console.log(`⚠️  Batch upload failed, will include in final upload\n`);
+        console.log(`⚠️  Batch ${batchNum} upload failed, will include in final upload\n`);
       }
     }
 
@@ -419,8 +435,14 @@
     const remainingResults = allResults.slice(totalUploaded);
     console.log(`\n📤 Uploading final batch of ${remainingResults.length} results...`);
 
+    // Only use replace mode for the first batch (if no batches were uploaded yet)
+    const shouldReplace = CONFIG.replaceMode && isFirstBatch;
+    if (shouldReplace) {
+      console.log('   ⚠️  Replace mode: This will delete ALL existing parkrun data first');
+    }
+
     const remainingCSV = convertToCSV(remainingResults);
-    const uploadSuccess = await uploadToAPI(remainingCSV);
+    const uploadSuccess = await uploadToAPI(remainingCSV, shouldReplace);
 
     if (uploadSuccess) {
       totalUploaded = allResults.length;
