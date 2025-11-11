@@ -169,40 +169,81 @@
   margin-bottom: 0.5rem;
 }
 
-.date-range-inputs {
+.date-range-wrapper {
+  position: relative;
+  height: 40px;
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  align-items: center;
 }
 
-.date-slider {
+.date-range-track {
+  position: absolute;
   width: 100%;
   height: 6px;
   border-radius: 3px;
+  background: #e0e0e0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.date-range-selected {
+  position: absolute;
+  height: 6px;
+  border-radius: 3px;
   background: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+  top: 50%;
+  transform: translateY(-50%);
+  transition: left 0.1s, width 0.1s;
+}
+
+.date-slider {
+  position: absolute;
+  width: 100%;
+  height: 6px;
+  background: transparent;
   outline: none;
   -webkit-appearance: none;
+  pointer-events: none;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .date-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #667eea;
+  background: white;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  border: 3px solid #667eea;
 }
 
 .date-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: #667eea;
+  background: white;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  border: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  border: 3px solid #667eea;
+  pointer-events: auto;
+}
+
+.date-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: transparent;
+}
+
+.date-slider::-moz-range-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: transparent;
 }
 
 .loading {

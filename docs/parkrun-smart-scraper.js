@@ -195,6 +195,15 @@
       const html = await response.text();
       const results = extractResultsFromHTML(html, eventDate);
 
+      // If we got 0 results and haven't retried yet, try again after a delay
+      // The page might have loaded but the data wasn't fully rendered
+      if (results.length === 0 && retryCount < CONFIG.maxRetries) {
+        console.log(`  ⚠️  No results found, page may still be loading...`);
+        console.log(`  🔄 Retrying after 3 seconds (${retryCount + 1}/${CONFIG.maxRetries})...`);
+        await sleep(3000); // Wait 3 seconds for page to fully load
+        return fetchDateResults(eventDate, retryCount + 1);
+      }
+
       return { success: true, results, date: eventDate };
 
     } catch (error) {

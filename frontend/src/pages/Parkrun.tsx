@@ -132,6 +132,18 @@ export default function Parkrun() {
     }
   }
 
+  function formatTime(timeSeconds: number): string {
+    const hours = Math.floor(timeSeconds / 3600);
+    const minutes = Math.floor((timeSeconds % 3600) / 60);
+    const seconds = Math.floor(timeSeconds % 60);
+
+    // Only show hours if time is over 59:59
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
   function formatPace(timeSeconds: number): string {
     const paceSeconds = timeSeconds / 5; // 5km parkrun
     const minutes = Math.floor(paceSeconds / 60);
@@ -206,7 +218,15 @@ export default function Parkrun() {
             <label>
               Date range: {filters.dateFrom || stats.earliestDate} to {filters.dateTo || stats.latestDate}
             </label>
-            <div className="date-range-inputs">
+            <div className="date-range-wrapper">
+              <div className="date-range-track"></div>
+              <div
+                className="date-range-selected"
+                style={{
+                  left: `${((new Date(filters.dateFrom || stats.earliestDate).getTime() - new Date(stats.earliestDate).getTime()) / (new Date(stats.latestDate).getTime() - new Date(stats.earliestDate).getTime())) * 100}%`,
+                  width: `${((new Date(filters.dateTo || stats.latestDate).getTime() - new Date(filters.dateFrom || stats.earliestDate).getTime()) / (new Date(stats.latestDate).getTime() - new Date(stats.earliestDate).getTime())) * 100}%`
+                }}
+              ></div>
               <input
                 type="range"
                 min={new Date(stats.earliestDate).getTime()}
@@ -216,7 +236,7 @@ export default function Parkrun() {
                   const date = new Date(parseInt(e.target.value));
                   handleFilterChange({ dateFrom: date.toISOString().split('T')[0] });
                 }}
-                className="date-slider"
+                className="date-slider date-slider-from"
               />
               <input
                 type="range"
@@ -227,7 +247,7 @@ export default function Parkrun() {
                   const date = new Date(parseInt(e.target.value));
                   handleFilterChange({ dateTo: date.toISOString().split('T')[0] });
                 }}
-                className="date-slider"
+                className="date-slider date-slider-to"
               />
             </div>
           </div>
@@ -288,7 +308,7 @@ export default function Parkrun() {
                     </td>
                     <td className="athlete-name">{result.athlete_name}</td>
                     <td className="position">{result.position}</td>
-                    <td className="time">{result.time_string}</td>
+                    <td className="time">{formatTime(result.time_seconds)}</td>
                     <td className="pace">{formatPace(result.time_seconds)}</td>
                   </tr>
                 ))}
