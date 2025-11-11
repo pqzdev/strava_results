@@ -110,7 +110,7 @@ export default function ParkrunChart({ filters, onDateClick }: ParkrunChartProps
             angle={-45}
             textAnchor="end"
             height={60}
-            tickFormatter={(value) => {
+            tickFormatter={(value: string) => {
               const date = new Date(value);
               return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             }}
@@ -128,10 +128,10 @@ export default function ParkrunChart({ filters, onDateClick }: ParkrunChartProps
                 onDateClick(data.date);
               }
             }}
-            onMouseEnter={(_, index) => setHoveredIndex(index)}
+            onMouseEnter={(_: any, index: number) => setHoveredIndex(index)}
             cursor="pointer"
           >
-            {data.map((_, index) => (
+            {data.map((_, index: number) => (
               <Cell
                 key={`cell-${index}`}
                 fill={hoveredIndex === index ? '#764ba2' : '#667eea'}

@@ -29,6 +29,7 @@
   // ========== CONFIGURATION ==========
   // Get config from URL params or use defaults
   const urlParams = new URLSearchParams(window.location.search);
+
   const CONFIG = {
     clubNum: parseInt(urlParams.get('clubNum') || '19959'), // Woodstock Runners
     startDate: urlParams.get('startDate') || '2024-01-01', // Start of 2024
@@ -325,10 +326,12 @@
       return false;
     }
 
-    // Add replace parameter to URL if needed
-    const uploadUrl = shouldReplace
-      ? `${CONFIG.apiEndpoint}?replace=true`
-      : CONFIG.apiEndpoint;
+    // Properly construct URL with query parameters
+    const url = new URL(CONFIG.apiEndpoint);
+    if (shouldReplace) {
+      url.searchParams.set('replace', 'true');
+    }
+    const uploadUrl = url.toString();
 
     console.log(`\n📤 Uploading to ${uploadUrl}...`);
 

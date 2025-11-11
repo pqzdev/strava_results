@@ -325,10 +325,12 @@
       return false;
     }
 
-    // Add replace parameter to URL if needed
-    const uploadUrl = shouldReplace
-      ? `${CONFIG.apiEndpoint}?replace=true`
-      : CONFIG.apiEndpoint;
+    // Properly construct URL with query parameters
+    const url = new URL(CONFIG.apiEndpoint);
+    if (shouldReplace) {
+      url.searchParams.set('replace', 'true');
+    }
+    const uploadUrl = url.toString();
 
     console.log(`\n📤 Uploading to ${uploadUrl}...`);
 
