@@ -1,0 +1,68 @@
+.parkrun-chart-container {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chart-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 0.25rem 0;
+}
+
+.chart-subtitle {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0 0 1rem 0;
+}
+
+.chart-loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+  font-size: 1rem;
+}
+
+.chart-tooltip {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tooltip-date {
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+}
+
+.tooltip-runs {
+  color: #667eea;
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.tooltip-events {
+  color: #764ba2;
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .parkrun-chart-container {
+    padding: 1rem;
+  }
+
+  .chart-title {
+    font-size: 1.1rem;
+  }
+
+  .chart-subtitle {
+    font-size: 0.85rem;
+  }
+}
