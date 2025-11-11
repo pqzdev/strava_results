@@ -111,9 +111,9 @@ async function insertParkrunResult(result: ParkrunResult, env: Env): Promise<voi
 
   await env.DB.prepare(
     `INSERT INTO parkrun_results
-     (athlete_name, parkrun_athlete_id, event_name, event_number, position,
+     (athlete_name, parkrun_athlete_id, event_name, event_number, position, gender_position,
       time_seconds, time_string, age_grade, age_category, date, club_name)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(athlete_name, event_name, event_number, date) DO NOTHING`
   )
     .bind(
@@ -122,6 +122,7 @@ async function insertParkrunResult(result: ParkrunResult, env: Env): Promise<voi
       result.eventName,
       result.eventNumber,
       result.position,
+      result.genderPosition || null,
       timeSeconds,
       result.time,
       result.ageGrade || null,

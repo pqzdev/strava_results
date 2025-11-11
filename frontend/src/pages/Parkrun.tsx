@@ -8,6 +8,7 @@ interface ParkrunResult {
   event_name: string;
   event_number: number;
   position: number;
+  gender_position?: number;
   time_seconds: number;
   time_string: string;
   age_grade?: string;
@@ -288,8 +289,9 @@ export default function Parkrun() {
                     Athlete {getSortIcon('athlete_name')}
                   </th>
                   <th onClick={() => handleSort('position')} style={{ cursor: 'pointer' }}>
-                    Position {getSortIcon('position')}
+                    Overall Pos {getSortIcon('position')}
                   </th>
+                  <th>Gender Pos</th>
                   <th onClick={() => handleSort('time_seconds')} style={{ cursor: 'pointer' }}>
                     Time {getSortIcon('time_seconds')}
                   </th>
@@ -308,6 +310,7 @@ export default function Parkrun() {
                     </td>
                     <td className="athlete-name">{result.athlete_name}</td>
                     <td className="position">{result.position}</td>
+                    <td className="position">{result.gender_position || '-'}</td>
                     <td className="time">{formatTime(result.time_seconds)}</td>
                     <td className="pace">{formatPace(result.time_seconds)}</td>
                   </tr>
