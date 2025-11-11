@@ -1,8 +1,23 @@
 # Database Migration Instructions
 
-## Apply the Gender Position Migration
+## Quick Fix (Recommended)
 
-The parkrun dashboard now supports showing both overall position and gender position. To enable this feature, you need to apply the database migration.
+If you're seeing migration errors about "duplicate column name", use the automated fix:
+
+```bash
+./fix-migrations.sh
+```
+
+This script will:
+1. Check which columns/tables already exist
+2. Mark those migrations as complete
+3. Apply remaining migrations (including gender_position)
+
+Then skip to Step 3 below.
+
+---
+
+## Manual Steps
 
 ### Step 1: Check Current Migrations
 
@@ -18,7 +33,7 @@ This will show you which migrations have been applied and which are pending.
 npm run db:migrations:apply
 ```
 
-This will apply migration `0006_add_parkrun_gender_position.sql` which adds the `gender_position` column to the `parkrun_results` table.
+**If you see "duplicate column" errors**, some migrations were already applied manually. Use the quick fix above instead.
 
 ### Step 3: Re-sync Parkrun Data
 
