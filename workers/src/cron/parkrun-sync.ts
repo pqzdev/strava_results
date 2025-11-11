@@ -2,12 +2,35 @@
 
 import { Env } from '../types';
 import {
-  fetchLatestParkrunClubResults,
+  fetchParkrunClubResults,
   parseTimeToSeconds,
   ParkrunResult,
+  getSaturdaysInRange,
 } from '../utils/parkrun';
 
 const WOODSTOCK_CLUB_ID = 19959;
+const BATCH_SIZE = 10; // Insert to DB every 10 dates
+const MAX_FIBONACCI_WAIT = 34; // Maximum wait time in seconds
+
+/**
+ * Sleep for a specified number of milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Generate Fibonacci sequence up to max value
+ */
+function getFibonacciSequence(maxValue: number): number[] {
+  const fib = [1, 1];
+  while (true) {
+    const next = fib[fib.length - 1] + fib[fib.length - 2];
+    if (next > maxValue) break;
+    fib.push(next);
+  }
+  return fib;
+}
 
 /**
  * Main parkrun sync function - called by cron trigger
@@ -32,26 +55,79 @@ export async function syncParkrunResults(env: Env): Promise<void> {
   const syncLogId = syncLogResult?.id;
 
   try {
-    // Fetch latest parkrun results for Woodstock
-    const { results, totalResults, fetchedAt } = await fetchLatestParkrunClubResults(
-      WOODSTOCK_CLUB_ID
+    // Get date range - last 52 weeks (1 year of Saturdays)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - (52 * 7)); // 52 weeks ago
+
+    const saturdays = getSaturdaysInRange(
+      startDate.toISOString().split('T')[0],
+      endDate.toISOString().split('T')[0]
     );
 
-    console.log(`Fetched ${totalResults} parkrun results`);
-    resultsFetched = totalResults;
+    console.log(`Fetching results for ${saturdays.length} Saturdays from ${saturdays[0]} to ${saturdays[saturdays.length - 1]}`);
 
-    // Insert new results into database
-    for (const result of results) {
-      try {
-        await insertParkrunResult(result, env);
-        newResultsAdded++;
-      } catch (error) {
-        // Likely a duplicate (unique constraint violation) - that's okay
-        if (error instanceof Error && !error.message.includes('UNIQUE constraint')) {
-          console.error('Error inserting parkrun result:', error);
+    // Fibonacci sequence for backoff
+    const fibonacciWaits = getFibonacciSequence(MAX_FIBONACCI_WAIT);
+
+    // Batch collection
+    let resultsBatch: ParkrunResult[] = [];
+    let datesProcessed = 0;
+
+    // Process each Saturday
+    for (const date of saturdays) {
+      let consecutiveEmptyResults = 0;
+      let shouldContinue = true;
+
+      while (shouldContinue) {
+        try {
+          console.log(`Fetching results for ${date}...`);
+          const { results } = await fetchParkrunClubResults(WOODSTOCK_CLUB_ID, date);
+
+          if (results.length === 0) {
+            consecutiveEmptyResults++;
+
+            // Check if we've exhausted all Fibonacci waits
+            if (consecutiveEmptyResults > fibonacciWaits.length) {
+              console.log(`No results for ${date} after ${fibonacciWaits.length} retries, moving on`);
+              shouldContinue = false;
+              break;
+            }
+
+            // Apply Fibonacci backoff
+            const waitSeconds = fibonacciWaits[consecutiveEmptyResults - 1];
+            console.log(`0 results for ${date}, waiting ${waitSeconds}s before retry (attempt ${consecutiveEmptyResults})`);
+            await sleep(waitSeconds * 1000);
+          } else {
+            console.log(`Found ${results.length} results for ${date}`);
+            resultsFetched += results.length;
+            resultsBatch.push(...results);
+            consecutiveEmptyResults = 0;
+            shouldContinue = false;
+          }
+        } catch (error) {
+          console.error(`Error fetching results for ${date}:`, error);
           errorsEncountered++;
+          shouldContinue = false;
         }
       }
+
+      datesProcessed++;
+
+      // Insert batch to database every BATCH_SIZE dates
+      if (datesProcessed % BATCH_SIZE === 0 && resultsBatch.length > 0) {
+        console.log(`Inserting batch of ${resultsBatch.length} results to database...`);
+        const inserted = await insertResultsBatch(resultsBatch, env);
+        newResultsAdded += inserted;
+        resultsBatch = []; // Clear batch
+      }
+    }
+
+    // Insert any remaining results
+    if (resultsBatch.length > 0) {
+      console.log(`Inserting final batch of ${resultsBatch.length} results to database...`);
+      const inserted = await insertResultsBatch(resultsBatch, env);
+      newResultsAdded += inserted;
     }
 
     // Update sync log with completion
@@ -101,6 +177,28 @@ export async function syncParkrunResults(env: Env): Promise<void> {
 
     throw error;
   }
+}
+
+/**
+ * Insert a batch of results into the database
+ * Returns the number of new results added
+ */
+async function insertResultsBatch(results: ParkrunResult[], env: Env): Promise<number> {
+  let newResultsAdded = 0;
+
+  for (const result of results) {
+    try {
+      await insertParkrunResult(result, env);
+      newResultsAdded++;
+    } catch (error) {
+      // Likely a duplicate (unique constraint violation) - that's okay
+      if (error instanceof Error && !error.message.includes('UNIQUE constraint')) {
+        console.error('Error inserting parkrun result:', error);
+      }
+    }
+  }
+
+  return newResultsAdded;
 }
 
 /**
