@@ -24,7 +24,7 @@ interface Filters {
   dateTo: string;
 }
 
-type SortField = 'date' | 'event_name' | 'athlete_name' | 'position' | 'time_seconds';
+type SortField = 'date' | 'event_name' | 'athlete_name' | 'position' | 'gender_position' | 'time_seconds';
 type SortDirection = 'asc' | 'desc';
 
 interface ParkrunStats {
@@ -161,7 +161,7 @@ export default function Parkrun() {
       setSortField(field);
       if (field === 'date') {
         setSortDirection('desc'); // Newest first
-      } else if (field === 'time_seconds' || field === 'position') {
+      } else if (field === 'time_seconds' || field === 'position' || field === 'gender_position') {
         setSortDirection('asc'); // Fastest/best first
       } else {
         setSortDirection('asc'); // Alphabetical
@@ -291,7 +291,9 @@ export default function Parkrun() {
                   <th onClick={() => handleSort('position')} style={{ cursor: 'pointer' }}>
                     Overall Pos {getSortIcon('position')}
                   </th>
-                  <th>Gender Pos</th>
+                  <th onClick={() => handleSort('gender_position')} style={{ cursor: 'pointer' }}>
+                    Gender Pos {getSortIcon('gender_position')}
+                  </th>
                   <th onClick={() => handleSort('time_seconds')} style={{ cursor: 'pointer' }}>
                     Time {getSortIcon('time_seconds')}
                   </th>

@@ -18,7 +18,7 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
   const sortBy = url.searchParams.get('sort_by') || 'date';
   const sortDir = url.searchParams.get('sort_dir') || 'desc';
 
-  const allowedSortFields = ['date', 'event_name', 'athlete_name', 'position', 'time_seconds'];
+  const allowedSortFields = ['date', 'event_name', 'athlete_name', 'position', 'gender_position', 'time_seconds'];
   const allowedSortDirs = ['asc', 'desc'];
   const validSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'date';
   const validSortDir = allowedSortDirs.includes(sortDir.toLowerCase()) ? sortDir.toUpperCase() : 'DESC';
@@ -69,7 +69,7 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
     }
 
     // Add table prefix for sortable columns to avoid ambiguity
-    const sortColumn = validSortBy === 'athlete_name' || validSortBy === 'event_name' || validSortBy === 'date' || validSortBy === 'position' || validSortBy === 'time_seconds'
+    const sortColumn = validSortBy === 'athlete_name' || validSortBy === 'event_name' || validSortBy === 'date' || validSortBy === 'position' || validSortBy === 'gender_position' || validSortBy === 'time_seconds'
       ? `pr.${validSortBy}`
       : validSortBy;
     query += ` ORDER BY ${sortColumn} ${validSortDir} LIMIT ? OFFSET ?`;
