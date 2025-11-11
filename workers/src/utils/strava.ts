@@ -108,6 +108,8 @@ export async function fetchAthleteActivities(
   before?: number,
   perPage: number = 200
 ): Promise<{ activities: StravaActivity[]; rateLimits: RateLimitInfo }> {
+  console.log(`[fetchAthleteActivities] Called with: after=${after}, before=${before}, perPage=${perPage}`);
+
   const allActivities: StravaActivity[] = [];
   let page = 1;
   let rateLimits: RateLimitInfo = {
@@ -129,13 +131,20 @@ export async function fetchAthleteActivities(
       url.searchParams.set('before', before.toString());
     }
 
+    console.log(`[fetchAthleteActivities] Page ${page}: Fetching URL: ${url.toString()}`);
+
     const response = await fetch(url.toString(), {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
 
+    console.log(`[fetchAthleteActivities] Page ${page}: Response status: ${response.status} ${response.statusText}`);
+
     if (!response.ok) {
+      console.error(`Failed to fetch activities: ${response.status} ${response.statusText}`);
+      const errorBody = await response.text();
+      console.error(`Error response body: ${errorBody}`);
       throw new Error(`Failed to fetch activities: ${response.statusText}`);
     }
 
@@ -149,8 +158,11 @@ export async function fetchAthleteActivities(
 
     const activities: StravaActivity[] = await response.json();
 
+    console.log(`[fetchAthleteActivities] Page ${page}: Received ${activities.length} activities`);
+
     // If no activities returned, we've reached the end
     if (activities.length === 0) {
+      console.log(`[fetchAthleteActivities] Page ${page}: No more activities, stopping pagination`);
       break;
     }
 
@@ -158,12 +170,14 @@ export async function fetchAthleteActivities(
 
     // If we got fewer than perPage activities, this is the last page
     if (activities.length < perPage) {
+      console.log(`[fetchAthleteActivities] Page ${page}: Last page reached (${activities.length} < ${perPage})`);
       break;
     }
 
     page++;
   }
 
+  console.log(`[fetchAthleteActivities] FINAL: Total activities fetched across all pages: ${allActivities.length}`);
   return { activities: allActivities, rateLimits };
 }
 

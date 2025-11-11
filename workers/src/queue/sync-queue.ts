@@ -33,17 +33,8 @@ export async function syncAthlete(
 ): Promise<void> {
   console.log(`Starting sync for athlete ${athleteStravaId} (initial: ${isInitialSync}, full: ${fullSync})`);
 
-  // Wrap entire sync in a timeout to prevent hanging
-  const timeoutMs = 25000; // 25 seconds - leave buffer before Cloudflare's 30s limit
-  const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('Sync timeout - operation took too long')), timeoutMs);
-  });
-
   try {
-    await Promise.race([
-      syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync),
-      timeoutPromise
-    ]);
+    await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync);
   } catch (error) {
     console.error(`Error syncing athlete ${athleteStravaId}:`, error);
 
@@ -62,7 +53,7 @@ export async function syncAthlete(
 }
 
 /**
- * Internal sync implementation (wrapped by timeout in syncAthlete)
+ * Internal sync implementation
  */
 async function syncAthleteInternal(
   athleteStravaId: number,
@@ -77,6 +68,16 @@ async function syncAthleteInternal(
       console.error(`Athlete ${athleteStravaId} not found in database`);
       throw new Error(`Athlete ${athleteStravaId} not found in database`);
     }
+
+    // Helper function to check if sync was cancelled
+    const isSyncCancelled = async (): Promise<boolean> => {
+      const status = await env.DB.prepare(
+        `SELECT sync_status FROM athletes WHERE id = ?`
+      )
+        .bind(athlete.id)
+        .first<{ sync_status: string }>();
+      return status?.sync_status !== 'in_progress';
+    };
 
     // For full sync, delete all existing races first for a true refresh
     if (fullSync) {
@@ -105,6 +106,12 @@ async function syncAthleteInternal(
         .run();
     }
 
+    // Check if sync was cancelled before we start
+    if (await isSyncCancelled()) {
+      console.log(`Sync cancelled for athlete ${athleteStravaId} before fetching activities`);
+      return;
+    }
+
     // Ensure valid access token
     const accessToken = await ensureValidToken(athlete, env);
 
@@ -122,19 +129,19 @@ async function syncAthleteInternal(
       afterTimestamp = Math.floor(startOfPreviousYear.getTime() / 1000);
 
       console.log(`Full sync requested - fetching activities from ${startOfPreviousYear.toISOString()}`);
+      console.log(`[DEBUG] About to call fetchAthleteActivities with after=${afterTimestamp}, perPage=200`);
 
-      // Fetch in batches to avoid timeouts - limit to 200 activities per request
+      // Fetch ALL activities with proper pagination (fetchAthleteActivities handles pagination internally)
       const { activities } = await fetchAthleteActivities(
         accessToken,
         afterTimestamp,
-        200  // Limit to 200 activities per request to avoid timeouts
+        undefined,  // no before timestamp
+        200  // perPage - fetch in pages of 200
       );
       allActivities = activities;
 
-      // If we hit the limit, log a warning but continue with what we have
-      if (activities.length === 200) {
-        console.warn(`Hit activity limit of 200 - may not have all activities. Consider running sync multiple times.`);
-      }
+      console.log(`[DEBUG] fetchAthleteActivities returned ${activities.length} activities`);
+      console.log(`Full sync fetched ${activities.length} total activities`);
     } else {
       afterTimestamp = athlete.last_synced_at
         ? athlete.last_synced_at
@@ -142,7 +149,9 @@ async function syncAthleteInternal(
 
       const { activities, rateLimits } = await fetchAthleteActivities(
         accessToken,
-        afterTimestamp
+        afterTimestamp,
+        undefined,
+        200
       );
       allActivities = activities;
     }
@@ -150,6 +159,12 @@ async function syncAthleteInternal(
     const activities = allActivities;
 
     console.log(`Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
+
+    // Check if sync was cancelled after fetching activities
+    if (await isSyncCancelled()) {
+      console.log(`Sync cancelled for athlete ${athleteStravaId} after fetching activities`);
+      return;
+    }
 
     // Filter for race activities
     const races = filterRaceActivities(activities);

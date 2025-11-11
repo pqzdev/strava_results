@@ -222,7 +222,24 @@ export async function triggerAthleteSync(
       );
     }
 
-    // Update status to in_progress
+    // Check if already syncing
+    const currentStatus = await env.DB.prepare(
+      'SELECT sync_status FROM athletes WHERE id = ?'
+    )
+      .bind(athleteId)
+      .first<{ sync_status: string }>();
+
+    // If already in_progress, cancel it by resetting to completed first
+    if (currentStatus?.sync_status === 'in_progress') {
+      console.log(`Athlete ${athlete.strava_id} already syncing - cancelling previous sync`);
+      await env.DB.prepare(
+        "UPDATE athletes SET sync_status = 'completed', sync_error = 'Cancelled by user' WHERE id = ?"
+      )
+        .bind(athleteId)
+        .run();
+    }
+
+    // Update status to in_progress for the new sync
     await env.DB.prepare(
       "UPDATE athletes SET sync_status = 'in_progress', sync_error = NULL WHERE id = ?"
     )

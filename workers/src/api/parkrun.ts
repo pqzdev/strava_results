@@ -14,6 +14,15 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
   const dateFrom = url.searchParams.get('date_from');
   const dateTo = url.searchParams.get('date_to');
 
+  // Get sorting parameters with validation
+  const sortBy = url.searchParams.get('sort_by') || 'date';
+  const sortDir = url.searchParams.get('sort_dir') || 'desc';
+
+  const allowedSortFields = ['date', 'event_name', 'athlete_name', 'position', 'time_seconds'];
+  const allowedSortDirs = ['asc', 'desc'];
+  const validSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'date';
+  const validSortDir = allowedSortDirs.includes(sortDir.toLowerCase()) ? sortDir.toUpperCase() : 'DESC';
+
   try {
     // Build query with filters - exclude hidden athletes
     let query = `
@@ -58,7 +67,7 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
       bindings.push(dateTo);
     }
 
-    query += ` ORDER BY date DESC, time_seconds ASC LIMIT ? OFFSET ?`;
+    query += ` ORDER BY ${validSortBy} ${validSortDir} LIMIT ? OFFSET ?`;
     bindings.push(limit, offset);
 
     const result = await env.DB.prepare(query).bind(...bindings).all();
@@ -146,6 +155,11 @@ export async function getParkrunStats(request: Request, env: Env): Promise<Respo
       'SELECT COUNT(DISTINCT event_name) as count FROM parkrun_results'
     ).first<{ count: number }>();
 
+    // Get date range (earliest and latest)
+    const dateRange = await env.DB.prepare(
+      'SELECT MIN(date) as earliest, MAX(date) as latest FROM parkrun_results'
+    ).first<{ earliest: string; latest: string }>();
+
     // Get fastest time
     const fastestTime = await env.DB.prepare(
       `SELECT athlete_name, event_name, time_string, date
@@ -176,6 +190,8 @@ export async function getParkrunStats(request: Request, env: Env): Promise<Respo
         totalResults: totalResults?.count || 0,
         uniqueAthletes: uniqueAthletes?.count || 0,
         uniqueEvents: uniqueEvents?.count || 0,
+        earliestDate: dateRange?.earliest,
+        latestDate: dateRange?.latest,
         fastestTime,
         mostRecentResult,
         mostActiveAthlete,

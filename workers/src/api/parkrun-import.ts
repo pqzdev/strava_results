@@ -44,25 +44,12 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
     let skipped = 0;
     let errors = 0;
     let deleted = 0;
-    let restored = 0;
 
-    // If replace mode, delete all existing parkrun data but preserve hidden athlete settings
+    // If replace mode, delete all existing parkrun data
     if (shouldReplace) {
-      // First, get list of hidden athletes
-      const hiddenAthletes = await env.DB.prepare(
-        'SELECT athlete_name FROM parkrun_results WHERE is_hidden = 1 GROUP BY athlete_name'
-      ).all();
-
       // Delete all results
       const deleteResult = await env.DB.prepare('DELETE FROM parkrun_results').run();
       deleted = deleteResult.meta.changes || 0;
-
-      // Store hidden athletes for restoration after import
-      if (hiddenAthletes.results && hiddenAthletes.results.length > 0) {
-        // We'll restore these after import completes
-        // For now, store them in a temporary variable accessible in the scope
-        (globalThis as any).__hiddenAthletes = hiddenAthletes.results.map((r: any) => r.athlete_name);
-      }
     }
 
     // Create sync log entry
@@ -130,21 +117,6 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
         }
       }
 
-      // Restore hidden athlete settings if we replaced data
-      if (shouldReplace && (globalThis as any).__hiddenAthletes) {
-        const hiddenAthletes = (globalThis as any).__hiddenAthletes;
-        for (const athleteName of hiddenAthletes) {
-          await env.DB.prepare(
-            'UPDATE parkrun_results SET is_hidden = 1 WHERE athlete_name = ?'
-          )
-            .bind(athleteName)
-            .run();
-          restored++;
-        }
-        // Clean up
-        delete (globalThis as any).__hiddenAthletes;
-      }
-
       // Update sync log
       const syncCompletedTime = Math.floor(Date.now() / 1000);
       await env.DB.prepare(
@@ -174,7 +146,6 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
           errors,
           total: rows.length,
           deleted: shouldReplace ? deleted : 0,
-          restored: shouldReplace ? restored : 0,
         }),
         {
           headers: {

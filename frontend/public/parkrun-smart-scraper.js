@@ -23,7 +23,7 @@
 
 (async function() {
   console.clear();
-  console.log('🏃 Parkrun Smart Scraper v2.0');
+  console.log('🏃 Parkrun Smart Scraper v3.0');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   // ========== CONFIGURATION ==========
@@ -34,7 +34,7 @@
     startDate: urlParams.get('startDate') || '2024-01-01', // Start of 2024
     endDate: urlParams.get('endDate') || new Date().toISOString().split('T')[0], // Today
     delayBetweenRequests: 2000, // 2 seconds (be respectful)
-    clubNameFilter: /woodstock/i, // Filter for this club
+    clubName: 'Woodstock Runners', // Exact club name to filter
     maxRetries: 2, // Retry failed requests
     includeSpecialDates: ['2024-12-25', '2025-01-01'], // Christmas and New Year parkruns
     apiEndpoint: urlParams.get('apiEndpoint') || '', // API endpoint to POST results
@@ -70,108 +70,109 @@
     return parser.parseFromString(html, 'text/html');
   }
 
+  /**
+   * Extract results from consolidated club HTML
+   * This page contains MULTIPLE events, each with:
+   * - <h2>Event Name parkrun</h2>
+   * - <p>Description with event link</p>
+   * - <table> with results (Position | Gender Position | parkrunner | Club | Time)
+   *
+   * Important: First male and first female are marked with <strong> tags
+   * and may be from other clubs. We ONLY want Woodstock Runners results.
+   */
   function extractResultsFromHTML(html, eventDate) {
     const doc = parseHTMLString(html);
+    const allResults = [];
 
-    const tables = doc.querySelectorAll('table');
-    let resultsTable = null;
+    // Find all H2 headers (each represents an event)
+    const eventHeaders = doc.querySelectorAll('h2');
 
-    // Find results table
-    for (const table of tables) {
-      const headers = table.querySelectorAll('th');
-      const headerText = Array.from(headers).map(h => h.textContent.trim().toLowerCase());
+    console.log(`  Found ${eventHeaders.length} event headers`);
 
-      if (headerText.some(h => h.includes('runner') || h.includes('time'))) {
-        resultsTable = table;
-        break;
-      }
-    }
+    for (const h2 of eventHeaders) {
+      // Get event name and clean it
+      const eventName = h2.textContent.trim().replace(/\s+parkrun$/i, '').trim();
 
-    // Extract event name from h2 header preceding the results table
-    let eventName = '';
-    if (resultsTable) {
-      // Find the closest h2 before this table
-      let currentElement = resultsTable.previousElementSibling;
-      while (currentElement) {
-        if (currentElement.tagName === 'H2') {
-          const text = currentElement.textContent.trim();
-          // Clean up the event name (remove "parkrun" suffix if present)
-          eventName = text.replace(/\s+parkrun$/i, '').trim();
-          break;
-        }
-        currentElement = currentElement.previousElementSibling;
-      }
-    }
-
-    console.log('  Event name from h2:', eventName);
-
-    if (!resultsTable) {
-      return [];
-    }
-
-    // Get headers
-    const headerRow = resultsTable.querySelector('thead tr') || resultsTable.querySelector('tr');
-    if (!headerRow) return [];
-
-    const headers = Array.from(headerRow.querySelectorAll('th, td')).map(h => h.textContent.trim());
-
-    console.log('  Table headers found:', headers);
-    console.log('  Total columns:', headers.length);
-
-    // Map column indices - note: no Date or Event columns in table
-    const colIndex = {
-      pos: headers.findIndex(h => /^position$/i.test(h)),
-      genderPos: headers.findIndex(h => /gender\s*position/i.test(h)),
-      runner: headers.findIndex(h => /parkrunner/i.test(h)),
-      club: headers.findIndex(h => /^club$/i.test(h)),
-      time: headers.findIndex(h => /^time$/i.test(h)),
-    };
-
-    console.log('  Column mapping:', colIndex);
-
-    // Validate critical columns
-    if (colIndex.runner < 0) {
-      console.warn('  ⚠️  Could not find runner column!');
-    }
-
-    // Extract rows
-    const tbody = resultsTable.querySelector('tbody') || resultsTable;
-    const rows = Array.from(tbody.querySelectorAll('tr')).slice(1); // Skip header
-
-    const results = [];
-    let sampleRowLogged = false;
-
-    for (const row of rows) {
-      const cells = Array.from(row.querySelectorAll('td'));
-      if (cells.length === 0) continue;
-
-      // Log first row for debugging
-      if (!sampleRowLogged && cells.length > 0) {
-        console.log('  Sample row data:', cells.map((c, i) => `[${i}] ${c.textContent.trim()}`).join(', '));
-        sampleRowLogged = true;
-      }
-
-      const club = colIndex.club >= 0 ? cells[colIndex.club]?.textContent.trim() : '';
-
-      // Filter by club
-      if (!club || !CONFIG.clubNameFilter.test(club)) {
+      // Skip if not an event name (like "Consolidated club report")
+      if (!eventName || eventName.toLowerCase().includes('consolidated') || eventName.toLowerCase().includes('report')) {
         continue;
       }
 
-      // Build result object with correct column mapping
-      const result = {
-        Date: eventDate,
-        Event: eventName,
-        Pos: colIndex.pos >= 0 ? cells[colIndex.pos]?.textContent.trim() : '',
-        parkrunner: colIndex.runner >= 0 ? cells[colIndex.runner]?.textContent.trim() : '',
-        Time: colIndex.time >= 0 ? cells[colIndex.time]?.textContent.trim() : '',
-        'Gender Pos': colIndex.genderPos >= 0 ? cells[colIndex.genderPos]?.textContent.trim() : '',
-      };
+      // Find the next table after this h2
+      let currentElement = h2.nextElementSibling;
+      let resultsTable = null;
 
-      results.push(result);
+      while (currentElement) {
+        if (currentElement.tagName === 'TABLE') {
+          resultsTable = currentElement;
+          break;
+        }
+        if (currentElement.tagName === 'H2') {
+          // Reached next event, stop looking
+          break;
+        }
+        currentElement = currentElement.nextElementSibling;
+      }
+
+      if (!resultsTable) {
+        console.log(`  ⚠️  No table found for ${eventName}`);
+        continue;
+      }
+
+      console.log(`  Processing event: ${eventName}`);
+
+      // Get all rows from the table body
+      const tbody = resultsTable.querySelector('tbody') || resultsTable;
+      const rows = Array.from(tbody.querySelectorAll('tr')).slice(1); // Skip header row
+
+      let clubMembersFound = 0;
+
+      for (const row of rows) {
+        const cells = Array.from(row.querySelectorAll('td'));
+        if (cells.length < 5) continue; // Need at least 5 columns
+
+        // Column structure: [0] Position | [1] Gender Position | [2] parkrunner | [3] Club | [4] Time
+        const position = cells[0]?.textContent.trim() || '';
+        const genderPosition = cells[1]?.textContent.trim() || '';
+        const runnerName = cells[2]?.textContent.trim() || '';
+        const club = cells[3]?.textContent.trim() || '';
+        const time = cells[4]?.textContent.trim() || '';
+
+        // Check if this is a first finisher (wrapped in <strong> tags)
+        const isFirstFinisher = row.querySelector('strong') !== null;
+
+        // CRITICAL: Only include Woodstock Runners members
+        // Skip first finishers who are NOT Woodstock Runners
+        // Include first finishers who ARE Woodstock Runners
+        if (!club.includes(CONFIG.clubName)) {
+          // Not a Woodstock Runner - skip them
+          continue;
+        }
+
+        // If we get here, they ARE a Woodstock Runner
+        // Include them even if they're a first finisher
+
+        clubMembersFound++;
+
+        // Build result object
+        const result = {
+          Date: eventDate,
+          Event: eventName,
+          Pos: position,
+          parkrunner: runnerName,
+          Time: time,
+          'Gender Pos': genderPosition,
+        };
+
+        allResults.push(result);
+      }
+
+      if (clubMembersFound > 0) {
+        console.log(`    ✓ Found ${clubMembersFound} Woodstock Runners results`);
+      }
     }
 
-    return results;
+    return allResults;
   }
 
   async function fetchDateResults(eventDate, retryCount = 0) {
@@ -197,195 +198,186 @@
       return { success: true, results, date: eventDate };
 
     } catch (error) {
+      console.error(`  ❌ Error: ${error.message}`);
+
       if (retryCount < CONFIG.maxRetries) {
-        console.warn(`  ⚠️  Retry ${retryCount + 1}/${CONFIG.maxRetries} for ${eventDate}...`);
-        await sleep(CONFIG.delayBetweenRequests * 2); // Longer delay for retry
+        console.log(`  🔄 Retrying (${retryCount + 1}/${CONFIG.maxRetries})...`);
+        await sleep(CONFIG.delayBetweenRequests);
         return fetchDateResults(eventDate, retryCount + 1);
       }
 
-      console.error(`  ❌ Failed ${eventDate}: ${error.message}`);
       return { success: false, results: [], date: eventDate, error: error.message };
     }
   }
 
-  function generateCSV(results) {
-    if (results.length === 0) return '';
+  function convertToCSV(allResults) {
+    if (allResults.length === 0) {
+      return 'No results found';
+    }
 
-    // Get all unique keys from results (dynamic headers)
-    const allKeys = new Set();
-    results.forEach(result => {
-      Object.keys(result).forEach(key => allKeys.add(key));
-    });
+    const headers = Object.keys(allResults[0]);
+    const csvRows = [headers.join(',')];
 
-    // Order headers: Date, Event, Pos, parkrunner, Time, then others
-    const priorityHeaders = ['Date', 'Event', 'Pos', 'parkrunner', 'Time'];
-    const otherHeaders = Array.from(allKeys).filter(h => !priorityHeaders.includes(h)).sort();
-    const csvHeaders = [...priorityHeaders.filter(h => allKeys.has(h)), ...otherHeaders];
-
-    const csvRows = [csvHeaders.join(',')];
-
-    results.forEach(result => {
-      const row = csvHeaders.map(header => {
-        const value = result[header] || '';
-        // Escape commas, quotes, and newlines
+    for (const result of allResults) {
+      const row = headers.map(h => {
+        const value = result[h] || '';
+        // Escape commas and quotes
         if (value.includes(',') || value.includes('"') || value.includes('\n')) {
           return `"${value.replace(/"/g, '""')}"`;
         }
         return value;
       });
       csvRows.push(row.join(','));
-    });
+    }
 
     return csvRows.join('\n');
   }
 
+  async function uploadToAPI(csvData) {
+    if (!CONFIG.apiEndpoint) {
+      console.log('\n⚠️  No API endpoint configured, skipping upload');
+      return false;
+    }
+
+    console.log(`\n📤 Uploading to ${CONFIG.apiEndpoint}...`);
+
+    try {
+      // Create a File object from CSV data
+      const blob = new Blob([csvData], { type: 'text/csv' });
+      const file = new File([blob], 'parkrun-results.csv', { type: 'text/csv' });
+
+      // Create FormData
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(CONFIG.apiEndpoint, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        // Try to get error details from response body
+        let errorDetails = '';
+        try {
+          const errorData = await response.json();
+          errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
+        } catch {
+          errorDetails = await response.text();
+        }
+        throw new Error(`Upload failed (${response.status}): ${errorDetails}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ UPLOAD SUCCESSFUL!');
+      console.log('   Response:', result);
+      return true;
+
+    } catch (error) {
+      console.error('❌ Upload failed:', error.message);
+      console.log('   CSV data is still available in console (see above)');
+      return false;
+    }
+  }
+
   // ========== MAIN EXECUTION ==========
 
+  console.log('Configuration:');
+  console.log(`  Club: ${CONFIG.clubName} (#${CONFIG.clubNum})`);
+  console.log(`  Date range: ${CONFIG.startDate} to ${CONFIG.endDate}`);
+  console.log(`  Delay: ${CONFIG.delayBetweenRequests}ms between requests`);
+  console.log(`  API endpoint: ${CONFIG.apiEndpoint || 'None (manual copy)'}`);
+  console.log(`  Auto-upload: ${CONFIG.autoUpload ? 'Yes' : 'No'}`);
+  console.log('');
+
+  // Get all dates to scrape
   const saturdays = getSaturdaysInRange(CONFIG.startDate, CONFIG.endDate);
+  const specialDates = CONFIG.includeSpecialDates.filter(d => {
+    const date = new Date(d);
+    const start = new Date(CONFIG.startDate);
+    const end = new Date(CONFIG.endDate);
+    return date >= start && date <= end;
+  });
 
-  // Add special dates (Christmas, New Year) and remove duplicates
-  const allDates = [...new Set([...saturdays, ...CONFIG.includeSpecialDates])].sort();
+  const allDates = [...new Set([...saturdays, ...specialDates])].sort();
 
-  console.log(`📅 Date Range: ${CONFIG.startDate} to ${CONFIG.endDate}`);
-  console.log(`📊 Found ${saturdays.length} Saturdays`);
-  console.log(`🎄 Plus ${CONFIG.includeSpecialDates.length} special dates (Christmas, New Year)`);
-  console.log(`📆 Total dates to process: ${allDates.length}`);
-  console.log(`⏱️  Estimated time: ~${Math.round(allDates.length * CONFIG.delayBetweenRequests / 1000 / 60)} minutes`);
-  console.log(`🏃 Club: ${CONFIG.clubNum}\n`);
+  console.log(`📅 Dates to scrape: ${allDates.length} days`);
+  console.log('');
 
+  // Fetch all dates
   const allResults = [];
-  const stats = {
-    total: allDates.length,
-    processed: 0,
-    successful: 0,
-    failed: 0,
-    totalResults: 0
-  };
+  let successCount = 0;
+  let failCount = 0;
 
-  const startTime = Date.now();
-
-  // Process each date
   for (let i = 0; i < allDates.length; i++) {
     const date = allDates[i];
     const progress = Math.round((i / allDates.length) * 100);
 
     console.log(`[${i + 1}/${allDates.length}] ${progress}% - ${date}`);
 
-    const result = await fetchDateResults(date);
+    const { success, results } = await fetchDateResults(date);
 
-    stats.processed++;
-    if (result.success) {
-      stats.successful++;
-      stats.totalResults += result.results.length;
-      allResults.push(...result.results);
-      console.log(`  ✓ Found ${result.results.length} results`);
+    if (success) {
+      successCount++;
+      allResults.push(...results);
+      console.log(`  ✓ Found ${results.length} results`);
     } else {
-      stats.failed++;
-      console.log(`  ❌ Failed: ${result.error}`);
+      failCount++;
     }
 
-    // Delay before next request (except for last one)
+    // Add delay between requests (except on last one)
     if (i < allDates.length - 1) {
       await sleep(CONFIG.delayBetweenRequests);
     }
   }
 
-  const elapsedSeconds = Math.round((Date.now() - startTime) / 1000);
-
   // ========== RESULTS ==========
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('✅ SCRAPING COMPLETE!\n');
+  console.log('✅ SCRAPING COMPLETE');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   console.log(`📊 Statistics:`);
-  console.log(`   • Dates processed: ${stats.processed}/${stats.total}`);
-  console.log(`   • Successful: ${stats.successful}`);
-  console.log(`   • Failed: ${stats.failed}`);
-  console.log(`   • Total results: ${stats.totalResults}`);
-  console.log(`   • Time taken: ${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s`);
-  console.log(`   • Average: ${(stats.totalResults / stats.successful).toFixed(1)} results per date\n`);
+  console.log(`   Dates processed: ${allDates.length}`);
+  console.log(`   Successful: ${successCount}`);
+  console.log(`   Failed: ${failCount}`);
+  console.log(`   Total results: ${allResults.length}`);
+  console.log('');
 
   if (allResults.length === 0) {
-    console.warn('⚠️  No results found. Check your date range and club number.');
+    console.log('⚠️  No results found. Check:');
+    console.log('   - Club number is correct (19959 for Woodstock Runners)');
+    console.log('   - Date range includes Saturdays');
+    console.log('   - Members have registered their club with parkrun');
     return;
   }
 
-  // Generate CSV
-  const csv = generateCSV(allResults);
+  // Convert to CSV
+  const csvData = convertToCSV(allResults);
 
-  // ========== UPLOAD TO API ==========
-
+  // Auto-upload if configured
   if (CONFIG.autoUpload && CONFIG.apiEndpoint) {
-    console.log('\n📤 Uploading to API...');
-
-    try {
-      const formData = new FormData();
-      const blob = new Blob([csv], { type: 'text/csv' });
-      formData.append('file', blob, 'parkrun-results.csv');
-
-      const response = await fetch(CONFIG.apiEndpoint, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      console.log('\n✅ UPLOAD SUCCESSFUL!\n');
-      console.log(`📊 Upload Results:`);
-      if (result.deleted > 0) {
-        console.log(`   • Deleted existing: ${result.deleted}`);
-      }
-      console.log(`   • Total rows: ${result.total}`);
-      console.log(`   • Imported: ${result.imported}`);
-      console.log(`   • Skipped (duplicates): ${result.skipped}`);
-      console.log(`   • Errors: ${result.errors}`);
-      if (result.restored > 0) {
-        console.log(`   • Restored hidden athletes: ${result.restored}`);
-      }
-      console.log('\n✓ Data has been automatically uploaded to your dashboard!');
-      console.log('You can close this tab now.');
-
-    } catch (err) {
-      console.error('\n❌ Upload failed:', err.message);
-      console.log('\n⚠️  Falling back to manual download...');
-
-      // Show CSV for manual download
-      console.log('\n=== CSV OUTPUT (Copy everything below) ===\n');
-      console.log(csv);
-      console.log('\n=== END CSV OUTPUT ===\n');
+    const uploadSuccess = await uploadToAPI(csvData);
+    if (uploadSuccess) {
+      console.log('\n🎉 All done! Data uploaded successfully.');
+      return;
     }
-  } else {
-    // No auto-upload - show CSV output
-    console.log('=== CSV OUTPUT (Copy everything below) ===\n');
-    console.log(csv);
-    console.log('\n=== END CSV OUTPUT ===\n');
-
-    // Copy to clipboard
-    if (navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(csv);
-        console.log('✓ CSV copied to clipboard!');
-      } catch (err) {
-        console.log('⚠️  Could not auto-copy to clipboard. Please copy manually.');
-      }
-    }
-
-    console.log('\n📝 Next Steps:');
-    console.log('1. CSV data is shown above (and copied to clipboard)');
-    console.log('2. Save as parkrun-results.csv');
-    console.log('3. Upload to your parkrun dashboard');
+    console.log('\n⚠️  Upload failed, showing CSV for manual copy...\n');
   }
 
-  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  // Show CSV for manual copy
+  console.log('📋 CSV OUTPUT:');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(csvData);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('\n💡 TIP: Click anywhere in the CSV above, press Ctrl+A (or Cmd+A), then Ctrl+C (or Cmd+C) to copy');
 
-  // Return data for programmatic access
-  return {
-    stats,
-    results: allResults,
-    csv
-  };
+  // Also copy to clipboard if possible
+  if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(csvData);
+      console.log('✅ CSV copied to clipboard!');
+    } catch (e) {
+      console.log('⚠️  Could not auto-copy to clipboard (please copy manually)');
+    }
+  }
 
 })();

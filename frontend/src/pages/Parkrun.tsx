@@ -23,10 +23,15 @@ interface Filters {
   dateTo: string;
 }
 
+type SortField = 'date' | 'event_name' | 'athlete_name' | 'position' | 'time_seconds';
+type SortDirection = 'asc' | 'desc';
+
 interface ParkrunStats {
   totalResults: number;
   uniqueAthletes: number;
   uniqueEvents: number;
+  earliestDate?: string;
+  latestDate?: string;
   fastestTime?: {
     athlete_name: string;
     event_name: string;
@@ -56,11 +61,13 @@ export default function Parkrun() {
     dateTo: '',
   });
   const [pagination, setPagination] = useState({ total: 0, limit: 50, offset: 0 });
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   useEffect(() => {
     fetchResults();
     fetchStats();
-  }, [filters, pagination.offset]);
+  }, [filters, pagination.offset, sortField, sortDirection]);
 
   async function fetchResults() {
     setLoading(true);
@@ -74,14 +81,22 @@ export default function Parkrun() {
       if (filters.event) params.append('event', filters.event);
       if (filters.dateFrom) params.append('date_from', filters.dateFrom);
       if (filters.dateTo) params.append('date_to', filters.dateTo);
+      params.append('sort_by', sortField);
+      params.append('sort_dir', sortDirection);
 
       const response = await fetch(`/api/parkrun?${params}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
       const data = await response.json();
 
       setResults(data.results || []);
-      setPagination(prev => ({ ...prev, total: data.pagination.total }));
+      setPagination(prev => ({ ...prev, total: data.pagination?.total || 0 }));
     } catch (error) {
       console.error('Error fetching parkrun results:', error);
+      // Don't clear results on error - keep showing previous data
+      setResults([]);
+      setPagination(prev => ({ ...prev, total: 0 }));
     } finally {
       setLoading(false);
     }
@@ -124,6 +139,29 @@ export default function Parkrun() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}/km`;
   }
 
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      // Toggle direction if clicking same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field - set default direction based on field type
+      setSortField(field);
+      if (field === 'date') {
+        setSortDirection('desc'); // Newest first
+      } else if (field === 'time_seconds' || field === 'position') {
+        setSortDirection('asc'); // Fastest/best first
+      } else {
+        setSortDirection('asc'); // Alphabetical
+      }
+    }
+    setPagination(prev => ({ ...prev, offset: 0 })); // Reset to first page
+  }
+
+  function getSortIcon(field: SortField): string {
+    if (sortField !== field) return '↕️';
+    return sortDirection === 'asc' ? '↑' : '↓';
+  }
+
   return (
     <div className="parkrun-page">
       <div className="parkrun-header">
@@ -163,18 +201,37 @@ export default function Parkrun() {
           onChange={e => handleFilterChange({ event: e.target.value })}
           className="filter-input"
         />
-        <input
-          type="date"
-          value={filters.dateFrom}
-          onChange={e => handleFilterChange({ dateFrom: e.target.value })}
-          className="filter-input"
-        />
-        <input
-          type="date"
-          value={filters.dateTo}
-          onChange={e => handleFilterChange({ dateTo: e.target.value })}
-          className="filter-input"
-        />
+        {stats?.earliestDate && stats?.latestDate && (
+          <div className="date-range-filter">
+            <label>
+              Date range: {filters.dateFrom || stats.earliestDate} to {filters.dateTo || stats.latestDate}
+            </label>
+            <div className="date-range-inputs">
+              <input
+                type="range"
+                min={new Date(stats.earliestDate).getTime()}
+                max={new Date(stats.latestDate).getTime()}
+                value={filters.dateFrom ? new Date(filters.dateFrom).getTime() : new Date(stats.earliestDate).getTime()}
+                onChange={e => {
+                  const date = new Date(parseInt(e.target.value));
+                  handleFilterChange({ dateFrom: date.toISOString().split('T')[0] });
+                }}
+                className="date-slider"
+              />
+              <input
+                type="range"
+                min={new Date(stats.earliestDate).getTime()}
+                max={new Date(stats.latestDate).getTime()}
+                value={filters.dateTo ? new Date(filters.dateTo).getTime() : new Date(stats.latestDate).getTime()}
+                onChange={e => {
+                  const date = new Date(parseInt(e.target.value));
+                  handleFilterChange({ dateTo: date.toISOString().split('T')[0] });
+                }}
+                className="date-slider"
+              />
+            </div>
+          </div>
+        )}
         <button
           onClick={() =>
             handleFilterChange({ athlete: '', event: '', dateFrom: '', dateTo: '' })
@@ -201,11 +258,21 @@ export default function Parkrun() {
             <table className="results-table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Event</th>
-                  <th>Athlete</th>
-                  <th>Position</th>
-                  <th>Time</th>
+                  <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
+                    Date {getSortIcon('date')}
+                  </th>
+                  <th onClick={() => handleSort('event_name')} style={{ cursor: 'pointer' }}>
+                    Event {getSortIcon('event_name')}
+                  </th>
+                  <th onClick={() => handleSort('athlete_name')} style={{ cursor: 'pointer' }}>
+                    Athlete {getSortIcon('athlete_name')}
+                  </th>
+                  <th onClick={() => handleSort('position')} style={{ cursor: 'pointer' }}>
+                    Position {getSortIcon('position')}
+                  </th>
+                  <th onClick={() => handleSort('time_seconds')} style={{ cursor: 'pointer' }}>
+                    Time {getSortIcon('time_seconds')}
+                  </th>
                   <th>Pace</th>
                 </tr>
               </thead>
@@ -215,7 +282,9 @@ export default function Parkrun() {
                     <td>{new Date(result.date).toLocaleDateString()}</td>
                     <td>
                       <div className="event-name">{result.event_name}</div>
-                      <div className="event-number">Event #{result.event_number}</div>
+                      {result.event_number > 0 && (
+                        <div className="event-number">Event #{result.event_number}</div>
+                      )}
                     </td>
                     <td className="athlete-name">{result.athlete_name}</td>
                     <td className="position">{result.position}</td>
