@@ -187,6 +187,16 @@ export default function Parkrun() {
       <div className="parkrun-header">
         <h1>Parkrun Results</h1>
         <p className="subtitle">Woodstock Running Club (Club #19959)</p>
+        <p className="group-info">
+          Join or leave the Woodstock Runners parkrun group{' '}
+          <a
+            href="https://www.parkrun.com/profile/groups#q=Woodstock%20Runners&id=19959"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            here
+          </a>
+        </p>
       </div>
 
       {stats && (

@@ -97,10 +97,10 @@ export default function ParkrunChart({ filters, onDateClick }: ParkrunChartProps
     <div className="parkrun-chart-container">
       <h3 className="chart-title">Parkrun Activity Over Time</h3>
       <p className="chart-subtitle">Click any bar to filter by date</p>
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={250}>
         <BarChart
           data={data}
-          margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
+          margin={{ top: 20, right: 10, left: 0, bottom: 20 }}
           onMouseLeave={() => setHoveredIndex(null)}
         >
           <XAxis
@@ -119,7 +119,11 @@ export default function ParkrunChart({ filters, onDateClick }: ParkrunChartProps
             tick={{ fontSize: 11 }}
             label={{ value: 'Runs', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(102, 126, 234, 0.1)' }} />
+          <Tooltip
+            content={<CustomTooltip />}
+            cursor={{ fill: 'rgba(102, 126, 234, 0.1)' }}
+            isAnimationActive={false}
+          />
           <Bar
             dataKey="run_count"
             fill="#667eea"
