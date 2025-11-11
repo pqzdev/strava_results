@@ -40,6 +40,7 @@
     includeSpecialDates: ['2024-12-25', '2025-01-01'], // Christmas and New Year parkruns
     apiEndpoint: urlParams.get('apiEndpoint') || '', // API endpoint to POST results
     autoUpload: urlParams.get('autoUpload') === 'true', // Auto-upload to API
+    replaceMode: urlParams.get('replaceMode') === 'true', // Replace all existing data on first upload
   };
 
   // ========== HELPER FUNCTIONS ==========
@@ -144,28 +145,22 @@
 
       for (const row of rows) {
         const cells = Array.from(row.querySelectorAll('td'));
-        if (cells.length < 5) continue; // Need at least 5 columns
+        if (cells.length < 5) continue; // Need exactly 5 columns: Pos | Gender Pos | Name | Club | Time
 
-        // Column structure: [0] Position | [1] Gender Position | [2] parkrunner | [3] Club | [4] Time
+        // Column structure: [0] Overall Position | [1] Gender Position | [2] Name | [3] Club | [4] Time
         const position = cells[0]?.textContent.trim() || '';
         const genderPosition = cells[1]?.textContent.trim() || '';
         const runnerName = cells[2]?.textContent.trim() || '';
         const club = cells[3]?.textContent.trim() || '';
         const time = cells[4]?.textContent.trim() || '';
 
-        // Check if this is a first finisher (wrapped in <strong> tags)
-        const isFirstFinisher = row.querySelector('strong') !== null;
+        // Skip if we don't have essential data
+        if (!runnerName || !time) continue;
 
         // CRITICAL: Only include Woodstock Runners members
-        // Skip first finishers who are NOT Woodstock Runners
-        // Include first finishers who ARE Woodstock Runners
         if (!club.includes(CONFIG.clubName)) {
-          // Not a Woodstock Runner - skip them
           continue;
         }
-
-        // If we get here, they ARE a Woodstock Runner
-        // Include them even if they're a first finisher
 
         clubMembersFound++;
 
@@ -199,6 +194,7 @@
     const url = `https://www.parkrun.com/results/consolidatedclub/?clubNum=${CONFIG.clubNum}&eventdate=${eventDate}`;
 
     try {
+      console.log(`  🌐 Fetching URL: ${url}`);
       const response = await fetch(url, {
         method: 'GET',
         credentials: 'include', // Important: includes cookies
@@ -213,27 +209,45 @@
       }
 
       const html = await response.text();
+      console.log(`  📄 Received HTML: ${html.length} bytes`);
+
+      // Check if we got valid parkrun HTML
+      if (!html.includes('parkrun') && !html.includes('consolidatedclub')) {
+        console.warn(`  ⚠️  Response doesn't look like parkrun HTML (might be error page)`);
+        console.log(`  📝 First 500 chars: ${html.substring(0, 500)}`);
+      }
+
       const results = extractResultsFromHTML(html, eventDate);
+      console.log(`  📊 Extracted ${results.length} results from HTML`);
 
       if (results.length === 0) {
         consecutiveEmptyResults++;
 
+        // Log some diagnostic info
+        const hasTable = html.includes('<table');
+        const hasRows = html.includes('<tr');
+        const hasClubName = html.includes(CONFIG.clubName);
+        console.log(`  🔍 Diagnostics: table=${hasTable}, rows=${hasRows}, club="${CONFIG.clubName}"=${hasClubName}`);
+
         // Check if we've exhausted all Fibonacci waits
         if (consecutiveEmptyResults > fibonacciWaits.length) {
           console.log(`  ℹ️  No results after ${fibonacciWaits.length} retries, moving on`);
+          console.log(`  💡 This might mean: no parkruns on ${eventDate}, or club members didn't register their club`);
           return { success: true, results: [], date: eventDate };
         }
 
         // Apply Fibonacci backoff
         const waitSeconds = fibonacciWaits[consecutiveEmptyResults - 1];
-        console.log(`  ⏳ 0 results, waiting ${waitSeconds}s before retry (attempt ${consecutiveEmptyResults}/${fibonacciWaits.length})`);
+        console.log(`  ⏳ 0 results, waiting ${waitSeconds}s before fetching fresh HTML (attempt ${consecutiveEmptyResults}/${fibonacciWaits.length})`);
         await sleep(waitSeconds * 1000);
 
-        // Retry with incremented counter
+        // Retry with a fresh fetch (new request to server)
+        console.log(`  🔄 Retrying with fresh fetch...`);
         return fetchDateResults(eventDate, fibonacciWaits, consecutiveEmptyResults);
       }
 
       // Success - found results
+      console.log(`  ✅ Successfully extracted ${results.length} ${CONFIG.clubName} results`);
       return { success: true, results, date: eventDate };
 
     } catch (error) {
@@ -265,13 +279,18 @@
     return csvRows.join('\n');
   }
 
-  async function uploadToAPI(csvData) {
+  async function uploadToAPI(csvData, shouldReplace = false) {
     if (!CONFIG.apiEndpoint) {
       console.log('\n⚠️  No API endpoint configured, skipping upload');
       return false;
     }
 
-    console.log(`\n📤 Uploading to ${CONFIG.apiEndpoint}...`);
+    // Add replace parameter to URL if needed
+    const uploadUrl = shouldReplace
+      ? `${CONFIG.apiEndpoint}?replace=true`
+      : CONFIG.apiEndpoint;
+
+    console.log(`\n📤 Uploading to ${uploadUrl}...`);
 
     try {
       // Create a File object from CSV data
@@ -282,7 +301,7 @@
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(CONFIG.apiEndpoint, {
+      const response = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
       });
@@ -321,6 +340,7 @@
   console.log(`  Batch upload: every ${CONFIG.batchSize} dates`);
   console.log(`  API endpoint: ${CONFIG.apiEndpoint || 'None (manual copy)'}`);
   console.log(`  Auto-upload: ${CONFIG.autoUpload ? 'Yes' : 'No'}`);
+  console.log(`  Replace mode: ${CONFIG.replaceMode ? 'Yes (first batch only)' : 'No'}`);
   console.log('');
 
   // Get all dates to scrape (Saturdays + special dates like Christmas/New Year)
@@ -352,6 +372,7 @@
   let failCount = 0;
   let totalUploaded = 0;
   let datesProcessed = 0;
+  let isFirstBatch = true; // Track if this is the first batch for replace mode
 
   for (let i = 0; i < allDates.length; i++) {
     const date = allDates[i];
@@ -374,16 +395,24 @@
     // Upload batch every BATCH_SIZE dates (if auto-upload enabled and API configured)
     if (CONFIG.autoUpload && CONFIG.apiEndpoint && datesProcessed % CONFIG.batchSize === 0 && allResults.length > totalUploaded) {
       const batchResults = allResults.slice(totalUploaded);
-      console.log(`\n📤 Uploading batch of ${batchResults.length} results (dates ${datesProcessed - CONFIG.batchSize + 1}-${datesProcessed})...`);
+      const batchNum = Math.ceil(datesProcessed / CONFIG.batchSize);
+      console.log(`\n📤 Uploading batch ${batchNum} of ${batchResults.length} results (dates ${datesProcessed - CONFIG.batchSize + 1}-${datesProcessed})...`);
+
+      // Only use replace mode for the first batch
+      const shouldReplace = CONFIG.replaceMode && isFirstBatch;
+      if (shouldReplace) {
+        console.log('   ⚠️  Replace mode: This will delete ALL existing parkrun data first');
+      }
 
       const csvData = convertToCSV(batchResults);
-      const uploadSuccess = await uploadToAPI(csvData);
+      const uploadSuccess = await uploadToAPI(csvData, shouldReplace);
 
       if (uploadSuccess) {
         totalUploaded = allResults.length;
-        console.log(`✅ Batch uploaded! Total uploaded so far: ${totalUploaded} results\n`);
+        isFirstBatch = false; // After first successful upload, disable replace mode
+        console.log(`✅ Batch ${batchNum} uploaded! Total uploaded so far: ${totalUploaded} results\n`);
       } else {
-        console.log(`⚠️  Batch upload failed, will include in final upload\n`);
+        console.log(`⚠️  Batch ${batchNum} upload failed, will include in final upload\n`);
       }
     }
 
@@ -425,8 +454,14 @@
     const remainingResults = allResults.slice(totalUploaded);
     console.log(`\n📤 Uploading final batch of ${remainingResults.length} results...`);
 
+    // Only use replace mode for the first batch (if no batches were uploaded yet)
+    const shouldReplace = CONFIG.replaceMode && isFirstBatch;
+    if (shouldReplace) {
+      console.log('   ⚠️  Replace mode: This will delete ALL existing parkrun data first');
+    }
+
     const remainingCSV = convertToCSV(remainingResults);
-    const uploadSuccess = await uploadToAPI(remainingCSV);
+    const uploadSuccess = await uploadToAPI(remainingCSV, shouldReplace);
 
     if (uploadSuccess) {
       totalUploaded = allResults.length;

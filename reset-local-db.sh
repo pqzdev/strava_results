@@ -46,7 +46,7 @@ echo ""
 echo "Step 3: Applying all migrations..."
 echo "---------------------------------------"
 
-npx wrangler d1 migrations apply strava-club-db --local --yes
+npx wrangler d1 migrations apply strava-club-db --local
 
 echo ""
 echo "======================================"

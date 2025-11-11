@@ -89,7 +89,7 @@ echo "---------------------------------------"
 if [ "$1" == "--remote" ]; then
     npx wrangler d1 migrations apply strava-club-db
 else
-    npx wrangler d1 migrations apply strava-club-db --local --yes
+    npx wrangler d1 migrations apply strava-club-db --local
 fi
 
 echo ""
