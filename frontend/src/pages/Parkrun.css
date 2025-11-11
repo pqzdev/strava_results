@@ -19,6 +19,22 @@
   color: #666;
 }
 
+.parkrun-header .group-info {
+  font-size: 0.95rem;
+  color: #666;
+  margin-top: 0.75rem;
+}
+
+.parkrun-header .group-info a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.parkrun-header .group-info a:hover {
+  text-decoration: underline;
+}
+
 .import-section {
   margin-top: 2rem;
   padding: 1.5rem;
