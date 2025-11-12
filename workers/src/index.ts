@@ -8,6 +8,13 @@ import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, sto
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis } from './api/events';
+import {
+  processNextQueuedJob,
+  createSyncJob,
+  queueAllAthletes,
+  getQueueStats,
+  cleanupOldJobs,
+} from './queue/queue-processor';
 
 export default {
   /**
@@ -164,6 +171,56 @@ export default {
         return triggerEventAnalysis(request, env, ctx);
       }
 
+      // Queue management API routes
+      // Get queue statistics
+      if (path === '/api/queue/stats' && request.method === 'GET') {
+        const stats = await getQueueStats(env);
+        return new Response(JSON.stringify(stats), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+
+      // Queue all athletes for sync
+      if (path === '/api/queue/all' && request.method === 'POST') {
+        const body = await request.json() as { jobType?: 'full_sync' | 'incremental_sync'; priority?: number };
+        const jobIds = await queueAllAthletes(env, body.jobType || 'full_sync', body.priority || 0);
+        return new Response(JSON.stringify({
+          message: `Queued ${jobIds.length} athletes`,
+          jobIds,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+
+      // Queue specific athlete for sync
+      const queueAthleteMatch = path.match(/^\/api\/queue\/athletes\/(\d+)$/);
+      if (queueAthleteMatch && request.method === 'POST') {
+        const athleteId = parseInt(queueAthleteMatch[1]);
+        const body = await request.json() as { jobType?: 'full_sync' | 'incremental_sync'; priority?: number };
+        const jobId = await createSyncJob(env, athleteId, body.jobType || 'full_sync', body.priority || 0);
+        return new Response(JSON.stringify({
+          message: `Queued athlete ${athleteId}`,
+          jobId,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+
+      // Clean up old jobs
+      if (path === '/api/queue/cleanup' && request.method === 'POST') {
+        const deleted = await cleanupOldJobs(env);
+        return new Response(JSON.stringify({
+          message: `Cleaned up ${deleted} old jobs`,
+          deleted,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+
       // Health check
       if (path === '/health') {
         return new Response(JSON.stringify({ status: 'healthy' }), {
@@ -194,18 +251,36 @@ export default {
 
   /**
    * Handle scheduled cron triggers
-   * Note: Only Strava sync runs on schedule. Parkrun data must be collected manually
-   * using the browser console scraper (parkrun-smart-scraper.js) due to anti-scraping measures.
+   * Two cron schedules:
+   * 1. Weekly (Monday 2 AM UTC) - Queue all athletes for sync
+   * 2. Every 2 minutes - Process next pending sync job from queue
    */
-  async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
-    console.log('Cron trigger fired:', new Date(event.scheduledTime).toISOString());
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    console.log('Cron trigger fired:', event.cron, new Date(event.scheduledTime).toISOString());
 
     try {
-      // Sync Strava activities from all connected athletes
-      await syncAllAthletes(env);
+      // Determine which cron triggered this
+      if (event.cron === '0 2 * * 1') {
+        // Weekly full sync: Queue all athletes
+        console.log('Weekly cron: Queueing all athletes for full sync...');
+        const jobIds = await queueAllAthletes(env, 'full_sync', 0);
+        console.log(`Queued ${jobIds.length} athletes for full sync`);
+
+        // Also clean up old completed jobs
+        const deleted = await cleanupOldJobs(env);
+        console.log(`Cleaned up ${deleted} old queue jobs`);
+
+      } else if (event.cron === '*/2 * * * *') {
+        // Queue processor: Process next pending job
+        console.log('Queue processor cron: Processing next pending job...');
+        await processNextQueuedJob(env, ctx);
+
+      } else {
+        console.warn('Unknown cron schedule:', event.cron);
+      }
     } catch (error) {
-      console.error('Scheduled sync failed:', error);
-      // Error is already logged in sync function
+      console.error('Scheduled job failed:', error);
+      // Error is already logged in the respective functions
     }
   },
 };
