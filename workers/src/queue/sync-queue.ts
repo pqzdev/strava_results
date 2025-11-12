@@ -12,6 +12,7 @@ import {
   fetchAthleteActivities,
   filterRaceActivities,
 } from '../utils/strava';
+import { logSyncProgress } from '../utils/sync-logger';
 
 interface SyncMessage {
   athleteStravaId: number;
@@ -43,14 +44,41 @@ export async function syncAthlete(
     let currentTimestamp = continuationTimestamp;
     let batchNumber = 1;
 
+    // Get athlete for logging
+    const athlete = await getAthleteByStravaId(athleteStravaId, env);
+    if (!athlete) {
+      throw new Error(`Athlete ${athleteStravaId} not found`);
+    }
+
+    // Log sync start
+    if (sessionId) {
+      await logSyncProgress(env, athlete.id, sessionId, 'info',
+        `${fullSync ? 'Full' : 'Incremental'} sync started`,
+        { athleteStravaId, fullSync, isInitialSync }
+      );
+    }
+
     // Loop until all data is fetched
     while (true) {
       console.log(`Fetching batch ${batchNumber} for athlete ${athleteStravaId}${currentTimestamp ? ` (before: ${currentTimestamp})` : ''}`);
 
-      const result = await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync, currentTimestamp);
+      if (sessionId) {
+        await logSyncProgress(env, athlete.id, sessionId, 'info',
+          `Fetching batch ${batchNumber}`,
+          { batchNumber, currentTimestamp }
+        );
+      }
+
+      const result = await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync, currentTimestamp, sessionId);
 
       if (!result.moreDataAvailable) {
         console.log(`All data fetched for athlete ${athleteStravaId} after ${batchNumber} batch(es)`);
+        if (sessionId) {
+          await logSyncProgress(env, athlete.id, sessionId, 'success',
+            `Sync completed successfully after ${batchNumber} batch(es)`,
+            { totalBatches: batchNumber }
+          );
+        }
         break;
       }
 
@@ -88,7 +116,8 @@ async function syncAthleteInternal(
   env: Env,
   isInitialSync: boolean,
   fullSync: boolean,
-  continuationTimestamp?: number
+  continuationTimestamp?: number,
+  sessionId?: string
 ): Promise<{ moreDataAvailable: boolean; oldestTimestamp?: number }> {
   try {
     // Get athlete from database
@@ -195,6 +224,13 @@ async function syncAthleteInternal(
     // Full syncs will trigger follow-up batches automatically via waitUntil
     const maxPagesPerBatch = 5;
 
+    if (sessionId) {
+      await logSyncProgress(env, athlete.id, sessionId, 'info',
+        `Calling Strava API to fetch activities`,
+        { maxPages: maxPagesPerBatch, perPage: 200, afterTimestamp, beforeTimestamp }
+      );
+    }
+
     const { activities } = await fetchAthleteActivities(
       accessToken,
       afterTimestamp,
@@ -205,9 +241,21 @@ async function syncAthleteInternal(
 
     console.log(`Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
 
+    if (sessionId) {
+      await logSyncProgress(env, athlete.id, sessionId, 'info',
+        `Fetched ${activities.length} activities from Strava API`,
+        { activitiesCount: activities.length }
+      );
+    }
+
     // Check if sync was cancelled after fetching activities
     if (await isSyncCancelled()) {
       console.log(`Sync cancelled for athlete ${athleteStravaId} after fetching activities`);
+      if (sessionId) {
+        await logSyncProgress(env, athlete.id, sessionId, 'warning',
+          `Sync was cancelled by user`
+        );
+      }
       return { moreDataAvailable: false };
     }
 
@@ -226,6 +274,13 @@ async function syncAthleteInternal(
     console.log(
       `Athlete ${athlete.strava_id}: Found ${races.length} races out of ${activities.length} activities`
     );
+
+    if (sessionId) {
+      await logSyncProgress(env, athlete.id, sessionId, 'info',
+        `Found ${races.length} race activities out of ${activities.length} total activities`,
+        { racesCount: races.length, activitiesCount: activities.length }
+      );
+    }
 
     // Debug logging to understand what's being found
     if (activities.length > 0 && races.length === 0) {
@@ -325,6 +380,14 @@ async function syncAthleteInternal(
       console.log(`More data may be available - fetched ${activities.length} activities (max was ${maxPagesPerBatch * 200})`);
     } else {
       console.log(`All data fetched - got ${activities.length} activities (less than max of ${maxPagesPerBatch * 200})`);
+    }
+
+    // Log batch completion summary
+    if (sessionId) {
+      await logSyncProgress(env, athlete.id, sessionId, 'info',
+        `Batch complete: ${newRacesAdded} races added${racesRemoved > 0 ? `, ${racesRemoved} removed` : ''}. ${moreDataAvailable ? 'More data available' : 'All data fetched'}`,
+        { newRacesAdded, racesRemoved, activitiesProcessed: activities.length, moreDataAvailable }
+      );
     }
 
     // Update last synced timestamp and activity count
