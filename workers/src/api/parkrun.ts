@@ -145,50 +145,87 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
  */
 export async function getParkrunStats(request: Request, env: Env): Promise<Response> {
   try {
+    const url = new URL(request.url);
+    const athleteNames = url.searchParams.getAll('athlete');
+    const eventNames = url.searchParams.getAll('event');
+    const dateFrom = url.searchParams.get('date_from');
+    const dateTo = url.searchParams.get('date_to');
+
+    // Build WHERE clause for filters
+    const conditions: string[] = [];
+    const bindings: any[] = [];
+
+    if (athleteNames.length > 0) {
+      const athleteConditions = athleteNames.map(() => 'athlete_name = ?').join(' OR ');
+      conditions.push(`(${athleteConditions})`);
+      athleteNames.forEach(name => bindings.push(name));
+    }
+
+    if (eventNames.length > 0) {
+      const eventConditions = eventNames.map(() => 'event_name = ?').join(' OR ');
+      conditions.push(`(${eventConditions})`);
+      eventNames.forEach(name => bindings.push(name));
+    }
+
+    if (dateFrom) {
+      conditions.push('date >= ?');
+      bindings.push(dateFrom);
+    }
+
+    if (dateTo) {
+      conditions.push('date <= ?');
+      bindings.push(dateTo);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
     // Get total number of parkrun results
     const totalResults = await env.DB.prepare(
-      'SELECT COUNT(*) as count FROM parkrun_results'
-    ).first<{ count: number }>();
+      `SELECT COUNT(*) as count FROM parkrun_results ${whereClause}`
+    ).bind(...bindings).first<{ count: number }>();
 
     // Get unique athletes
     const uniqueAthletes = await env.DB.prepare(
-      'SELECT COUNT(DISTINCT athlete_name) as count FROM parkrun_results'
-    ).first<{ count: number }>();
+      `SELECT COUNT(DISTINCT athlete_name) as count FROM parkrun_results ${whereClause}`
+    ).bind(...bindings).first<{ count: number }>();
 
     // Get unique events
     const uniqueEvents = await env.DB.prepare(
-      'SELECT COUNT(DISTINCT event_name) as count FROM parkrun_results'
-    ).first<{ count: number }>();
+      `SELECT COUNT(DISTINCT event_name) as count FROM parkrun_results ${whereClause}`
+    ).bind(...bindings).first<{ count: number }>();
 
     // Get date range (earliest and latest)
     const dateRange = await env.DB.prepare(
-      'SELECT MIN(date) as earliest, MAX(date) as latest FROM parkrun_results'
-    ).first<{ earliest: string; latest: string }>();
+      `SELECT MIN(date) as earliest, MAX(date) as latest FROM parkrun_results ${whereClause}`
+    ).bind(...bindings).first<{ earliest: string; latest: string }>();
 
     // Get fastest time
     const fastestTime = await env.DB.prepare(
       `SELECT athlete_name, event_name, time_string, date
        FROM parkrun_results
+       ${whereClause}
        ORDER BY time_seconds ASC
        LIMIT 1`
-    ).first();
+    ).bind(...bindings).first();
 
     // Get most recent result
     const mostRecentResult = await env.DB.prepare(
       `SELECT athlete_name, event_name, time_string, date
        FROM parkrun_results
+       ${whereClause}
        ORDER BY date DESC
        LIMIT 1`
-    ).first();
+    ).bind(...bindings).first();
 
     // Get most parkruns by athlete
     const mostActiveAthlete = await env.DB.prepare(
       `SELECT athlete_name, COUNT(*) as count
        FROM parkrun_results
+       ${whereClause}
        GROUP BY athlete_name
        ORDER BY count DESC
        LIMIT 1`
-    ).first();
+    ).bind(...bindings).first();
 
     return new Response(
       JSON.stringify({

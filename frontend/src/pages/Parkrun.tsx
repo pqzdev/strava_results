@@ -63,6 +63,7 @@ export default function Parkrun() {
 
   const [results, setResults] = useState<ParkrunResult[]>([]);
   const [stats, setStats] = useState<ParkrunStats | null>(null);
+  const [absoluteDateRange, setAbsoluteDateRange] = useState<{ earliest?: string; latest?: string }>({});
   const [loading, setLoading] = useState(true);
 
   // Initialize filters from URL params using lazy initializer
@@ -84,11 +85,12 @@ export default function Parkrun() {
 
   useEffect(() => {
     fetchResults();
+    fetchStats();
   }, [filters, pagination.offset, sortField, sortDirection]);
 
   useEffect(() => {
-    fetchStats();
     fetchAvailableOptions();
+    fetchAbsoluteDateRange();
   }, []);
 
   async function fetchResults() {
@@ -128,7 +130,15 @@ export default function Parkrun() {
 
   async function fetchStats() {
     try {
-      const response = await fetch('/api/parkrun/stats');
+      const params = new URLSearchParams();
+
+      // Apply same filters as results
+      filters.athletes.forEach(athlete => params.append('athlete', athlete));
+      filters.events.forEach(event => params.append('event', event));
+      if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+      if (filters.dateTo) params.append('date_to', filters.dateTo);
+
+      const response = await fetch(`/api/parkrun/stats?${params}`);
       const data = await response.json();
       setStats(data);
     } catch (error) {
@@ -159,12 +169,26 @@ export default function Parkrun() {
     }
   }
 
+  async function fetchAbsoluteDateRange() {
+    try {
+      // Fetch unfiltered stats to get absolute earliest/latest dates for date picker constraints
+      const response = await fetch('/api/parkrun/stats');
+      const data = await response.json();
+      setAbsoluteDateRange({
+        earliest: data.earliestDate,
+        latest: data.latestDate,
+      });
+    } catch (error) {
+      console.error('Error fetching absolute date range:', error);
+    }
+  }
+
   function handleFilterChange(newFilters: Partial<Filters>) {
     let updatedFilters = { ...filters, ...newFilters };
 
     // Enforce minimum date to earliest available data
-    if (stats?.earliestDate && updatedFilters.dateFrom && updatedFilters.dateFrom < stats.earliestDate) {
-      updatedFilters.dateFrom = stats.earliestDate;
+    if (absoluteDateRange.earliest && updatedFilters.dateFrom && updatedFilters.dateFrom < absoluteDateRange.earliest) {
+      updatedFilters.dateFrom = absoluteDateRange.earliest;
     }
 
     // Enforce maximum date to today
@@ -304,27 +328,45 @@ export default function Parkrun() {
           placeholder="Select events..."
           label="Filter by Events"
         />
-        {stats?.earliestDate && stats?.latestDate && (
+        {absoluteDateRange.earliest && absoluteDateRange.latest && (
           <div className="date-range-filter">
             <label>Date Range</label>
             <div className="date-inputs">
-              <input
-                type="date"
-                min={stats.earliestDate}
-                max={filters.dateTo || getDefaultDateTo()}
-                value={filters.dateFrom || DEFAULT_DATE_FROM}
-                onChange={e => handleFilterChange({ dateFrom: e.target.value })}
-                className="date-input"
-              />
+              <div className="date-input-wrapper">
+                <input
+                  type="date"
+                  min={absoluteDateRange.earliest}
+                  max={filters.dateTo || getDefaultDateTo()}
+                  value={filters.dateFrom || DEFAULT_DATE_FROM}
+                  onChange={e => handleFilterChange({ dateFrom: e.target.value })}
+                  className="date-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleFilterChange({ dateFrom: absoluteDateRange.earliest })}
+                  className="date-shortcut-link"
+                >
+                  min
+                </button>
+              </div>
               <span className="date-separator">to</span>
-              <input
-                type="date"
-                min={filters.dateFrom || DEFAULT_DATE_FROM}
-                max={getDefaultDateTo()}
-                value={filters.dateTo || getDefaultDateTo()}
-                onChange={e => handleFilterChange({ dateTo: e.target.value })}
-                className="date-input"
-              />
+              <div className="date-input-wrapper">
+                <input
+                  type="date"
+                  min={filters.dateFrom || DEFAULT_DATE_FROM}
+                  max={getDefaultDateTo()}
+                  value={filters.dateTo || getDefaultDateTo()}
+                  onChange={e => handleFilterChange({ dateTo: e.target.value })}
+                  className="date-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleFilterChange({ dateTo: getDefaultDateTo() })}
+                  className="date-shortcut-link"
+                >
+                  max
+                </button>
+              </div>
             </div>
           </div>
         )}
