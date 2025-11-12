@@ -93,15 +93,6 @@ export default function RaceFilters({
     onFilterChange({ dateTo });
   };
 
-  const handleSetFullRange = () => {
-    if (earliestDate) {
-      onFilterChange({
-        dateFrom: earliestDate,
-        dateTo: getDefaultDateTo(),
-      });
-    }
-  };
-
   const handleClear = () => {
     setSelectedDistances(new Array(DISTANCE_RANGES.length).fill(true));
     onClearFilters();
@@ -135,30 +126,43 @@ export default function RaceFilters({
           <div className="filter-group filter-group-wide">
             <label>Date Range</label>
             <div className="date-range-inputs">
-              <input
-                type="date"
-                min={earliestDate}
-                max={filters.dateTo || getDefaultDateTo()}
-                value={filters.dateFrom || earliestDate}
-                onChange={(e) => handleDateFromChange(e.target.value)}
-                className="date-input"
-              />
+              <div className="date-input-wrapper">
+                <input
+                  type="date"
+                  min={earliestDate}
+                  max={filters.dateTo || getDefaultDateTo()}
+                  value={filters.dateFrom || earliestDate}
+                  onChange={(e) => handleDateFromChange(e.target.value)}
+                  className="date-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleDateFromChange(earliestDate)}
+                  className="date-shortcut-link"
+                  title="Set to earliest date"
+                >
+                  min
+                </button>
+              </div>
               <span className="date-separator">to</span>
-              <input
-                type="date"
-                min={filters.dateFrom || earliestDate}
-                max={getDefaultDateTo()}
-                value={filters.dateTo || getDefaultDateTo()}
-                onChange={(e) => handleDateToChange(e.target.value)}
-                className="date-input"
-              />
-              <button
-                onClick={handleSetFullRange}
-                className="button button-secondary"
-                title="Set to full range (earliest to today)"
-              >
-                Min/Today
-              </button>
+              <div className="date-input-wrapper">
+                <input
+                  type="date"
+                  min={filters.dateFrom || earliestDate}
+                  max={getDefaultDateTo()}
+                  value={filters.dateTo || getDefaultDateTo()}
+                  onChange={(e) => handleDateToChange(e.target.value)}
+                  className="date-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleDateToChange(getDefaultDateTo())}
+                  className="date-shortcut-link"
+                  title="Set to today"
+                >
+                  today
+                </button>
+              </div>
             </div>
           </div>
         )}

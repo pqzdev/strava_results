@@ -20,7 +20,7 @@ This project uses two separate Cloudflare services:
            ▼                              ▼
 ┌─────────────────────┐        ┌──────────────────────────┐
 │ Cloudflare Workers  │        │  Cloudflare Pages        │
-│ strava-club-workers │        │  strava-club-results     │
+│ strava-club-workers │        │  woodstock-results       │
 │                     │        │                          │
 │ API + Cron Jobs     │        │  Static Site Hosting     │
 │ + D1 Database       │        │                          │
@@ -81,7 +81,7 @@ The frontend is deployed automatically by Cloudflare Pages on every push.
 
 ### Required Settings in Cloudflare Dashboard
 
-Navigate to: **Pages > strava-club-results > Settings > Builds & deployments**
+Navigate to: **Pages > woodstock-results > Settings > Builds & deployments**
 
 **Build Configuration:**
 
@@ -211,7 +211,7 @@ Workers > strava-club-workers > Logs
 
 ### Pages Logs
 
-Pages > strava-club-results > Deployments > View logs
+Pages > woodstock-results > Deployments > View logs
 
 ## 9. Current Configuration Summary
 

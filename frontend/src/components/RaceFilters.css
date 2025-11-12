@@ -163,9 +163,16 @@
   flex-wrap: wrap;
 }
 
-.date-input {
+.date-input-wrapper {
   flex: 1;
   min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.date-input {
+  width: 100%;
   padding: 0.625rem;
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -178,6 +185,22 @@
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.date-shortcut-link {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.date-shortcut-link:hover {
+  color: #5568d3;
 }
 
 .date-separator {
