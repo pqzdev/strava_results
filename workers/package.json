@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --config ../wrangler.workers.toml",
     "build": "tsc --noEmit",
-    "deploy": "wrangler deploy",
-    "tail": "wrangler tail"
+    "deploy": "wrangler deploy --config ../wrangler.workers.toml",
+    "tail": "wrangler tail --config ../wrangler.workers.toml"
   },
   "dependencies": {},
   "devDependencies": {
