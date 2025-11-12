@@ -66,12 +66,12 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
     }
 
     if (minDistance > 0) {
-      query += ` AND r.distance >= ?`;
+      query += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ?`;
       bindings.push(minDistance);
     }
 
     if (maxDistance < 999999) {
-      query += ` AND r.distance <= ?`;
+      query += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?`;
       bindings.push(maxDistance);
     }
 
@@ -85,6 +85,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
       SELECT COUNT(*) as total
       FROM races r
       JOIN athletes a ON r.athlete_id = a.id
+      LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
       WHERE a.is_hidden = 0
     `;
     const countBindings: any[] = [];
@@ -106,11 +107,11 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
       countBindings.push(dateTo);
     }
     if (minDistance > 0) {
-      countQuery += ` AND r.distance >= ?`;
+      countQuery += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ?`;
       countBindings.push(minDistance);
     }
     if (maxDistance < 999999) {
-      countQuery += ` AND r.distance <= ?`;
+      countQuery += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?`;
       countBindings.push(maxDistance);
     }
 
