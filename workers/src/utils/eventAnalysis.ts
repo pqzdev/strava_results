@@ -9,7 +9,7 @@ interface RaceGroup {
 
 /**
  * Group races by date and distance proximity
- * Races within ±3 days and ±5% distance are considered the same event
+ * Races within ±1 day and ±5% distance are considered the same event
  */
 export function groupRacesByEvent(races: Race[]): RaceGroup[] {
   const groups: RaceGroup[] = [];
@@ -27,16 +27,22 @@ export function groupRacesByEvent(races: Race[]): RaceGroup[] {
     const group: Race[] = [race];
     processed.add(race.id);
 
+    // Use manual_distance if available, otherwise use distance
+    const raceDistance = race.manual_distance || race.distance;
+
     // Find similar races
     for (const otherRace of sortedRaces) {
       if (processed.has(otherRace.id)) continue;
 
       const otherDate = new Date(otherRace.date);
       const daysDiff = Math.abs((otherDate.getTime() - raceDate.getTime()) / (1000 * 60 * 60 * 24));
-      const distanceDiff = Math.abs(otherRace.distance - race.distance) / race.distance;
 
-      // Group if within ±3 days and ±5% distance
-      if (daysDiff <= 3 && distanceDiff <= 0.05) {
+      // Use manual_distance if available, otherwise use distance
+      const otherDistance = otherRace.manual_distance || otherRace.distance;
+      const distanceDiff = Math.abs(otherDistance - raceDistance) / raceDistance;
+
+      // Group if within ±1 day and ±5% distance
+      if (daysDiff <= 1 && distanceDiff <= 0.05) {
         group.push(otherRace);
         processed.add(otherRace.id);
       }
@@ -44,7 +50,7 @@ export function groupRacesByEvent(races: Race[]): RaceGroup[] {
 
     // Only create group if there are multiple races (or single race with race-like name)
     if (group.length >= 2 || isLikelyRaceName(race.name)) {
-      const avgDistance = group.reduce((sum, r) => sum + r.distance, 0) / group.length;
+      const avgDistance = group.reduce((sum, r) => sum + (r.manual_distance || r.distance), 0) / group.length;
       const avgDate = new Date(
         group.reduce((sum, r) => sum + new Date(r.date).getTime(), 0) / group.length
       );
@@ -162,7 +168,7 @@ export async function analyzeEvents(env: Env): Promise<void> {
 
     // Get all races without event names
     const result = await env.DB.prepare(`
-      SELECT id, name, distance, date
+      SELECT id, name, distance, manual_distance, date
       FROM races
       WHERE event_name IS NULL
       ORDER BY date DESC
