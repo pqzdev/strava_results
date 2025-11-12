@@ -60,6 +60,7 @@ export default function Dashboard() {
   });
 
   const [currentAthleteId, setCurrentAthleteId] = useState<number | undefined>();
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [pagination, setPagination] = useState({ total: 0, limit: 50, offset: 0 });
   const [earliestDate, setEarliestDate] = useState<string>();
   const [availableAthletes, setAvailableAthletes] = useState<string[]>([]);
@@ -84,6 +85,12 @@ export default function Dashboard() {
     fetchEarliestDate();
     fetchAvailableAthletes();
   }, []);
+
+  useEffect(() => {
+    if (currentAthleteId) {
+      fetchAdminStatus();
+    }
+  }, [currentAthleteId]);
 
   useEffect(() => {
     fetchRaces();
@@ -114,6 +121,21 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Failed to fetch available athletes:', error);
+    }
+  };
+
+  const fetchAdminStatus = async () => {
+    try {
+      const response = await fetch(`/api/admin/athletes?admin_strava_id=${currentAthleteId}`);
+      if (response.ok) {
+        // If this endpoint succeeds, the user is an admin
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    } catch (error) {
+      console.error('Failed to fetch admin status:', error);
+      setIsAdmin(false);
     }
   };
 
@@ -236,6 +258,7 @@ export default function Dashboard() {
             <RaceTable
               races={races}
               currentAthleteId={currentAthleteId}
+              isAdmin={isAdmin}
               onTimeUpdate={fetchRaces}
             />
 

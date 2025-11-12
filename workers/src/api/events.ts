@@ -40,7 +40,33 @@ export async function getEventSuggestions(request: Request, env: Env): Promise<R
 
     const suggestions = result.results as unknown as EventSuggestion[];
 
-    return new Response(JSON.stringify({ suggestions }), {
+    // Recalculate avg_distance using manual_distance if available
+    const enrichedSuggestions = await Promise.all(
+      suggestions.map(async (suggestion) => {
+        const raceIds = JSON.parse(suggestion.race_ids) as number[];
+
+        // Fetch races to get current manual_distance values
+        const racesResult = await env.DB.prepare(`
+          SELECT COALESCE(manual_distance, distance) as effective_distance
+          FROM races
+          WHERE id IN (${raceIds.map(() => '?').join(',')})
+        `).bind(...raceIds).all();
+
+        const races = racesResult.results as { effective_distance: number }[];
+
+        // Calculate average distance using manual_distance if available
+        const avgDistance = races.length > 0
+          ? Math.round(races.reduce((sum, r) => sum + r.effective_distance, 0) / races.length)
+          : suggestion.avg_distance;
+
+        return {
+          ...suggestion,
+          avg_distance: avgDistance,
+        };
+      })
+    );
+
+    return new Response(JSON.stringify({ suggestions: enrichedSuggestions }), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
@@ -133,7 +159,20 @@ export async function updateEventSuggestion(
 
       console.log(`Approved suggestion ${suggestionId}: "${finalEventName}" for ${raceIds.length} races`);
     } else if (status === 'rejected') {
-      // Just update the suggestion status
+      // If the suggestion was previously approved, remove event_name from races
+      if (suggestion.status === 'approved') {
+        const raceIds = JSON.parse(suggestion.race_ids) as number[];
+
+        await env.DB.prepare(`
+          UPDATE races
+          SET event_name = NULL
+          WHERE id IN (${raceIds.map(() => '?').join(',')})
+        `).bind(...raceIds).run();
+
+        console.log(`Revoked suggestion ${suggestionId}: removed event name from ${raceIds.length} races`);
+      }
+
+      // Update suggestion status
       await env.DB.prepare(`
         UPDATE event_suggestions
         SET status = 'rejected',

@@ -118,16 +118,38 @@ export default function Admin() {
 
   const fetchEventSuggestions = async () => {
     try {
-      const response = await fetch(
-        `/api/event-suggestions?admin_strava_id=${currentAthleteId}&status=pending`
-      );
+      // Fetch both pending and approved suggestions
+      const [pendingResponse, approvedResponse] = await Promise.all([
+        fetch(`/api/event-suggestions?admin_strava_id=${currentAthleteId}&status=pending`),
+        fetch(`/api/event-suggestions?admin_strava_id=${currentAthleteId}&status=approved`)
+      ]);
 
-      if (!response.ok) {
+      if (!pendingResponse.ok || !approvedResponse.ok) {
         throw new Error('Failed to fetch event suggestions');
       }
 
-      const data = await response.json();
-      setEventSuggestions(data.suggestions || []);
+      const [pendingData, approvedData] = await Promise.all([
+        pendingResponse.json(),
+        approvedResponse.json()
+      ]);
+
+      const allSuggestions = [
+        ...(pendingData.suggestions || []),
+        ...(approvedData.suggestions || [])
+      ];
+
+      // Deduplicate: keep only the highest confidence suggestion for each event name
+      const uniqueSuggestions = Array.from(
+        allSuggestions.reduce((map, suggestion) => {
+          const existing = map.get(suggestion.suggested_event_name);
+          if (!existing || suggestion.confidence > existing.confidence) {
+            map.set(suggestion.suggested_event_name, suggestion);
+          }
+          return map;
+        }, new Map<string, EventSuggestion>()).values()
+      );
+
+      setEventSuggestions(uniqueSuggestions);
     } catch (err) {
       console.error('Error fetching event suggestions:', err);
     }
@@ -868,20 +890,26 @@ export default function Admin() {
       </div>
 
       {eventSuggestions.length > 0 ? (
-        <div className="admin-table-container">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Suggested Event Name</th>
-                <th>Date</th>
-                <th>Distance</th>
-                <th>Races</th>
-                <th>Confidence</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {eventSuggestions.map((suggestion) => {
+        <>
+          {eventSuggestions.filter(s => s.status === 'pending').length > 0 && (
+            <>
+              <h3 style={{ marginTop: '2rem', marginBottom: '1rem', fontSize: '1.1rem' }}>
+                Pending Suggestions
+              </h3>
+              <div className="admin-table-container">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Suggested Event Name</th>
+                      <th>Date</th>
+                      <th>Distance</th>
+                      <th>Races</th>
+                      <th>Confidence</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eventSuggestions.filter(s => s.status === 'pending').map((suggestion) => {
                 const isEditing = suggestion.id in editingEventName;
                 const editedName = isEditing
                   ? editingEventName[suggestion.id]
@@ -1044,9 +1072,78 @@ export default function Admin() {
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {eventSuggestions.filter(s => s.status === 'approved').length > 0 && (
+            <>
+              <h3 style={{ marginTop: '2rem', marginBottom: '1rem', fontSize: '1.1rem' }}>
+                Approved Suggestions
+              </h3>
+              <div className="admin-table-container">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Event Name</th>
+                      <th>Date</th>
+                      <th>Distance</th>
+                      <th>Races</th>
+                      <th>Confidence</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eventSuggestions.filter(s => s.status === 'approved').map((suggestion) => (
+                      <tr key={suggestion.id}>
+                        <td>
+                          <strong>{suggestion.suggested_event_name}</strong>
+                        </td>
+                        <td>{new Date(suggestion.avg_date).toLocaleDateString()}</td>
+                        <td>{(suggestion.avg_distance / 1000).toFixed(1)} km</td>
+                        <td className="number-cell">{suggestion.race_count}</td>
+                        <td>
+                          <span
+                            className="status-badge"
+                            style={{
+                              backgroundColor: '#22c55e',
+                              color: 'white',
+                              padding: '0.25rem 0.5rem',
+                              borderRadius: '4px',
+                              fontSize: '0.85rem',
+                            }}
+                          >
+                            {(suggestion.confidence * 100).toFixed(0)}%
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            onClick={() => handleEventSuggestion(suggestion.id, 'rejected')}
+                            className="button"
+                            style={{
+                              padding: '0.5rem 1rem',
+                              backgroundColor: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '0.85rem',
+                            }}
+                            title="Revoke approval and remove event name from races"
+                          >
+                            🔄 Revoke
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </>
       ) : (
         <div
           style={{
