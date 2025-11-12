@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import MultiSelectAutocomplete from './MultiSelectAutocomplete';
 import './RaceFilters.css';
 
