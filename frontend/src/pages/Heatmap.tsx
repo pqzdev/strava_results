@@ -1,17 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet.heat';
 import polyline from '@mapbox/polyline';
 import './Heatmap.css';
-
-// Extend Leaflet type to include heatLayer
-declare module 'leaflet' {
-  function heatLayer(
-    latlngs: [number, number, number][],
-    options?: any
-  ): L.Layer;
-}
 
 interface Race {
   id: number;
@@ -42,36 +33,14 @@ function isInSydney(lat: number, lng: number): boolean {
   );
 }
 
-// Convert polyline to dense point array for better heatmap rendering
-function polylineToDensePoints(
-  encodedPolyline: string,
-  pointsPerSegment: number = 5
-): [number, number, number][] {
+// Check if a polyline has any points within Sydney bounds
+function hasPointsInSydney(encodedPolyline: string): boolean {
   try {
     const coordinates = polyline.decode(encodedPolyline);
-    const densePoints: [number, number, number][] = [];
-
-    // Add points along each segment
-    for (let i = 0; i < coordinates.length - 1; i++) {
-      const [lat1, lng1] = coordinates[i];
-      const [lat2, lng2] = coordinates[i + 1];
-
-      // Only include points within Sydney bounds
-      for (let j = 0; j <= pointsPerSegment; j++) {
-        const t = j / pointsPerSegment;
-        const lat = lat1 + (lat2 - lat1) * t;
-        const lng = lng1 + (lng2 - lng1) * t;
-
-        if (isInSydney(lat, lng)) {
-          densePoints.push([lat, lng, 1]); // [lat, lng, intensity]
-        }
-      }
-    }
-
-    return densePoints;
+    return coordinates.some(([lat, lng]) => isInSydney(lat, lng));
   } catch (error) {
     console.error('Error decoding polyline:', error);
-    return [];
+    return false;
   }
 }
 
@@ -103,27 +72,13 @@ export default function Heatmap() {
 
       console.log(`Fetched ${races.length} races`);
 
-      // Filter races with polylines
-      const racesWithPolylines = races.filter((race) => race.polyline);
-      console.log(`${racesWithPolylines.length} races have polylines`);
-
-      // Process polylines and collect points
-      const allPoints: [number, number, number][] = [];
-      let racesInSydney = 0;
-
-      for (const race of racesWithPolylines) {
-        if (!race.polyline) continue;
-
-        const points = polylineToDensePoints(race.polyline);
-        if (points.length > 0) {
-          allPoints.push(...points);
-          racesInSydney++;
-        }
-      }
-
-      console.log(
-        `Collected ${allPoints.length} points from ${racesInSydney} races in Sydney`
+      // Filter races with polylines that have points in Sydney
+      const racesWithPolylines = races.filter(
+        (race) => race.polyline && hasPointsInSydney(race.polyline)
       );
+      console.log(`${racesWithPolylines.length} races have polylines in Sydney`);
+
+      const racesInSydney = racesWithPolylines.length;
 
       setStats({
         total: races.length,
@@ -149,23 +104,29 @@ export default function Heatmap() {
         mapRef.current = map;
       }
 
-      // Add heatmap layer
-      if (mapRef.current && allPoints.length > 0) {
-        const heatLayer = L.heatLayer(allPoints, {
-          radius: 15,
-          blur: 20,
-          maxZoom: 17,
-          max: 1.0,
-          gradient: {
-            0.0: 'blue',
-            0.5: 'lime',
-            0.7: 'yellow',
-            0.9: 'orange',
-            1.0: 'red',
-          },
-        });
+      // Draw polylines with semi-transparent blue color
+      // Overlapping lines will appear brighter (closer to white)
+      if (mapRef.current && racesWithPolylines.length > 0) {
+        for (const race of racesWithPolylines) {
+          if (!race.polyline) continue;
 
-        heatLayer.addTo(mapRef.current);
+          try {
+            const coordinates = polyline.decode(race.polyline);
+            const latLngs: [number, number][] = coordinates.map(([lat, lng]) => [
+              lat,
+              lng,
+            ]);
+
+            L.polyline(latLngs, {
+              color: '#0033cc',
+              weight: 1.5,
+              opacity: 0.12,
+              smoothFactor: 1,
+            }).addTo(mapRef.current);
+          } catch (error) {
+            console.error('Error drawing polyline:', error);
+          }
+        }
       }
 
       setLoading(false);
