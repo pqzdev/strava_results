@@ -92,9 +92,7 @@ export default function Heatmap() {
       setError(null);
 
       // Fetch all races with a high limit to get as much data as possible
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/races?limit=10000`
-      );
+      const response = await fetch('/api/races?limit=10000');
 
       if (!response.ok) {
         throw new Error('Failed to fetch races');
