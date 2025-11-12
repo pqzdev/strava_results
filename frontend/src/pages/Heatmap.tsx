@@ -121,17 +121,12 @@ export default function Heatmap() {
               lineJoin: 'round',
             }).addTo(mapRef.current);
 
-            // Add tooltip with event name and details that appears on hover
-            line.bindTooltip(
-              `<strong>${race.name}</strong><br/>` +
-              `${new Date(race.date).toLocaleDateString()}<br/>` +
-              `${race.firstname} ${race.lastname}`,
-              {
-                sticky: true, // Tooltip follows the mouse cursor
-                opacity: 0.9,
-                className: 'polyline-tooltip'
-              }
-            );
+            // Add tooltip with event name that appears on hover
+            line.bindTooltip(race.name, {
+              sticky: true, // Tooltip follows the mouse cursor
+              opacity: 0.9,
+              className: 'polyline-tooltip'
+            });
 
             // Highlight polyline on hover
             line.on('mouseover', function(this: L.Polyline) {

@@ -84,12 +84,7 @@
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   padding: 8px 12px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #333;
-}
-
-.polyline-tooltip strong {
-  color: #0055ff;
   font-size: 14px;
+  font-weight: 600;
+  color: #0055ff;
 }
