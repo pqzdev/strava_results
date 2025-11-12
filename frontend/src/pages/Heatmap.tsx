@@ -8,6 +8,7 @@ interface Race {
   id: number;
   strava_activity_id: number;
   name: string;
+  event_name?: string;
   distance: number;
   polyline?: string;
   date: string;
@@ -122,7 +123,8 @@ export default function Heatmap() {
             }).addTo(mapRef.current);
 
             // Add tooltip with event name that appears on hover
-            line.bindTooltip(race.name, {
+            // Show custom event name if set, otherwise fall back to activity name
+            line.bindTooltip(race.event_name || race.name, {
               sticky: true, // Tooltip follows the mouse cursor
               opacity: 0.9,
               className: 'polyline-tooltip'
