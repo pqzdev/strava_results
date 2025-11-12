@@ -26,6 +26,20 @@ interface ParkrunAthlete {
   top_events?: Array<{ event_name: string; count: number }>;
 }
 
+interface EventSuggestion {
+  id: number;
+  race_ids: string;
+  suggested_event_name: string;
+  avg_date: string;
+  avg_distance: number;
+  race_count: number;
+  confidence: number;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  reviewed_at?: string;
+  reviewed_by?: number;
+}
+
 type SortField = 'name' | 'activities' | 'races' | 'runs';
 type SortDirection = 'asc' | 'desc';
 
@@ -35,9 +49,12 @@ type ParkrunSortDirection = 'asc' | 'desc';
 export default function Admin() {
   const [athletes, setAthletes] = useState<AdminAthlete[]>([]);
   const [parkrunAthletes, setParkrunAthletes] = useState<ParkrunAthlete[]>([]);
+  const [eventSuggestions, setEventSuggestions] = useState<EventSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<Set<number>>(new Set());
+  const [analyzingEvents, setAnalyzingEvents] = useState(false);
+  const [editingEventName, setEditingEventName] = useState<{ [key: number]: string }>({});
   const [parkrunStartDate, setParkrunStartDate] = useState('2024-01-01');
   const [parkrunEndDate, setParkrunEndDate] = useState(
     new Date().toISOString().split('T')[0]
@@ -57,6 +74,7 @@ export default function Admin() {
   useEffect(() => {
     fetchAthletes();
     fetchParkrunAthletes();
+    fetchEventSuggestions();
   }, []);
 
   const fetchAthletes = async () => {
@@ -95,6 +113,86 @@ export default function Admin() {
       setParkrunAthletes(data.athletes || []);
     } catch (err) {
       console.error('Error fetching parkrun athletes:', err);
+    }
+  };
+
+  const fetchEventSuggestions = async () => {
+    try {
+      const response = await fetch(
+        `/api/event-suggestions?admin_strava_id=${currentAthleteId}&status=pending`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch event suggestions');
+      }
+
+      const data = await response.json();
+      setEventSuggestions(data.suggestions || []);
+    } catch (err) {
+      console.error('Error fetching event suggestions:', err);
+    }
+  };
+
+  const handleEventSuggestion = async (
+    suggestionId: number,
+    status: 'approved' | 'rejected',
+    eventName?: string
+  ) => {
+    try {
+      const response = await fetch(`/api/event-suggestions/${suggestionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          admin_strava_id: currentAthleteId,
+          status,
+          event_name: eventName,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${status} suggestion`);
+      }
+
+      // Remove from local state
+      setEventSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
+
+      // Clear any editing state
+      setEditingEventName((prev) => {
+        const newState = { ...prev };
+        delete newState[suggestionId];
+        return newState;
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : `Failed to ${status} suggestion`);
+    }
+  };
+
+  const triggerEventAnalysis = async () => {
+    setAnalyzingEvents(true);
+
+    try {
+      const response = await fetch('/api/event-suggestions/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_strava_id: currentAthleteId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to trigger event analysis');
+      }
+
+      alert(
+        'Event analysis triggered successfully! New suggestions will appear shortly.'
+      );
+
+      // Refresh suggestions after a delay
+      setTimeout(() => {
+        fetchEventSuggestions();
+        setAnalyzingEvents(false);
+      }, 5000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to trigger event analysis');
+      setAnalyzingEvents(false);
     }
   };
 
@@ -740,6 +838,230 @@ export default function Admin() {
           </tbody>
         </table>
       </div>
+
+      <div className="admin-header" style={{ marginTop: '3rem' }}>
+        <h2>AI Event Classification</h2>
+        <p className="subtitle">Review and approve AI-generated event name suggestions</p>
+      </div>
+
+      <div style={{ marginBottom: '2rem' }}>
+        <button
+          onClick={triggerEventAnalysis}
+          disabled={analyzingEvents}
+          className="button"
+          style={{
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#0ea5e9',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: analyzingEvents ? 'not-allowed' : 'pointer',
+            fontWeight: 500,
+            opacity: analyzingEvents ? 0.6 : 1,
+          }}
+        >
+          {analyzingEvents ? '⏳ Analyzing...' : '🤖 Run AI Analysis'}
+        </button>
+        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
+          Trigger AI to analyze ungrouped races and generate event name suggestions. This may take a few minutes.
+        </p>
+      </div>
+
+      {eventSuggestions.length > 0 ? (
+        <div className="admin-table-container">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Suggested Event Name</th>
+                <th>Date</th>
+                <th>Distance</th>
+                <th>Races</th>
+                <th>Confidence</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {eventSuggestions.map((suggestion) => {
+                const isEditing = suggestion.id in editingEventName;
+                const editedName = isEditing
+                  ? editingEventName[suggestion.id]
+                  : suggestion.suggested_event_name;
+
+                return (
+                  <tr key={suggestion.id}>
+                    <td>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedName}
+                          onChange={(e) =>
+                            setEditingEventName((prev) => ({
+                              ...prev,
+                              [suggestion.id]: e.target.value,
+                            }))
+                          }
+                          style={{
+                            width: '100%',
+                            padding: '0.5rem',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '0.9rem',
+                          }}
+                        />
+                      ) : (
+                        <strong>{suggestion.suggested_event_name}</strong>
+                      )}
+                    </td>
+                    <td>{new Date(suggestion.avg_date).toLocaleDateString()}</td>
+                    <td>{(suggestion.avg_distance / 1000).toFixed(1)} km</td>
+                    <td className="number-cell">{suggestion.race_count}</td>
+                    <td>
+                      <span
+                        className="status-badge"
+                        style={{
+                          backgroundColor:
+                            suggestion.confidence >= 0.8
+                              ? '#22c55e'
+                              : suggestion.confidence >= 0.5
+                              ? '#f59e0b'
+                              : '#ef4444',
+                          color: 'white',
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '4px',
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        {(suggestion.confidence * 100).toFixed(0)}%
+                      </span>
+                    </td>
+                    <td>
+                      <div className="action-buttons" style={{ gap: '0.5rem' }}>
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() =>
+                                handleEventSuggestion(
+                                  suggestion.id,
+                                  'approved',
+                                  editedName
+                                )
+                              }
+                              className="button"
+                              style={{
+                                padding: '0.5rem 1rem',
+                                backgroundColor: '#22c55e',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                              }}
+                              title="Save and approve"
+                            >
+                              💾 Save
+                            </button>
+                            <button
+                              onClick={() =>
+                                setEditingEventName((prev) => {
+                                  const newState = { ...prev };
+                                  delete newState[suggestion.id];
+                                  return newState;
+                                })
+                              }
+                              className="button"
+                              style={{
+                                padding: '0.5rem 1rem',
+                                backgroundColor: '#6b7280',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                              }}
+                              title="Cancel editing"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() =>
+                                handleEventSuggestion(suggestion.id, 'approved')
+                              }
+                              className="button"
+                              style={{
+                                padding: '0.5rem 1rem',
+                                backgroundColor: '#22c55e',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                              }}
+                              title="Approve suggestion"
+                            >
+                              ✅ Approve
+                            </button>
+                            <button
+                              onClick={() =>
+                                setEditingEventName((prev) => ({
+                                  ...prev,
+                                  [suggestion.id]: suggestion.suggested_event_name,
+                                }))
+                              }
+                              className="button"
+                              style={{
+                                padding: '0.5rem 1rem',
+                                backgroundColor: '#0ea5e9',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                              }}
+                              title="Edit event name"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleEventSuggestion(suggestion.id, 'rejected')
+                              }
+                              className="button button-delete"
+                              style={{
+                                padding: '0.5rem 1rem',
+                                fontSize: '0.85rem',
+                              }}
+                              title="Reject suggestion"
+                            >
+                              ❌ Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div
+          style={{
+            padding: '2rem',
+            textAlign: 'center',
+            backgroundColor: '#f9fafb',
+            borderRadius: '8px',
+            color: '#6b7280',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: '0.9rem' }}>
+            No pending event suggestions. Click "Run AI Analysis" to generate new suggestions.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
