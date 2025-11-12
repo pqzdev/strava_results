@@ -169,7 +169,7 @@ function EditableTime({ race, isOwner, onSave }: EditableTimeProps) {
   return (
     <div className="time-display">
       <span>{formatTime(displayTime)}</span>
-      {hasManualTime && <span className="manual-indicator" title="Edited by the athlete for accuracy">✏️</span>}
+      {hasManualTime && <span className="manual-indicator" title="Edited for accuracy">✏️</span>}
       {isOwner && (
         <button onClick={handleEdit} className="btn-edit" title="Edit time">
           Edit
@@ -268,7 +268,7 @@ function EditableDistance({ race, isOwner, onSave }: EditableDistanceProps) {
   return (
     <div className="time-display">
       <span>{formatDistance(displayDistance)}</span>
-      {hasManualDistance && <span className="manual-indicator" title="Edited by the athlete for accuracy">✏️</span>}
+      {hasManualDistance && <span className="manual-indicator" title="Edited for accuracy">✏️</span>}
       {isOwner && (
         <button onClick={handleEdit} className="btn-edit" title="Edit distance">
           Edit
