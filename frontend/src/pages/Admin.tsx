@@ -678,125 +678,6 @@ export default function Admin() {
       </div>
 
       <div className="admin-header" style={{ marginTop: '3rem' }}>
-        <h2>Parkrun Data Sync</h2>
-        <p className="subtitle">Automatically scrape and import parkrun results</p>
-      </div>
-
-      <div className="parkrun-sync-section" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1', minWidth: '200px' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={parkrunStartDate}
-              onChange={(e) => setParkrunStartDate(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-              }}
-            />
-          </div>
-          <div style={{ flex: '1', minWidth: '200px' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-              End Date
-            </label>
-            <input
-              type="date"
-              value={parkrunEndDate}
-              onChange={(e) => setParkrunEndDate(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-              }}
-            />
-          </div>
-          <button
-            onClick={triggerParkrunSync}
-            className="button"
-            style={{
-              padding: '0.5rem 1.5rem',
-              backgroundColor: '#fc4c02',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 500,
-            }}
-          >
-            🏃 Sync Parkrun Data
-          </button>
-        </div>
-        <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <input
-            type="checkbox"
-            id="replaceExistingData"
-            checked={replaceExistingData}
-            onChange={(e) => setReplaceExistingData(e.target.checked)}
-            style={{ cursor: 'pointer' }}
-          />
-          <label htmlFor="replaceExistingData" style={{ cursor: 'pointer', fontSize: '0.9rem' }}>
-            Replace all existing parkrun data (⚠️ This will delete all current parkrun results)
-          </label>
-        </div>
-        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
-          {replaceExistingData
-            ? '⚠️ All existing parkrun data will be deleted and replaced with new results from the date range.'
-            : '✓ New results will be merged with existing data (duplicates skipped automatically).'}
-        </p>
-
-        {showParkrunInstructions && (
-          <div style={{
-            marginTop: '1rem',
-            padding: '1rem',
-            backgroundColor: '#f0f9ff',
-            border: '1px solid #0ea5e9',
-            borderRadius: '8px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-              <div>
-                <h3 style={{ margin: 0, marginBottom: '0.5rem', color: '#0284c7' }}>
-                  ✅ Script Copied to Clipboard!
-                </h3>
-                <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}>
-                  <strong>Next Steps:</strong>
-                </p>
-                <ol style={{ margin: '0.5rem 0', paddingLeft: '1.5rem', fontSize: '0.9rem' }}>
-                  <li>Go to the parkrun tab that just opened</li>
-                  <li>Press <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>F12</kbd> to open the browser console</li>
-                  <li>Paste the script (<kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Ctrl+V</kbd> or <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Cmd+V</kbd>)</li>
-                  <li>Press <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Enter</kbd></li>
-                </ol>
-                <p style={{ margin: '0.5rem 0', fontSize: '0.85rem', color: '#0369a1' }}>
-                  The scraper will automatically fetch all Saturdays from {parkrunStartDate} to {parkrunEndDate},
-                  include special dates (Dec 25, Jan 1), and upload results to your database (~3-4 minutes for 100+ dates).
-                </p>
-              </div>
-              <button
-                onClick={() => setShowParkrunInstructions(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '1.5rem',
-                  cursor: 'pointer',
-                  color: '#666',
-                  padding: '0 0.5rem',
-                }}
-                title="Close instructions"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="admin-header" style={{ marginTop: '3rem' }}>
         <h2>AI Event Classification</h2>
         <p className="subtitle">Review and approve AI-generated event name suggestions</p>
       </div>
@@ -1094,6 +975,125 @@ export default function Admin() {
           </p>
         </div>
       )}
+
+      <div className="admin-header" style={{ marginTop: '3rem' }}>
+        <h2>Parkrun Data Sync</h2>
+        <p className="subtitle">Automatically scrape and import parkrun results</p>
+      </div>
+
+      <div className="parkrun-sync-section" style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1', minWidth: '200px' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              Start Date
+            </label>
+            <input
+              type="date"
+              value={parkrunStartDate}
+              onChange={(e) => setParkrunStartDate(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+              }}
+            />
+          </div>
+          <div style={{ flex: '1', minWidth: '200px' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              End Date
+            </label>
+            <input
+              type="date"
+              value={parkrunEndDate}
+              onChange={(e) => setParkrunEndDate(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+              }}
+            />
+          </div>
+          <button
+            onClick={triggerParkrunSync}
+            className="button"
+            style={{
+              padding: '0.5rem 1.5rem',
+              backgroundColor: '#fc4c02',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
+          >
+            🏃 Sync Parkrun Data
+          </button>
+        </div>
+        <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <input
+            type="checkbox"
+            id="replaceExistingData"
+            checked={replaceExistingData}
+            onChange={(e) => setReplaceExistingData(e.target.checked)}
+            style={{ cursor: 'pointer' }}
+          />
+          <label htmlFor="replaceExistingData" style={{ cursor: 'pointer', fontSize: '0.9rem' }}>
+            Replace all existing parkrun data (⚠️ This will delete all current parkrun results)
+          </label>
+        </div>
+        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
+          {replaceExistingData
+            ? '⚠️ All existing parkrun data will be deleted and replaced with new results from the date range.'
+            : '✓ New results will be merged with existing data (duplicates skipped automatically).'}
+        </p>
+
+        {showParkrunInstructions && (
+          <div style={{
+            marginTop: '1rem',
+            padding: '1rem',
+            backgroundColor: '#f0f9ff',
+            border: '1px solid #0ea5e9',
+            borderRadius: '8px',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+              <div>
+                <h3 style={{ margin: 0, marginBottom: '0.5rem', color: '#0284c7' }}>
+                  ✅ Script Copied to Clipboard!
+                </h3>
+                <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}>
+                  <strong>Next Steps:</strong>
+                </p>
+                <ol style={{ margin: '0.5rem 0', paddingLeft: '1.5rem', fontSize: '0.9rem' }}>
+                  <li>Go to the parkrun tab that just opened</li>
+                  <li>Press <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>F12</kbd> to open the browser console</li>
+                  <li>Paste the script (<kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Ctrl+V</kbd> or <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Cmd+V</kbd>)</li>
+                  <li>Press <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Enter</kbd></li>
+                </ol>
+                <p style={{ margin: '0.5rem 0', fontSize: '0.85rem', color: '#0369a1' }}>
+                  The scraper will automatically fetch all Saturdays from {parkrunStartDate} to {parkrunEndDate},
+                  include special dates (Dec 25, Jan 1), and upload results to your database (~3-4 minutes for 100+ dates).
+                </p>
+              </div>
+              <button
+                onClick={() => setShowParkrunInstructions(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#666',
+                  padding: '0 0.5rem',
+                }}
+                title="Close instructions"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="admin-header" style={{ marginTop: '3rem' }}>
         <h2>Parkrun Athletes</h2>
