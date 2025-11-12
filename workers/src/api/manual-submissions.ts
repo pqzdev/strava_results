@@ -126,6 +126,12 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
 
     const html = await response.text();
 
+    // Check if this is a private activity
+    // Private activities return a page without activity data, just the base Strava template
+    if (html.includes('"noindex, nofollow"') && !html.includes('"distance":')) {
+      return { error: 'This activity is private. Only public activities can be submitted.' };
+    }
+
     // Parse HTML to extract activity details
     // Try multiple patterns for robustness
 
@@ -266,6 +272,13 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
           }
         }
       }
+    }
+
+    // Validate that we extracted meaningful data
+    if (athleteName === 'Unknown Athlete' && activityName === 'Untitled Activity' && !distance && !timeSeconds) {
+      return {
+        error: 'Could not extract activity data. The activity may be private or have restricted visibility. Only public activities can be submitted.'
+      };
     }
 
     return {
