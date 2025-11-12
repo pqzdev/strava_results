@@ -1,12 +1,6 @@
-# Cloudflare Pages configuration for repository root
-# Workers deployment: Uses /workers/wrangler.toml (deploy command runs from /workers/)
+# Cloudflare Pages configuration for automatic builds
+# Workers deployment uses /workers/wrangler.toml (runs from /workers/)
 
 name = "woodstock-results"
 compatibility_date = "2024-11-10"
 pages_build_output_dir = "frontend/dist"
-
-[build]
-command = ""
-
-[pages]
-functions_dir = "frontend/functions"
