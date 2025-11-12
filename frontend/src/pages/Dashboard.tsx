@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import RaceTable from '../components/RaceTable';
 import RaceFilters from '../components/RaceFilters';
 import AthleteSummary from '../components/AthleteSummary';
@@ -25,7 +26,7 @@ interface Race {
 }
 
 interface Filters {
-  athlete: string;
+  athletes: string[];
   activityName: string;
   dateFrom: string;
   dateTo: string;
@@ -34,19 +35,27 @@ interface Filters {
 }
 
 export default function Dashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [races, setRaces] = useState<Race[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<Filters>({
-    athlete: '',
-    activityName: '',
-    dateFrom: '',
-    dateTo: '',
-    minDistance: '',
-    maxDistance: '',
+
+  // Initialize filters from URL params
+  const [filters, setFilters] = useState<Filters>(() => {
+    const athletesParam = searchParams.get('athletes');
+    return {
+      athletes: athletesParam ? athletesParam.split('|').filter(Boolean) : [],
+      activityName: searchParams.get('activityName') || '',
+      dateFrom: searchParams.get('dateFrom') || '',
+      dateTo: searchParams.get('dateTo') || '',
+      minDistance: searchParams.get('minDistance') || '',
+      maxDistance: searchParams.get('maxDistance') || '',
+    };
   });
+
   const [currentAthleteId, setCurrentAthleteId] = useState<number | undefined>();
   const [pagination, setPagination] = useState({ total: 0, limit: 50, offset: 0 });
   const [earliestDate, setEarliestDate] = useState<string>();
+  const [availableAthletes, setAvailableAthletes] = useState<string[]>([]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -66,6 +75,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchEarliestDate();
+    fetchAvailableAthletes();
   }, []);
 
   useEffect(() => {
@@ -85,6 +95,21 @@ export default function Dashboard() {
     }
   };
 
+  const fetchAvailableAthletes = async () => {
+    try {
+      const response = await fetch('/api/races?limit=10000');
+      const data = await response.json();
+      if (data.races && data.races.length > 0) {
+        const athletes = Array.from(
+          new Set(data.races.map((r: Race) => `${r.firstname} ${r.lastname}`))
+        ).sort() as string[];
+        setAvailableAthletes(athletes);
+      }
+    } catch (error) {
+      console.error('Failed to fetch available athletes:', error);
+    }
+  };
+
   const fetchRaces = async () => {
     setLoading(true);
     try {
@@ -92,7 +117,9 @@ export default function Dashboard() {
       params.set('limit', pagination.limit.toString());
       params.set('offset', pagination.offset.toString());
 
-      if (filters.athlete) params.set('athlete', filters.athlete);
+      // Handle multi-select athletes filter
+      filters.athletes.forEach(athlete => params.append('athlete', athlete));
+
       if (filters.activityName) params.set('activity_name', filters.activityName);
       if (filters.dateFrom) params.set('date_from', filters.dateFrom);
       if (filters.dateTo) params.set('date_to', filters.dateTo);
@@ -114,13 +141,36 @@ export default function Dashboard() {
   };
 
   const handleFilterChange = (newFilters: Partial<Filters>) => {
-    setFilters({ ...filters, ...newFilters });
+    const updatedFilters = { ...filters, ...newFilters };
+    setFilters(updatedFilters);
     setPagination({ ...pagination, offset: 0 });
+
+    // Update URL params (use pipe separator to avoid conflicts)
+    const params = new URLSearchParams();
+    if (updatedFilters.athletes.length > 0) {
+      params.set('athletes', updatedFilters.athletes.join('|'));
+    }
+    if (updatedFilters.activityName) {
+      params.set('activityName', updatedFilters.activityName);
+    }
+    if (updatedFilters.dateFrom) {
+      params.set('dateFrom', updatedFilters.dateFrom);
+    }
+    if (updatedFilters.dateTo) {
+      params.set('dateTo', updatedFilters.dateTo);
+    }
+    if (updatedFilters.minDistance) {
+      params.set('minDistance', updatedFilters.minDistance);
+    }
+    if (updatedFilters.maxDistance) {
+      params.set('maxDistance', updatedFilters.maxDistance);
+    }
+    setSearchParams(params, { replace: true });
   };
 
   const handleClearFilters = () => {
     setFilters({
-      athlete: '',
+      athletes: [],
       activityName: '',
       dateFrom: '',
       dateTo: '',
@@ -128,6 +178,7 @@ export default function Dashboard() {
       maxDistance: '',
     });
     setPagination({ ...pagination, offset: 0 });
+    setSearchParams({}, { replace: true });
   };
 
   const handlePageChange = (newOffset: number) => {
@@ -151,6 +202,7 @@ export default function Dashboard() {
           onFilterChange={handleFilterChange}
           onClearFilters={handleClearFilters}
           earliestDate={earliestDate}
+          availableAthletes={availableAthletes}
         />
 
         {loading ? (
