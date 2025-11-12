@@ -91,6 +91,26 @@ export async function extractEventName(
   const distanceKm = (group.avgDistance / 1000).toFixed(1);
   const dateStr = group.avgDate.toISOString().split('T')[0];
 
+  // Fetch some approved event names to use as examples
+  const approvedExamples = await env.DB.prepare(`
+    SELECT DISTINCT event_name
+    FROM races
+    WHERE event_name IS NOT NULL
+    ORDER BY RANDOM()
+    LIMIT 5
+  `).all();
+
+  const examplesList = approvedExamples.results && approvedExamples.results.length > 0
+    ? (approvedExamples.results as { event_name: string }[])
+        .map(r => r.event_name)
+        .filter(name => name && name.length > 0)
+        .slice(0, 3)
+    : [];
+
+  const examplesSection = examplesList.length > 0
+    ? `\n\nHere are some examples of good event names from our database:\n${examplesList.map(e => `- ${e}`).join('\n')}`
+    : '';
+
   const prompt = `You are analyzing running race data from Strava. Given these activity names from different athletes who ran the same race event:
 
 - ${raceNames}
@@ -101,11 +121,19 @@ Race details:
 - Number of participants: ${group.races.length}
 
 Extract the canonical event name WITHOUT the year. For example:
-- "Sydney Marathon 2024" → "Sydney Marathon"
-- "2024 Blackmores Sydney Running Festival - Half Marathon" → "Blackmores Sydney Running Festival - Half Marathon"
-- "City2Surf 14km 2024" → "City2Surf"
+- "Sydney Marathon 2024" becomes: Sydney Marathon
+- "2024 Blackmores Sydney Running Festival - Half Marathon" becomes: Blackmores Sydney Running Festival - Half Marathon
+- "City2Surf 14km 2024" becomes: City2Surf${examplesSection}
 
-Return ONLY the event name, nothing else. Keep it concise and remove year references.`;
+IMPORTANT RULES:
+1. Do NOT include quotation marks in your response
+2. Do NOT use arrows (→) or other symbols
+3. Do NOT include the word "becomes" or any explanation
+4. Return ONLY the clean event name without any formatting
+5. Remove all year references (2023, 2024, etc.)
+6. Keep the name concise but descriptive
+
+Your response should be just the event name, nothing else.`;
 
   try {
     const response = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
@@ -124,7 +152,16 @@ Return ONLY the event name, nothing else. Keep it concise and remove year refere
     });
 
     // Extract the event name from response
-    const eventName = (response as any).response?.trim() || '';
+    let eventName = (response as any).response?.trim() || '';
+
+    // Clean up the event name - remove quotes, arrows, and other unwanted characters
+    eventName = eventName
+      .replace(/^["']|["']$/g, '')  // Remove leading/trailing quotes
+      .replace(/["']/g, '')          // Remove any remaining quotes
+      .replace(/→|->|:$/g, '')       // Remove arrows and trailing colons
+      .replace(/becomes\s*/gi, '')   // Remove the word "becomes"
+      .replace(/\s+/g, ' ')          // Normalize whitespace
+      .trim();
 
     // Calculate confidence based on name consistency
     const uniqueNames = new Set(group.races.map(r => r.name.toLowerCase()));

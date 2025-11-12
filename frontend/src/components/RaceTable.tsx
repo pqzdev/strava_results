@@ -27,6 +27,8 @@ interface RaceTableProps {
   currentAthleteId?: number; // Strava ID of the current logged-in user
   isAdmin?: boolean; // Whether the current user is an admin
   onTimeUpdate?: () => void; // Callback to refresh races after update
+  availableEvents?: string[]; // List of all existing event names
+  onEventUpdate?: () => void; // Callback to refresh races and events after event update
 }
 
 /**
@@ -278,7 +280,196 @@ function EditableDistance({ race, isOwner, onSave }: EditableDistanceProps) {
   );
 }
 
-export default function RaceTable({ races, currentAthleteId, isAdmin = false, onTimeUpdate }: RaceTableProps) {
+interface EditableEventProps {
+  race: Race;
+  isAdmin: boolean;
+  availableEvents: string[];
+  onSave: (raceId: number, newEventName: string | null) => Promise<void>;
+}
+
+function EditableEvent({ race, isAdmin, availableEvents, onSave }: EditableEventProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  // Filter available events based on input value
+  const filteredEvents = availableEvents.filter(event =>
+    event.toLowerCase().includes(editValue.toLowerCase())
+  );
+
+  const handleEdit = () => {
+    setEditValue(race.event_name || '');
+    setIsEditing(true);
+    setIsDropdownOpen(true);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditValue('');
+    setIsDropdownOpen(false);
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const trimmedValue = editValue.trim();
+      await onSave(race.id, trimmedValue || null);
+      setIsEditing(false);
+      setEditValue('');
+      setIsDropdownOpen(false);
+    } catch (error) {
+      alert('Failed to update event');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSelectEvent = (eventName: string) => {
+    setEditValue(eventName);
+    setIsDropdownOpen(false);
+  };
+
+  const handleClear = async () => {
+    if (confirm('Remove event name?')) {
+      setIsSaving(true);
+      try {
+        await onSave(race.id, null);
+        setIsEditing(false);
+      } catch (error) {
+        alert('Failed to clear event');
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        if (!isDropdownOpen) setIsDropdownOpen(true);
+        setHighlightedIndex(prev =>
+          prev < filteredEvents.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (!isDropdownOpen) setIsDropdownOpen(true);
+        setHighlightedIndex(prev => (prev > 0 ? prev - 1 : 0));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (isDropdownOpen && filteredEvents[highlightedIndex]) {
+          handleSelectEvent(filteredEvents[highlightedIndex]);
+        } else {
+          handleSave();
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        if (isDropdownOpen) {
+          setIsDropdownOpen(false);
+        } else {
+          handleCancel();
+        }
+        break;
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="event-edit" style={{ position: 'relative' }}>
+        <input
+          type="text"
+          value={editValue}
+          onChange={(e) => {
+            setEditValue(e.target.value);
+            setIsDropdownOpen(true);
+            setHighlightedIndex(0);
+          }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setIsDropdownOpen(true)}
+          placeholder="Event name..."
+          className="time-input"
+          style={{ minWidth: '200px' }}
+          autoFocus
+        />
+        <button onClick={handleSave} disabled={isSaving} className="btn-save">
+          {isSaving ? '...' : '✓'}
+        </button>
+        <button onClick={handleCancel} disabled={isSaving} className="btn-cancel">
+          ✕
+        </button>
+        {race.event_name && (
+          <button onClick={handleClear} disabled={isSaving} className="btn-clear" title="Clear event name">
+            ↺
+          </button>
+        )}
+
+        {isDropdownOpen && filteredEvents.length > 0 && (
+          <ul
+            className="event-dropdown"
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              zIndex: 1000,
+              background: 'white',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              maxHeight: '200px',
+              overflowY: 'auto',
+              listStyle: 'none',
+              margin: '4px 0',
+              padding: 0,
+              minWidth: '200px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            }}
+          >
+            {filteredEvents.slice(0, 50).map((event, index) => (
+              <li
+                key={event}
+                onClick={() => handleSelectEvent(event)}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                style={{
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  backgroundColor: index === highlightedIndex ? '#f0f0f0' : 'white',
+                }}
+              >
+                {event}
+              </li>
+            ))}
+            {filteredEvents.length > 50 && (
+              <li style={{ padding: '8px 12px', color: '#666', fontSize: '12px' }}>
+                + {filteredEvents.length - 50} more (keep typing to narrow down)
+              </li>
+            )}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="event-display">
+      {race.event_name ? (
+        <span className="event-badge">{race.event_name}</span>
+      ) : (
+        <span className="no-event">—</span>
+      )}
+      {isAdmin && (
+        <button onClick={handleEdit} className="btn-edit" title="Edit event">
+          Edit
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default function RaceTable({ races, currentAthleteId, isAdmin = false, onTimeUpdate, availableEvents = [], onEventUpdate }: RaceTableProps) {
   const [sortField, setSortField] = useState<keyof Race | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -378,6 +569,34 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
     }
   };
 
+  const handleEventUpdate = async (raceId: number, newEventName: string | null) => {
+    try {
+      const response = await fetch(`/api/races/${raceId}/event`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          event_name: newEventName,
+          admin_strava_id: currentAthleteId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update event');
+      }
+
+      // Refresh the races list and available events
+      if (onEventUpdate) {
+        onEventUpdate();
+      }
+    } catch (error) {
+      console.error('Error updating event:', error);
+      throw error;
+    }
+  };
+
   return (
     <div className="race-table-container">
       <table className="race-table">
@@ -414,11 +633,12 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
               </td>
               <td>{formatDate(race.date)}</td>
               <td className="event-name">
-                {race.event_name ? (
-                  <span className="event-badge">{race.event_name}</span>
-                ) : (
-                  <span className="no-event">—</span>
-                )}
+                <EditableEvent
+                  race={race}
+                  isAdmin={isAdmin}
+                  availableEvents={availableEvents}
+                  onSave={handleEventUpdate}
+                />
               </td>
               <td>
                 <a

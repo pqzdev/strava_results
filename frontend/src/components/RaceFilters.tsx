@@ -3,6 +3,7 @@ import './RaceFilters.css';
 
 interface Filters {
   athletes: string[];
+  events: string[];
   distances: string[];
   activityName: string;
   dateFrom: string;
@@ -15,6 +16,7 @@ interface RaceFiltersProps {
   onClearFilters: () => void;
   earliestDate?: string;
   availableAthletes?: string[];
+  availableEvents?: string[];
 }
 
 // Distance categories
@@ -35,6 +37,7 @@ export default function RaceFilters({
   onClearFilters,
   earliestDate,
   availableAthletes = [],
+  availableEvents = [],
 }: RaceFiltersProps) {
 
   const getDefaultDateTo = () => new Date().toISOString().split('T')[0];
@@ -73,6 +76,7 @@ export default function RaceFilters({
   return (
     <div className="race-filters">
       <div className="filters-grid">
+        {/* First row: Athletes */}
         <div className="filter-group filter-group-wide">
           <MultiSelectAutocomplete
             options={availableAthletes}
@@ -80,6 +84,17 @@ export default function RaceFilters({
             onChange={athletes => onFilterChange({ athletes })}
             placeholder="Select athletes..."
             label="Filter by Athletes"
+          />
+        </div>
+
+        {/* Second row: Events and Activity Name */}
+        <div className="filter-group">
+          <MultiSelectAutocomplete
+            options={availableEvents}
+            selected={filters.events}
+            onChange={events => onFilterChange({ events })}
+            placeholder="Select events..."
+            label="Filter by Event"
           />
         </div>
 
@@ -94,8 +109,9 @@ export default function RaceFilters({
           />
         </div>
 
+        {/* Third row: Date Range and Distance */}
         {earliestDate && (
-          <div className="filter-group filter-group-wide">
+          <div className="filter-group">
             <label>Date Range</label>
             <div className="date-range-inputs">
               <div className="date-input-wrapper">
@@ -139,7 +155,7 @@ export default function RaceFilters({
           </div>
         )}
 
-        <div className="filter-group filter-group-wide">
+        <div className="filter-group">
           <MultiSelectAutocomplete
             options={DISTANCE_OPTIONS}
             selected={filters.distances}
@@ -149,6 +165,7 @@ export default function RaceFilters({
           />
         </div>
 
+        {/* Clear Filters Button */}
         <div className="filter-group filter-actions">
           <button
             className="clear-filters-btn"

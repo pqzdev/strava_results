@@ -28,6 +28,7 @@ interface Race {
 
 interface Filters {
   athletes: string[];
+  events: string[];
   distances: string[];
   activityName: string;
   dateFrom: string;
@@ -49,9 +50,11 @@ export default function Dashboard() {
   // Initialize filters from URL params
   const [filters, setFilters] = useState<Filters>(() => {
     const athletesParam = searchParams.get('athletes');
+    const eventsParam = searchParams.get('events');
     const distancesParam = searchParams.get('distances');
     return {
       athletes: athletesParam ? athletesParam.split('|').filter(Boolean) : [],
+      events: eventsParam ? eventsParam.split('|').filter(Boolean) : [],
       distances: distancesParam ? distancesParam.split('|').filter(Boolean) : [],
       activityName: searchParams.get('activityName') || '',
       dateFrom: searchParams.get('dateFrom') || getDefaultStartDate(),
@@ -64,6 +67,7 @@ export default function Dashboard() {
   const [pagination, setPagination] = useState({ total: 0, limit: 50, offset: 0 });
   const [earliestDate, setEarliestDate] = useState<string>();
   const [availableAthletes, setAvailableAthletes] = useState<string[]>([]);
+  const [availableEvents, setAvailableEvents] = useState<string[]>([]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -84,6 +88,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchEarliestDate();
     fetchAvailableAthletes();
+    fetchAvailableEvents();
   }, []);
 
   useEffect(() => {
@@ -124,6 +129,21 @@ export default function Dashboard() {
     }
   };
 
+  const fetchAvailableEvents = async () => {
+    try {
+      const response = await fetch('/api/races?limit=10000');
+      const data = await response.json();
+      if (data.races && data.races.length > 0) {
+        const events = Array.from(
+          new Set(data.races.map((r: Race) => r.event_name).filter((name: string | undefined): name is string => !!name))
+        ).sort() as string[];
+        setAvailableEvents(events);
+      }
+    } catch (error) {
+      console.error('Failed to fetch available events:', error);
+    }
+  };
+
   const fetchAdminStatus = async () => {
     try {
       const response = await fetch(`/api/admin/athletes?admin_strava_id=${currentAthleteId}`);
@@ -148,6 +168,9 @@ export default function Dashboard() {
 
       // Handle multi-select athletes filter
       filters.athletes.forEach(athlete => params.append('athlete', athlete));
+
+      // Handle multi-select events filter
+      filters.events.forEach(event => params.append('event', event));
 
       // Handle multi-select distance filter
       filters.distances.forEach(distance => params.append('distance', distance));
@@ -180,6 +203,9 @@ export default function Dashboard() {
     if (updatedFilters.athletes.length > 0) {
       params.set('athletes', updatedFilters.athletes.join('|'));
     }
+    if (updatedFilters.events.length > 0) {
+      params.set('events', updatedFilters.events.join('|'));
+    }
     if (updatedFilters.distances.length > 0) {
       params.set('distances', updatedFilters.distances.join('|'));
     }
@@ -198,6 +224,7 @@ export default function Dashboard() {
   const handleClearFilters = () => {
     setFilters({
       athletes: [],
+      events: [],
       distances: [],
       activityName: '',
       dateFrom: getDefaultStartDate(),
@@ -229,6 +256,7 @@ export default function Dashboard() {
           onClearFilters={handleClearFilters}
           earliestDate={earliestDate}
           availableAthletes={availableAthletes}
+          availableEvents={availableEvents}
         />
 
         {loading ? (
@@ -260,6 +288,11 @@ export default function Dashboard() {
               currentAthleteId={currentAthleteId}
               isAdmin={isAdmin}
               onTimeUpdate={fetchRaces}
+              availableEvents={availableEvents}
+              onEventUpdate={() => {
+                fetchRaces();
+                fetchAvailableEvents();
+              }}
             />
 
             {totalPages > 1 && (
