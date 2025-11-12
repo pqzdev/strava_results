@@ -14,6 +14,7 @@ interface Race {
   moving_time: number;
   manual_time?: number;
   manual_distance?: number;
+  event_name?: string;
   date: string;
   elevation_gain: number;
   average_heartrate?: number;

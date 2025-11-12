@@ -2,6 +2,7 @@
 
 export interface Env {
   DB: D1Database;
+  AI: Ai;
   STRAVA_CLIENT_ID: string;
   STRAVA_CLIENT_SECRET: string;
   STRAVA_REDIRECT_URI: string;
@@ -32,6 +33,7 @@ export interface Race {
   moving_time: number;
   manual_time?: number;
   manual_distance?: number;
+  event_name?: string;
   date: string;
   elevation_gain?: number;
   average_heartrate?: number;
@@ -40,6 +42,20 @@ export interface Race {
   // Additional fields for API responses
   athlete_name?: string;
   athlete_strava_id?: number;
+}
+
+export interface EventSuggestion {
+  id: number;
+  race_ids: string; // JSON array
+  suggested_event_name: string;
+  avg_date: string;
+  avg_distance: number;
+  race_count: number;
+  confidence: number;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  reviewed_at?: string;
+  reviewed_by?: number;
 }
 
 export interface StravaTokenResponse {

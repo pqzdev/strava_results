@@ -166,6 +166,29 @@
   cursor: not-allowed;
 }
 
+.event-name {
+  max-width: 250px;
+}
+
+.event-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #667eea;
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.no-event {
+  color: #adb5bd;
+  font-style: italic;
+}
+
 @media (max-width: 768px) {
   .race-table {
     font-size: 12px;
@@ -184,5 +207,10 @@
   .time-input {
     width: 70px;
     font-size: 12px;
+  }
+
+  .event-badge {
+    font-size: 11px;
+    padding: 3px 8px;
   }
 }
