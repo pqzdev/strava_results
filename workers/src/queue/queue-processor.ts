@@ -121,7 +121,7 @@ async function processJobWithTimeout(job: QueueJob, env: Env, ctx: ExecutionCont
     // Use the existing syncAthlete function with continuation support
     // The syncAthlete function handles batching internally and processes until complete
     await syncAthlete(
-      athlete.strava_id,
+      athlete.strava_id as number,
       env,
       false, // isInitialSync - not used for queue jobs
       isFullSync,
@@ -301,11 +301,11 @@ export async function getQueueStats(env: Env): Promise<{
   `).bind(twentyFourHoursAgo, twentyFourHoursAgo, twentyFourHoursAgo).first();
 
   return {
-    pending: stats?.pending || 0,
-    processing: stats?.processing || 0,
-    completed_24h: stats?.completed_24h || 0,
-    failed_24h: stats?.failed_24h || 0,
-    total_queued: stats?.total_queued || 0,
+    pending: Number(stats?.pending) || 0,
+    processing: Number(stats?.processing) || 0,
+    completed_24h: Number(stats?.completed_24h) || 0,
+    failed_24h: Number(stats?.failed_24h) || 0,
+    total_queued: Number(stats?.total_queued) || 0,
   };
 }
 

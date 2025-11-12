@@ -140,9 +140,11 @@ export default function Heatmap() {
 
             L.polyline(latLngs, {
               color: '#0055ff',
-              weight: 2,
-              opacity: 0.25,
-              smoothFactor: 1,
+              weight: 2.5,
+              opacity: 0.3,
+              smoothFactor: 0.5,
+              lineCap: 'round',
+              lineJoin: 'round',
             }).addTo(mapRef.current);
           } catch (error) {
             console.error('Error drawing polyline:', error);
