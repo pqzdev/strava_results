@@ -26,6 +26,7 @@ interface SyncMessage {
  * @param fullSync - If true, deletes all existing data and fetches ALL activities from the beginning
  * @param ctx - Execution context for scheduling follow-up syncs
  * @param continuationTimestamp - For paginated syncs, the timestamp to continue from
+ * @param sessionId - Optional session ID for logging sync progress
  */
 export async function syncAthlete(
   athleteStravaId: number,
@@ -33,9 +34,10 @@ export async function syncAthlete(
   isInitialSync: boolean = false,
   fullSync: boolean = false,
   ctx?: ExecutionContext,
-  continuationTimestamp?: number
+  continuationTimestamp?: number,
+  sessionId?: string
 ): Promise<void> {
-  console.log(`Starting sync for athlete ${athleteStravaId} (initial: ${isInitialSync}, full: ${fullSync}, continuation: ${continuationTimestamp || 'none'})`);
+  console.log(`Starting sync for athlete ${athleteStravaId} (initial: ${isInitialSync}, full: ${fullSync}, continuation: ${continuationTimestamp || 'none'}, session: ${sessionId || 'none'})`);
 
   try {
     let currentTimestamp = continuationTimestamp;
