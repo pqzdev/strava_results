@@ -48,6 +48,28 @@ interface QueueStats {
   total_queued: number;
 }
 
+interface ManualSubmission {
+  id: number;
+  submission_session_id: string;
+  strava_activity_id: number;
+  strava_url: string;
+  athlete_name: string;
+  activity_name: string;
+  activity_type: string;
+  date: string;
+  original_distance: number | null;
+  original_time_seconds: number | null;
+  original_elevation_gain: number | null;
+  edited_distance: number | null;
+  edited_time_seconds: number | null;
+  edited_elevation_gain: number | null;
+  event_name: string | null;
+  status: string;
+  submitted_at: number;
+  processed_at: number | null;
+  notes: string | null;
+}
+
 type SortField = 'name' | 'activities' | 'races' | 'runs';
 type SortDirection = 'asc' | 'desc';
 
@@ -77,6 +99,8 @@ export default function Admin() {
   const [parkrunSearch, setParkrunSearch] = useState('');
   const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
   const [queueingAll, setQueueingAll] = useState(false);
+  const [manualSubmissions, setManualSubmissions] = useState<ManualSubmission[]>([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const PARKRUN_PAGE_SIZE = 50;
 
   // Get admin strava ID from localStorage
@@ -89,6 +113,7 @@ export default function Admin() {
     fetchParkrunAthletes();
     fetchEventSuggestions();
     fetchQueueStats();
+    fetchManualSubmissions();
 
     // Poll queue stats every 30 seconds
     const interval = setInterval(fetchQueueStats, 30000);
@@ -183,6 +208,68 @@ export default function Admin() {
       setQueueStats(data);
     } catch (err) {
       console.error('Error fetching queue stats:', err);
+    }
+  };
+
+  const fetchManualSubmissions = async () => {
+    setLoadingSubmissions(true);
+    try {
+      const response = await fetch(`/api/admin/manual-submissions?admin_strava_id=${currentAthleteId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch manual submissions');
+      }
+      const data = await response.json();
+      setManualSubmissions(data.submissions || []);
+    } catch (err) {
+      console.error('Error fetching manual submissions:', err);
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  };
+
+  const handleApproveSubmission = async (submissionId: number) => {
+    if (!confirm('Approve this manual submission? It will appear in the main dashboard.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/manual-submissions/${submissionId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_strava_id: currentAthleteId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to approve submission');
+      }
+
+      alert('Submission approved successfully!');
+      fetchManualSubmissions();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to approve submission');
+    }
+  };
+
+  const handleRejectSubmission = async (submissionId: number) => {
+    if (!confirm('Reject this manual submission? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/manual-submissions/${submissionId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_strava_id: currentAthleteId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reject submission');
+      }
+
+      alert('Submission rejected.');
+      fetchManualSubmissions();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to reject submission');
     }
   };
 
@@ -1397,6 +1484,172 @@ export default function Admin() {
           >
             Next
           </button>
+        </div>
+      )}
+
+      <div className="admin-header" style={{ marginTop: '3rem' }}>
+        <h2>📝 Manual Activity Submissions</h2>
+        <p className="subtitle">Review and approve manually submitted Strava activities</p>
+      </div>
+
+      {loadingSubmissions ? (
+        <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
+          Loading submissions...
+        </div>
+      ) : manualSubmissions.length === 0 ? (
+        <div style={{
+          padding: '2rem',
+          textAlign: 'center',
+          backgroundColor: '#f9fafb',
+          borderRadius: '8px',
+          color: '#6b7280',
+        }}>
+          <p style={{ margin: 0, fontSize: '0.9rem' }}>
+            No pending manual submissions.
+          </p>
+        </div>
+      ) : (
+        <div className="admin-table-container">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Athlete</th>
+                <th>Activity</th>
+                <th>Date</th>
+                <th>Distance</th>
+                <th>Time</th>
+                <th>Elevation</th>
+                <th>Event</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {manualSubmissions.map((submission) => {
+                const hasEdits =
+                  submission.edited_distance !== submission.original_distance ||
+                  submission.edited_time_seconds !== submission.original_time_seconds ||
+                  submission.edited_elevation_gain !== submission.original_elevation_gain;
+
+                return (
+                  <tr key={submission.id}>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600 }}>{submission.athlete_name}</span>
+                        <a
+                          href={submission.strava_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: '0.85rem', color: '#0ea5e9' }}
+                        >
+                          View on Strava →
+                        </a>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 500 }}>{submission.activity_name}</span>
+                        <span style={{ fontSize: '0.85rem', color: '#666' }}>{submission.activity_type}</span>
+                      </div>
+                    </td>
+                    <td>{new Date(submission.date).toLocaleDateString()}</td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {submission.edited_distance !== submission.original_distance ? (
+                          <>
+                            <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.85rem' }}>
+                              {submission.original_distance?.toFixed(2)} km
+                            </span>
+                            <span style={{ fontWeight: 600, color: '#0ea5e9' }}>
+                              {submission.edited_distance?.toFixed(2)} km
+                            </span>
+                          </>
+                        ) : (
+                          <span>{submission.edited_distance?.toFixed(2)} km</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {submission.edited_time_seconds !== submission.original_time_seconds ? (
+                          <>
+                            <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.85rem' }}>
+                              {submission.original_time_seconds ? new Date(submission.original_time_seconds * 1000).toISOString().substr(11, 8) : 'N/A'}
+                            </span>
+                            <span style={{ fontWeight: 600, color: '#0ea5e9' }}>
+                              {submission.edited_time_seconds ? new Date(submission.edited_time_seconds * 1000).toISOString().substr(11, 8) : 'N/A'}
+                            </span>
+                          </>
+                        ) : (
+                          <span>{submission.edited_time_seconds ? new Date(submission.edited_time_seconds * 1000).toISOString().substr(11, 8) : 'N/A'}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {submission.edited_elevation_gain !== submission.original_elevation_gain ? (
+                          <>
+                            <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.85rem' }}>
+                              {submission.original_elevation_gain?.toFixed(0)} m
+                            </span>
+                            <span style={{ fontWeight: 600, color: '#0ea5e9' }}>
+                              {submission.edited_elevation_gain?.toFixed(0)} m
+                            </span>
+                          </>
+                        ) : (
+                          <span>{submission.edited_elevation_gain?.toFixed(0)} m</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {submission.event_name ? (
+                          <span style={{ fontWeight: 500 }}>{submission.event_name}</span>
+                        ) : (
+                          <span style={{ color: '#999', fontSize: '0.85rem' }}>No event</span>
+                        )}
+                        {submission.notes && (
+                          <span style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }} title={submission.notes}>
+                            📝 {submission.notes.substring(0, 30)}{submission.notes.length > 30 ? '...' : ''}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="action-buttons" style={{ gap: '0.5rem' }}>
+                        <button
+                          onClick={() => handleApproveSubmission(submission.id)}
+                          className="button"
+                          style={{
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#22c55e',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                          }}
+                          title="Approve and add to races"
+                        >
+                          ✅ Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectSubmission(submission.id)}
+                          className="button button-delete"
+                          style={{
+                            padding: '0.5rem 1rem',
+                            fontSize: '0.85rem',
+                          }}
+                          title="Reject submission"
+                        >
+                          ❌ Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
