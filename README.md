@@ -12,7 +12,8 @@ A full-featured web application that automatically aggregates race results from 
 - **Event Classification** - AI-powered event name detection and classification
 
 ### parkrun Integration
-- **CSV Import** - Upload parkrun results from weekly CSV exports
+- **Manual Data Collection** - Admins process parkrun results using a browser-based tool
+- **CSV Import** - Upload processed results via admin panel
 - **Athlete Matching** - Smart matching of parkrun athletes to Strava profiles
 - **Historical Data** - Track parkrun history alongside Strava races
 - **Date-based Filtering** - View specific parkrun events by date
@@ -239,20 +240,36 @@ Access the admin panel at `/admin`:
 - Trigger bulk event analysis
 
 #### parkrun Management
-- Import CSV results from parkrun.org.au
+- Process parkrun results using browser-based data collection tool
+- Import CSV results via admin panel
 - Match parkrun athletes to Strava profiles
 - Control visibility of parkrun athletes
 - View parkrun-specific statistics
 
 ## 🏃 parkrun Integration
 
-### Importing parkrun Results
+### Why Manual Collection?
 
-1. Go to your parkrun event's results page (e.g., `parkrun.org.au/yourpark/results`)
-2. Download the CSV for your event
-3. Visit the **parkrun** page in your app
-4. Click "Import CSV" and upload the file
-5. Results are automatically matched to Strava athletes where possible
+parkrun doesn't currently provide a public API for accessing club results. Until an official API becomes available, club results need to be processed manually by an administrator.
+
+### Collecting parkrun Results
+
+1. **Access the Collection Tool**
+   - Visit your deployed site at `https://your-domain.pages.dev/parkrun-smart-scraper.js`
+   - Or find it in `frontend/public/parkrun-smart-scraper.js`
+
+2. **Run the Browser Tool**
+   - Go to https://www.parkrun.com/results/consolidatedclub/?clubNum=YOUR_CLUB_NUMBER
+   - Open browser console (F12 or Cmd+Option+J on Mac)
+   - Copy and paste the tool code from the file
+   - Press Enter and wait for it to process all dates
+
+3. **Import the Results**
+   - The tool generates a CSV with all results
+   - Go to your **Admin** panel
+   - Navigate to the parkrun section
+   - Upload the generated CSV file
+   - Results are automatically matched to Strava athletes where possible
 
 ### Smart Athlete Matching
 
@@ -260,6 +277,10 @@ The system uses fuzzy matching to link parkrun and Strava profiles:
 - Matches by first name + last name
 - Case-insensitive, handles variations
 - Manual review available in admin panel
+
+### Future: API Integration
+
+Once parkrun releases a public API, the collection tool can be replaced with automated sync similar to Strava integration.
 
 ## ⚙️ Configuration
 
