@@ -1,2 +1,2 @@
-/api/* https://strava-club-workers.pedroqueiroz.workers.dev/api/:splat 200!
-/auth/* https://strava-club-workers.pedroqueiroz.workers.dev/auth/:splat 200!
+/api/* https://strava-club-workers.pedroqueiroz.workers.dev/api/:splat 200
+/auth/* https://strava-club-workers.pedroqueiroz.workers.dev/auth/:splat 200
