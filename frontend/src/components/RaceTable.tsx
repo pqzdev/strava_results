@@ -314,11 +314,17 @@ function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteI
   const userAlreadyHasThisEvent = (): boolean => {
     if (!currentAthleteId || !race.event_name) return false;
 
-    return allRaces.some(r =>
-      r.strava_id === currentAthleteId &&
-      r.event_name === race.event_name &&
-      r.date === race.date
-    );
+    // Extract just the date portion (YYYY-MM-DD) from the datetime string
+    const raceDateOnly = race.date.split('T')[0];
+
+    return allRaces.some(r => {
+      const rDateOnly = r.date.split('T')[0];
+      return (
+        r.strava_id === currentAthleteId &&
+        r.event_name === race.event_name &&
+        rDateOnly === raceDateOnly
+      );
+    });
   };
 
   // Show "Find mine" link only if:
