@@ -316,12 +316,14 @@ async function syncAthleteInternal(
     }
 
     // Determine if more data may be available
-    // For full syncs: if we got maxPagesPerBatch worth of activities, there may be more
+    // For full syncs with no page limit: never consider more data available (we fetched it all)
     // For incremental syncs: if we got a full batch, there may be more
-    const moreDataAvailable = activities.length === (maxPagesPerBatch * 200);
+    const moreDataAvailable = maxPagesPerBatch !== undefined && activities.length === (maxPagesPerBatch * 200);
 
     if (moreDataAvailable) {
-      console.log(`More data may be available - fetched ${activities.length} activities (max was ${maxPagesPerBatch * 200})`);
+      console.log(`More data may be available - fetched ${activities.length} activities (max was ${maxPagesPerBatch! * 200})`);
+    } else if (maxPagesPerBatch === undefined) {
+      console.log(`Full sync complete - fetched ${activities.length} total activities (no limit)`);
     } else {
       console.log(`All data fetched - got ${activities.length} activities (less than max of ${maxPagesPerBatch * 200})`);
     }
