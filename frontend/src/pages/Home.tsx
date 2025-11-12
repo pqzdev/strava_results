@@ -34,7 +34,7 @@ export default function Home() {
   };
 
   const handleConnectStrava = () => {
-    window.location.href = 'https://strava-club-workers.pedroqueiroz.workers.dev/auth/authorize';
+    window.location.href = '/auth/authorize';
   };
 
   return (
