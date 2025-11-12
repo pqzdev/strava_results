@@ -139,9 +139,9 @@ export default function Heatmap() {
             ]);
 
             L.polyline(latLngs, {
-              color: '#0033cc',
-              weight: 1.5,
-              opacity: 0.12,
+              color: '#0055ff',
+              weight: 2,
+              opacity: 0.25,
               smoothFactor: 1,
             }).addTo(mapRef.current);
           } catch (error) {
