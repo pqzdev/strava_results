@@ -38,21 +38,27 @@ export async function syncAthlete(
   console.log(`Starting sync for athlete ${athleteStravaId} (initial: ${isInitialSync}, full: ${fullSync}, continuation: ${continuationTimestamp || 'none'})`);
 
   try {
-    const result = await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync, continuationTimestamp);
+    let currentTimestamp = continuationTimestamp;
+    let batchNumber = 1;
 
-    // If more data is available, continue fetching
-    if (result.moreDataAvailable && ctx) {
-      console.log(`More activities available for athlete ${athleteStravaId}, scheduling follow-up sync (fullSync: ${fullSync}, next before: ${result.oldestTimestamp})`);
+    // Loop until all data is fetched
+    while (true) {
+      console.log(`Fetching batch ${batchNumber} for athlete ${athleteStravaId}${currentTimestamp ? ` (before: ${currentTimestamp})` : ''}`);
 
-      // Schedule another sync in the background with the continuation timestamp
-      ctx.waitUntil(
-        (async () => {
-          // Small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          console.log(`Starting follow-up sync for athlete ${athleteStravaId} from timestamp ${result.oldestTimestamp}`);
-          await syncAthlete(athleteStravaId, env, false, fullSync, ctx, result.oldestTimestamp);
-        })()
-      );
+      const result = await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync, currentTimestamp);
+
+      if (!result.moreDataAvailable) {
+        console.log(`All data fetched for athlete ${athleteStravaId} after ${batchNumber} batch(es)`);
+        break;
+      }
+
+      // More data available, continue with next batch
+      console.log(`Batch ${batchNumber} complete. More data available, continuing with next batch...`);
+      currentTimestamp = result.oldestTimestamp;
+      batchNumber++;
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   } catch (error) {
     console.error(`Error syncing athlete ${athleteStravaId}:`, error);
@@ -183,16 +189,16 @@ async function syncAthleteInternal(
 
     console.log(`Fetching activities (fullSync: ${fullSync}, after: ${afterTimestamp || 'none'}, before: ${beforeTimestamp || 'none'})`);
 
-    // For full syncs, fetch more activities per batch (up to 10 pages = 2000 activities)
-    // This is safe because we use continuation timestamps to paginate
-    const maxPagesPerBatch = fullSync ? 10 : 5;
+    // For full syncs, fetch ALL activities without page limit
+    // For incremental syncs, limit to 5 pages (1000 activities) per batch to avoid timeouts
+    const maxPagesPerBatch = fullSync ? undefined : 5;
 
     const { activities } = await fetchAthleteActivities(
       accessToken,
       afterTimestamp,
       beforeTimestamp,
       200,                  // perPage (max allowed by Strava)
-      maxPagesPerBatch      // maxPages per batch
+      maxPagesPerBatch      // maxPages per batch (undefined = no limit)
     );
 
     console.log(`Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
@@ -310,12 +316,14 @@ async function syncAthleteInternal(
     }
 
     // Determine if more data may be available
-    // For full syncs: if we got maxPagesPerBatch worth of activities, there may be more
+    // For full syncs with no page limit: never consider more data available (we fetched it all)
     // For incremental syncs: if we got a full batch, there may be more
-    const moreDataAvailable = activities.length === (maxPagesPerBatch * 200);
+    const moreDataAvailable = maxPagesPerBatch !== undefined && activities.length === (maxPagesPerBatch * 200);
 
     if (moreDataAvailable) {
-      console.log(`More data may be available - fetched ${activities.length} activities (max was ${maxPagesPerBatch * 200})`);
+      console.log(`More data may be available - fetched ${activities.length} activities (max was ${maxPagesPerBatch! * 200})`);
+    } else if (maxPagesPerBatch === undefined) {
+      console.log(`Full sync complete - fetched ${activities.length} total activities (no limit)`);
     } else {
       console.log(`All data fetched - got ${activities.length} activities (less than max of ${maxPagesPerBatch * 200})`);
     }

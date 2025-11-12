@@ -1,0 +1,7 @@
+# Placeholder wrangler.toml for repository root
+#
+# Workers deployment: Uses /workers/wrangler.toml (deploy command runs from /workers/)
+# Frontend deployment: Cloudflare Pages automatic builds
+
+name = "woodstock-results"
+compatibility_date = "2024-11-10"
