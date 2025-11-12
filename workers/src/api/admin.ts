@@ -1,7 +1,6 @@
 // Admin API endpoints
 import { Env } from '../types';
 import { syncAthlete } from '../queue/sync-queue';
-import { getSyncLogs } from '../utils/sync-logger';
 
 /**
  * Check if a user is an admin
@@ -240,9 +239,6 @@ export async function triggerAthleteSync(
         .run();
     }
 
-    // Generate unique session ID for this sync
-    const sessionId = `sync_${athleteId}_${Date.now()}`;
-
     // Update status to in_progress for the new sync
     await env.DB.prepare(
       "UPDATE athletes SET sync_status = 'in_progress', sync_error = NULL WHERE id = ?"
@@ -256,7 +252,7 @@ export async function triggerAthleteSync(
       (async () => {
         try {
           console.log(`Admin triggering FULL REFRESH for athlete ${athlete.strava_id} (ID: ${athleteId})`);
-          await syncAthlete(athlete.strava_id, env, false, true, ctx, undefined, sessionId);
+          await syncAthlete(athlete.strava_id, env, false, true, ctx);
           console.log(`Admin sync completed successfully for athlete ${athlete.strava_id}`);
         } catch (error) {
           console.error(`Admin sync failed for athlete ${athlete.strava_id}:`, error);
@@ -275,7 +271,7 @@ export async function triggerAthleteSync(
     );
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Sync triggered', session_id: sessionId }),
+      JSON.stringify({ success: true, message: 'Sync triggered' }),
       {
         status: 200,
         headers: {
@@ -335,50 +331,6 @@ export async function resetStuckSyncs(
     console.error('Error resetting stuck syncs:', error);
     return new Response(
       JSON.stringify({ error: 'Failed to reset stuck syncs' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-}
-
-/**
- * GET /api/admin/sync-logs?session_id=X - Get sync logs for a session
- */
-export async function getSyncLogsForSession(request: Request, env: Env): Promise<Response> {
-  try {
-    const url = new URL(request.url);
-    const sessionId = url.searchParams.get('session_id');
-    const adminStravaId = parseInt(url.searchParams.get('admin_strava_id') || '0');
-
-    if (!adminStravaId || !(await isAdmin(adminStravaId, env))) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!sessionId) {
-      return new Response(
-        JSON.stringify({ error: 'session_id required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const logs = await getSyncLogs(env, sessionId, 500);
-
-    return new Response(
-      JSON.stringify({ logs }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
-  } catch (error) {
-    console.error('Error fetching sync logs:', error);
-    return new Response(
-      JSON.stringify({ error: 'Failed to fetch sync logs' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
