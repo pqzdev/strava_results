@@ -191,16 +191,16 @@ async function syncAthleteInternal(
 
     console.log(`Fetching activities (fullSync: ${fullSync}, after: ${afterTimestamp || 'none'}, before: ${beforeTimestamp || 'none'})`);
 
-    // For full syncs, fetch ALL activities without page limit
-    // For incremental syncs, limit to 5 pages (1000 activities) per batch to avoid timeouts
-    const maxPagesPerBatch = fullSync ? undefined : 5;
+    // Limit ALL syncs to 5 pages (1000 activities) per batch to avoid timeouts
+    // Full syncs will trigger follow-up batches automatically via waitUntil
+    const maxPagesPerBatch = 5;
 
     const { activities } = await fetchAthleteActivities(
       accessToken,
       afterTimestamp,
       beforeTimestamp,
       200,                  // perPage (max allowed by Strava)
-      maxPagesPerBatch      // maxPages per batch (undefined = no limit)
+      maxPagesPerBatch      // maxPages per batch (always limited to avoid timeout)
     );
 
     console.log(`Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
@@ -318,14 +318,11 @@ async function syncAthleteInternal(
     }
 
     // Determine if more data may be available
-    // For full syncs with no page limit: never consider more data available (we fetched it all)
-    // For incremental syncs: if we got a full batch, there may be more
-    const moreDataAvailable = maxPagesPerBatch !== undefined && activities.length === (maxPagesPerBatch * 200);
+    // If we got a full batch (1000 activities), there may be more to fetch
+    const moreDataAvailable = activities.length === (maxPagesPerBatch * 200);
 
     if (moreDataAvailable) {
-      console.log(`More data may be available - fetched ${activities.length} activities (max was ${maxPagesPerBatch! * 200})`);
-    } else if (maxPagesPerBatch === undefined) {
-      console.log(`Full sync complete - fetched ${activities.length} total activities (no limit)`);
+      console.log(`More data may be available - fetched ${activities.length} activities (max was ${maxPagesPerBatch * 200})`);
     } else {
       console.log(`All data fetched - got ${activities.length} activities (less than max of ${maxPagesPerBatch * 200})`);
     }
