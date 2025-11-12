@@ -101,14 +101,16 @@ export async function ensureValidToken(
  * @param after - Unix timestamp to fetch activities after
  * @param before - Unix timestamp to fetch activities before (optional, for date range queries)
  * @param perPage - Number of activities per page (max 200)
+ * @param maxPages - Maximum number of pages to fetch (optional, for batching large syncs)
  */
 export async function fetchAthleteActivities(
   accessToken: string,
   after?: number,
   before?: number,
-  perPage: number = 200
+  perPage: number = 200,
+  maxPages?: number
 ): Promise<{ activities: StravaActivity[]; rateLimits: RateLimitInfo }> {
-  console.log(`[fetchAthleteActivities] Called with: after=${after}, before=${before}, perPage=${perPage}`);
+  console.log(`[fetchAthleteActivities] Called with: after=${after}, before=${before}, perPage=${perPage}, maxPages=${maxPages}`);
 
   const allActivities: StravaActivity[] = [];
   let page = 1;
@@ -119,7 +121,7 @@ export async function fetchAthleteActivities(
     usage_daily: 0,
   };
 
-  // Fetch all pages of activities
+  // Fetch all pages of activities (or up to maxPages if specified)
   while (true) {
     const url = new URL(`${STRAVA_API_BASE}/athlete/activities`);
     url.searchParams.set('per_page', perPage.toString());
@@ -171,6 +173,12 @@ export async function fetchAthleteActivities(
     // If we got fewer than perPage activities, this is the last page
     if (activities.length < perPage) {
       console.log(`[fetchAthleteActivities] Page ${page}: Last page reached (${activities.length} < ${perPage})`);
+      break;
+    }
+
+    // If maxPages is set and we've reached it, stop pagination
+    if (maxPages && page >= maxPages) {
+      console.log(`[fetchAthleteActivities] Page ${page}: Reached maxPages limit (${maxPages}), stopping pagination`);
       break;
     }
 

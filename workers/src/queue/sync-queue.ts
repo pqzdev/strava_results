@@ -122,16 +122,13 @@ async function syncAthleteInternal(
     let allActivities: any[] = [];
 
     if (fullSync) {
-      // For full syncs, fetch ALL activities from all time (no after timestamp)
-      afterTimestamp = undefined;
-
-      console.log(`Full sync requested - fetching ALL activities from all time`);
-      console.log(`[DEBUG] About to call fetchAthleteActivities with no after timestamp, perPage=200`);
+      // For full syncs, delete all existing races first for a true refresh
+      console.log(`Full sync - this will process ALL activities. Note: This may require multiple syncs for large activity counts.`);
 
       // Fetch ALL activities with proper pagination (fetchAthleteActivities handles pagination internally)
       const { activities } = await fetchAthleteActivities(
         accessToken,
-        afterTimestamp,
+        undefined,  // no after timestamp - fetch all
         undefined,  // no before timestamp
         200  // perPage - fetch in pages of 200
       );
