@@ -285,14 +285,29 @@ interface EditableEventProps {
   isAdmin: boolean;
   availableEvents: string[];
   onSave: (raceId: number, newEventName: string | null) => Promise<void>;
+  currentAthleteId?: number;
 }
 
-function EditableEvent({ race, isAdmin, availableEvents, onSave }: EditableEventProps) {
+function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteId }: EditableEventProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  // Helper to generate Strava calendar link for the race's year/month
+  const getCalendarLink = (): string => {
+    const date = new Date(race.date);
+    const year = date.getFullYear();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[date.getMonth()];
+    return `https://www.strava.com/athlete/calendar/${year}#${month}`;
+  };
+
+  // Show "Find mine" link only if:
+  // 1. Race has an event name
+  // 2. Race is NOT from the current user viewing it
+  const showFindMineLink = race.event_name && currentAthleteId && race.strava_id !== currentAthleteId;
 
   // Filter available events based on input value
   const filteredEvents = availableEvents.filter(event =>
@@ -456,7 +471,26 @@ function EditableEvent({ race, isAdmin, availableEvents, onSave }: EditableEvent
   return (
     <div className="event-display">
       {race.event_name ? (
-        <span className="event-badge">{race.event_name}</span>
+        <>
+          <span className="event-badge">{race.event_name}</span>
+          {showFindMineLink && (
+            <a
+              href={getCalendarLink()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="find-mine-link"
+              title="Find mine"
+              style={{
+                marginLeft: '6px',
+                fontSize: '14px',
+                textDecoration: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              🔍
+            </a>
+          )}
+        </>
       ) : (
         <span className="no-event">—</span>
       )}
@@ -638,6 +672,7 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                   isAdmin={isAdmin}
                   availableEvents={availableEvents}
                   onSave={handleEventUpdate}
+                  currentAthleteId={currentAthleteId}
                 />
               </td>
               <td>
