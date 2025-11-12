@@ -191,13 +191,12 @@ export async function fetchAthleteActivities(
 
 /**
  * Filter activities to only include races
- * Includes ALL running activities (not just those marked as races in Strava)
- * This captures all runs which may be races, parkruns, or other running events
+ * Only includes activities explicitly marked as race (workout_type === 1) in Strava
  */
 export function filterRaceActivities(activities: StravaActivity[]): StravaActivity[] {
   return activities.filter((activity) => {
-    // Include all running activities
-    return activity.type === 'Run';
+    // Must be a running activity with workout_type === 1 (race)
+    return activity.type === 'Run' && activity.workout_type === 1;
   });
 }
 
