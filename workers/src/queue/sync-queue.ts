@@ -38,21 +38,27 @@ export async function syncAthlete(
   console.log(`Starting sync for athlete ${athleteStravaId} (initial: ${isInitialSync}, full: ${fullSync}, continuation: ${continuationTimestamp || 'none'})`);
 
   try {
-    const result = await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync, continuationTimestamp);
+    let currentTimestamp = continuationTimestamp;
+    let batchNumber = 1;
 
-    // If more data is available, continue fetching
-    if (result.moreDataAvailable && ctx) {
-      console.log(`More activities available for athlete ${athleteStravaId}, scheduling follow-up sync (fullSync: ${fullSync}, next before: ${result.oldestTimestamp})`);
+    // Loop until all data is fetched
+    while (true) {
+      console.log(`Fetching batch ${batchNumber} for athlete ${athleteStravaId}${currentTimestamp ? ` (before: ${currentTimestamp})` : ''}`);
 
-      // Schedule another sync in the background with the continuation timestamp
-      ctx.waitUntil(
-        (async () => {
-          // Small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          console.log(`Starting follow-up sync for athlete ${athleteStravaId} from timestamp ${result.oldestTimestamp}`);
-          await syncAthlete(athleteStravaId, env, false, fullSync, ctx, result.oldestTimestamp);
-        })()
-      );
+      const result = await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync, currentTimestamp);
+
+      if (!result.moreDataAvailable) {
+        console.log(`All data fetched for athlete ${athleteStravaId} after ${batchNumber} batch(es)`);
+        break;
+      }
+
+      // More data available, continue with next batch
+      console.log(`Batch ${batchNumber} complete. More data available, continuing with next batch...`);
+      currentTimestamp = result.oldestTimestamp;
+      batchNumber++;
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   } catch (error) {
     console.error(`Error syncing athlete ${athleteStravaId}:`, error);
