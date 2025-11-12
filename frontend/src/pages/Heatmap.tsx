@@ -53,6 +53,26 @@ export default function Heatmap() {
       const racesWithPolylines = races.filter((race) => race.polyline);
       console.log(`${racesWithPolylines.length} races have polylines`);
 
+      // Log sample of races with polylines to see geographic distribution
+      if (racesWithPolylines.length > 0) {
+        console.log('Sample races with polylines:', racesWithPolylines.slice(0, 10).map(r => ({
+          name: r.name,
+          date: r.date,
+          athlete: `${r.firstname} ${r.lastname}`
+        })));
+      }
+
+      // Log races without polylines
+      const racesWithoutPolylines = races.filter((race) => !race.polyline);
+      console.log(`${racesWithoutPolylines.length} races missing polylines`);
+      if (racesWithoutPolylines.length > 0) {
+        console.log('Sample races without polylines:', racesWithoutPolylines.slice(0, 5).map(r => ({
+          name: r.name,
+          date: r.date,
+          athlete: `${r.firstname} ${r.lastname}`
+        })));
+      }
+
       setStats({
         total: races.length,
         withPolylines: racesWithPolylines.length,
