@@ -7,7 +7,7 @@ import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, up
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs } from './api/admin';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
-import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis } from './api/events';
+import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames } from './api/events';
 import { backfillPolylines } from './api/polyline-backfill';
 import { extractActivities, submitActivities, getManualSubmissions, approveSubmission, rejectSubmission } from './api/manual-submissions';
 import {
@@ -157,6 +157,11 @@ export default {
       if (parkrunAthleteMatch && request.method === 'PATCH') {
         const athleteName = decodeURIComponent(parkrunAthleteMatch[1]);
         return updateParkrunAthlete(request, env, athleteName);
+      }
+
+      // Event routes
+      if (path === '/api/events/names' && request.method === 'GET') {
+        return getEventNames(request, env);
       }
 
       // Event suggestion routes

@@ -14,6 +14,40 @@ async function isAdmin(env: Env, stravaId: number): Promise<boolean> {
 }
 
 /**
+ * Get all unique event names
+ * GET /api/events/names
+ */
+export async function getEventNames(request: Request, env: Env): Promise<Response> {
+  try {
+    const result = await env.DB.prepare(`
+      SELECT DISTINCT event_name
+      FROM races
+      WHERE event_name IS NOT NULL AND event_name != ''
+      ORDER BY event_name ASC
+    `).all();
+
+    const eventNames = result.results.map((row: any) => row.event_name) as string[];
+
+    return new Response(JSON.stringify({ eventNames }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  } catch (error) {
+    console.error('Failed to fetch event names:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to fetch event names' }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+}
+
+/**
  * Get all event suggestions
  * GET /api/event-suggestions?admin_strava_id=123&status=pending
  */

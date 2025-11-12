@@ -30,6 +30,8 @@ export default function SubmitActivitiesReview() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eventNames, setEventNames] = useState<string[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
 
   useEffect(() => {
     // Load extracted activities from session storage
@@ -56,7 +58,24 @@ export default function SubmitActivitiesReview() {
       console.error('Failed to parse activities:', err);
       navigate('/submit-activities');
     }
+
+    // Fetch existing event names
+    fetchEventNames();
   }, [navigate]);
+
+  const fetchEventNames = async () => {
+    try {
+      const response = await fetch('/api/events/names');
+      if (response.ok) {
+        const data = await response.json();
+        setEventNames(data.eventNames || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch event names:', err);
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
 
   const currentActivity = activities[currentIndex];
 
@@ -242,13 +261,23 @@ export default function SubmitActivitiesReview() {
 
           <div className="field-group">
             <label>Event Name (optional)</label>
-            <input
-              type="text"
-              value={currentActivity.event_name || ''}
-              onChange={(e) => updateActivity({ event_name: e.target.value || null })}
-              placeholder="e.g., City Marathon, parkrun"
-              className="edit-input"
-            />
+            {loadingEvents ? (
+              <div className="edit-input" style={{ color: '#999' }}>Loading events...</div>
+            ) : (
+              <select
+                value={currentActivity.event_name || ''}
+                onChange={(e) => updateActivity({ event_name: e.target.value || null })}
+                className="edit-input"
+              >
+                <option value="">-- Select Event or Leave Blank --</option>
+                {eventNames.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+            )}
+            <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
+              If the event is not in the list, leave this blank and suggest the event name in the notes below.
+            </p>
           </div>
 
           <div className="field-group">
