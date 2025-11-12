@@ -1,21 +1,59 @@
+import { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
-import Home from './pages/Home';
-import Dashboard from './pages/Dashboard';
-import Parkrun from './pages/Parkrun';
-import Admin from './pages/Admin';
 import './App.css';
+
+// Lazy load page components for code splitting
+const Home = lazy(() => import('./pages/Home'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Parkrun = lazy(() => import('./pages/Parkrun'));
+const Admin = lazy(() => import('./pages/Admin'));
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route path="races" element={<Dashboard />} />
-        <Route path="parkrun" element={<Parkrun />} />
-        <Route path="admin" element={<Admin />} />
+        <Route
+          index
+          element={
+            <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
+              <Home />
+            </Suspense>
+          }
+        />
+        <Route
+          path="races"
+          element={
+            <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
+              <Dashboard />
+            </Suspense>
+          }
+        />
+        <Route
+          path="parkrun"
+          element={
+            <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
+              <Parkrun />
+            </Suspense>
+          }
+        />
+        <Route
+          path="admin"
+          element={
+            <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
+              <Admin />
+            </Suspense>
+          }
+        />
         {/* Legacy route for backwards compatibility */}
-        <Route path="dashboard" element={<Dashboard />} />
+        <Route
+          path="dashboard"
+          element={
+            <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
+              <Dashboard />
+            </Suspense>
+          }
+        />
       </Route>
     </Routes>
   );
