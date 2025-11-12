@@ -65,6 +65,9 @@ export default function Admin() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [parkrunSortField, setParkrunSortField] = useState<ParkrunSortField>('runs');
   const [parkrunSortDirection, setParkrunSortDirection] = useState<ParkrunSortDirection>('desc');
+  const [parkrunPage, setParkrunPage] = useState(0);
+  const [parkrunSearch, setParkrunSearch] = useState('');
+  const PARKRUN_PAGE_SIZE = 50;
 
   // Get admin strava ID from localStorage
   const currentAthleteId = parseInt(
@@ -471,6 +474,19 @@ export default function Admin() {
     return parkrunSortDirection === 'asc' ? comparison : -comparison;
   });
 
+  // Filter parkrun athletes by search term
+  const filteredParkrunAthletes = sortedParkrunAthletes.filter(athlete =>
+    athlete.athlete_name.toLowerCase().includes(parkrunSearch.toLowerCase())
+  );
+
+  // Paginate parkrun athletes
+  const paginatedParkrunAthletes = filteredParkrunAthletes.slice(
+    parkrunPage * PARKRUN_PAGE_SIZE,
+    (parkrunPage + 1) * PARKRUN_PAGE_SIZE
+  );
+
+  const parkrunTotalPages = Math.ceil(filteredParkrunAthletes.length / PARKRUN_PAGE_SIZE);
+
   if (loading) {
     return (
       <div className="admin container">
@@ -780,87 +796,6 @@ export default function Admin() {
         )}
       </div>
 
-      <div className="admin-header">
-        <h2>Parkrun Athletes</h2>
-        <p className="subtitle">Manage visibility of parkrun athletes</p>
-      </div>
-
-      <div className="admin-stats">
-        <div className="stat-card">
-          <div className="stat-value">{parkrunAthletes.length}</div>
-          <div className="stat-label">Total Parkrun Athletes</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">
-            {parkrunAthletes.filter((a) => a.is_hidden === 1).length}
-          </div>
-          <div className="stat-label">Hidden</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">
-            {parkrunAthletes.filter((a) => !a.is_hidden || a.is_hidden === 0).length}
-          </div>
-          <div className="stat-label">Visible</div>
-        </div>
-      </div>
-
-      <div className="admin-table-container">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th onClick={() => handleParkrunSort('name')} style={{ cursor: 'pointer' }}>
-                Athlete Name {getSortIcon('name', parkrunSortField, parkrunSortDirection)}
-              </th>
-              <th onClick={() => handleParkrunSort('runs')} style={{ cursor: 'pointer' }}>
-                Total Runs {getSortIcon('runs', parkrunSortField, parkrunSortDirection)}
-              </th>
-              <th onClick={() => handleParkrunSort('events')} style={{ cursor: 'pointer' }}>
-                Top Events {getSortIcon('events', parkrunSortField, parkrunSortDirection)}
-              </th>
-              <th>Hidden</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedParkrunAthletes.map((athlete) => (
-              <tr key={athlete.athlete_name}>
-                <td>
-                  <div className="athlete-cell">
-                    <span>{athlete.athlete_name}</span>
-                  </div>
-                </td>
-                <td className="number-cell">{athlete.run_count}</td>
-                <td className="top-events-cell">
-                  {athlete.top_events && athlete.top_events.length > 0 ? (
-                    <div className="top-events">
-                      {athlete.top_events.slice(0, 3).map((event, idx) => (
-                        <span key={idx} className="event-badge">
-                          {event.event_name} ({event.count})
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="no-events">-</span>
-                  )}
-                </td>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={athlete.is_hidden === 1}
-                    onChange={(e) =>
-                      updateParkrunAthleteVisibility(
-                        athlete.athlete_name,
-                        e.target.checked
-                      )
-                    }
-                    className="checkbox"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
       <div className="admin-header" style={{ marginTop: '3rem' }}>
         <h2>AI Event Classification</h2>
         <p className="subtitle">Review and approve AI-generated event name suggestions</p>
@@ -1157,6 +1092,162 @@ export default function Admin() {
           <p style={{ margin: 0, fontSize: '0.9rem' }}>
             No pending event suggestions. Click "Run AI Analysis" to generate new suggestions.
           </p>
+        </div>
+      )}
+
+      <div className="admin-header" style={{ marginTop: '3rem' }}>
+        <h2>Parkrun Athletes</h2>
+        <p className="subtitle">Manage visibility of parkrun athletes</p>
+      </div>
+
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+          Search by Name
+        </label>
+        <input
+          type="text"
+          placeholder="Search athlete name..."
+          value={parkrunSearch}
+          onChange={(e) => {
+            setParkrunSearch(e.target.value);
+            setParkrunPage(0); // Reset to first page on search
+          }}
+          style={{
+            width: '100%',
+            maxWidth: '400px',
+            padding: '0.5rem',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            fontSize: '0.9rem',
+          }}
+        />
+      </div>
+
+      <div className="admin-stats">
+        <div className="stat-card">
+          <div className="stat-value">{parkrunAthletes.length}</div>
+          <div className="stat-label">Total Parkrun Athletes</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{filteredParkrunAthletes.length}</div>
+          <div className="stat-label">Matching Search</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">
+            {parkrunAthletes.filter((a) => a.is_hidden === 1).length}
+          </div>
+          <div className="stat-label">Hidden</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">
+            {parkrunAthletes.filter((a) => !a.is_hidden || a.is_hidden === 0).length}
+          </div>
+          <div className="stat-label">Visible</div>
+        </div>
+      </div>
+
+      <div className="admin-table-container">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th onClick={() => handleParkrunSort('name')} style={{ cursor: 'pointer' }}>
+                Athlete Name {getSortIcon('name', parkrunSortField, parkrunSortDirection)}
+              </th>
+              <th onClick={() => handleParkrunSort('runs')} style={{ cursor: 'pointer' }}>
+                Total Runs {getSortIcon('runs', parkrunSortField, parkrunSortDirection)}
+              </th>
+              <th onClick={() => handleParkrunSort('events')} style={{ cursor: 'pointer' }}>
+                Top Events {getSortIcon('events', parkrunSortField, parkrunSortDirection)}
+              </th>
+              <th>Hidden</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedParkrunAthletes.map((athlete) => (
+              <tr key={athlete.athlete_name}>
+                <td>
+                  <div className="athlete-cell">
+                    <span>{athlete.athlete_name}</span>
+                  </div>
+                </td>
+                <td className="number-cell">{athlete.run_count}</td>
+                <td className="top-events-cell">
+                  {athlete.top_events && athlete.top_events.length > 0 ? (
+                    <div className="top-events">
+                      {athlete.top_events.slice(0, 3).map((event, idx) => (
+                        <span key={idx} className="event-badge">
+                          {event.event_name} ({event.count})
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="no-events">-</span>
+                  )}
+                </td>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={athlete.is_hidden === 1}
+                    onChange={(e) =>
+                      updateParkrunAthleteVisibility(
+                        athlete.athlete_name,
+                        e.target.checked
+                      )
+                    }
+                    className="checkbox"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {parkrunTotalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '1rem',
+          marginTop: '1.5rem',
+          padding: '1rem',
+        }}>
+          <button
+            onClick={() => setParkrunPage(Math.max(0, parkrunPage - 1))}
+            disabled={parkrunPage === 0}
+            className="button"
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: parkrunPage === 0 ? '#e5e7eb' : '#0ea5e9',
+              color: parkrunPage === 0 ? '#9ca3af' : 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: parkrunPage === 0 ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Previous
+          </button>
+          <span style={{ fontSize: '0.9rem', color: '#666' }}>
+            Page {parkrunPage + 1} of {parkrunTotalPages}
+            <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem' }}>
+              ({filteredParkrunAthletes.length} total)
+            </span>
+          </span>
+          <button
+            onClick={() => setParkrunPage(Math.min(parkrunTotalPages - 1, parkrunPage + 1))}
+            disabled={parkrunPage >= parkrunTotalPages - 1}
+            className="button"
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: parkrunPage >= parkrunTotalPages - 1 ? '#e5e7eb' : '#0ea5e9',
+              color: parkrunPage >= parkrunTotalPages - 1 ? '#9ca3af' : 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: parkrunPage >= parkrunTotalPages - 1 ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Next
+          </button>
         </div>
       )}
     </div>
