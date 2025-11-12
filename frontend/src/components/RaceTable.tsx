@@ -286,9 +286,10 @@ interface EditableEventProps {
   availableEvents: string[];
   onSave: (raceId: number, newEventName: string | null) => Promise<void>;
   currentAthleteId?: number;
+  allRaces: Race[];
 }
 
-function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteId }: EditableEventProps) {
+function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteId, allRaces }: EditableEventProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -304,10 +305,25 @@ function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteI
     return `https://www.strava.com/athlete/calendar/${year}#${month}`;
   };
 
+  // Check if current user already has a race with same event name on same date
+  const userAlreadyHasThisEvent = (): boolean => {
+    if (!currentAthleteId || !race.event_name) return false;
+
+    return allRaces.some(r =>
+      r.strava_id === currentAthleteId &&
+      r.event_name === race.event_name &&
+      r.date === race.date
+    );
+  };
+
   // Show "Find mine" link only if:
   // 1. Race has an event name
   // 2. Race is NOT from the current user viewing it
-  const showFindMineLink = race.event_name && currentAthleteId && race.strava_id !== currentAthleteId;
+  // 3. Current user doesn't already have a race with same event name on same date
+  const showFindMineLink = race.event_name &&
+                           currentAthleteId &&
+                           race.strava_id !== currentAthleteId &&
+                           !userAlreadyHasThisEvent();
 
   // Filter available events based on input value
   const filteredEvents = availableEvents.filter(event =>
@@ -673,6 +689,7 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                   availableEvents={availableEvents}
                   onSave={handleEventUpdate}
                   currentAthleteId={currentAthleteId}
+                  allRaces={races}
                 />
               </td>
               <td>
