@@ -13,7 +13,7 @@
     "build:frontend": "npm run build --workspace=frontend",
     "build:workers": "npm run build --workspace=workers",
     "deploy": "cd workers && npx wrangler deploy",
-    "deploy:frontend": "cd frontend && npx wrangler pages deploy dist --project-name=strava-club-results",
+    "deploy:frontend": "cd frontend && npx wrangler pages deploy dist --project-name=woodstock-results",
     "db:migrate": "wrangler d1 execute strava-club-db --file=database/schema.sql",
     "db:migrations:apply": "cd workers && npx wrangler d1 migrations apply strava-club-db",
     "db:migrations:list": "cd workers && npx wrangler d1 migrations list strava-club-db"

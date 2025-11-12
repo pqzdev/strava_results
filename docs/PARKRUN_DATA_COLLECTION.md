@@ -19,7 +19,7 @@ Parkrun blocks automated scraping from servers (403/450 errors), but you can col
    - Safari: Enable Developer menu, then `Cmd+Option+C`
 
 3. **Get the scraper:**
-   - Go to `https://strava-club-results.pages.dev/parkrun-smart-scraper.js`
+   - Go to `https://woodstock-results.pages.dev/parkrun-smart-scraper.js`
    - Copy the entire script
    - Paste into the browser console
 

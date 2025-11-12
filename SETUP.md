@@ -121,7 +121,7 @@ npm run deploy
 # Deploy Frontend
 cd frontend
 npm run build
-wrangler pages deploy dist --project-name=strava-club-results
+wrangler pages deploy dist --project-name=woodstock-results
 ```
 
 ### Setup GitHub Actions (Optional)
