@@ -9,12 +9,14 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const limit = parseInt(url.searchParams.get('limit') || '50');
   const offset = parseInt(url.searchParams.get('offset') || '0');
-  const athleteName = url.searchParams.get('athlete');
+  const athleteNames = url.searchParams.getAll('athlete'); // Get all athlete parameters
   const activityName = url.searchParams.get('activity_name');
   const dateFrom = url.searchParams.get('date_from');
   const dateTo = url.searchParams.get('date_to');
-  const minDistance = parseFloat(url.searchParams.get('min_distance') || '0');
-  const maxDistance = parseFloat(url.searchParams.get('max_distance') || '999999');
+  const minDistanceParam = url.searchParams.get('min_distance');
+  const maxDistanceParam = url.searchParams.get('max_distance');
+  const minDistance = minDistanceParam ? parseFloat(minDistanceParam) : null;
+  const maxDistance = maxDistanceParam ? parseFloat(maxDistanceParam) : null;
 
   try {
     // Build query with filters - JOIN with race_edits to get manual overrides
@@ -45,9 +47,11 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
 
     const bindings: any[] = [];
 
-    if (athleteName) {
-      query += ` AND (a.firstname LIKE ? OR a.lastname LIKE ?)`;
-      bindings.push(`%${athleteName}%`, `%${athleteName}%`);
+    // Handle multiple athlete filters - match against full name
+    if (athleteNames.length > 0) {
+      const athleteConditions = athleteNames.map(() => `(a.firstname || ' ' || a.lastname) = ?`).join(' OR ');
+      query += ` AND (${athleteConditions})`;
+      athleteNames.forEach(name => bindings.push(name));
     }
 
     if (activityName) {
@@ -65,12 +69,12 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
       bindings.push(dateTo);
     }
 
-    if (minDistance > 0) {
+    if (minDistance !== null && minDistance > 0) {
       query += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ?`;
       bindings.push(minDistance);
     }
 
-    if (maxDistance < 999999) {
+    if (maxDistance !== null && maxDistance < 999999) {
       query += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?`;
       bindings.push(maxDistance);
     }
@@ -90,9 +94,11 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
     `;
     const countBindings: any[] = [];
 
-    if (athleteName) {
-      countQuery += ` AND (a.firstname LIKE ? OR a.lastname LIKE ?)`;
-      countBindings.push(`%${athleteName}%`, `%${athleteName}%`);
+    // Handle multiple athlete filters - match against full name
+    if (athleteNames.length > 0) {
+      const athleteConditions = athleteNames.map(() => `(a.firstname || ' ' || a.lastname) = ?`).join(' OR ');
+      countQuery += ` AND (${athleteConditions})`;
+      athleteNames.forEach(name => countBindings.push(name));
     }
     if (activityName) {
       countQuery += ` AND r.name LIKE ?`;
@@ -106,11 +112,11 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
       countQuery += ` AND r.date <= ?`;
       countBindings.push(dateTo);
     }
-    if (minDistance > 0) {
+    if (minDistance !== null && minDistance > 0) {
       countQuery += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ?`;
       countBindings.push(minDistance);
     }
-    if (maxDistance < 999999) {
+    if (maxDistance !== null && maxDistance < 999999) {
       countQuery += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?`;
       countBindings.push(maxDistance);
     }

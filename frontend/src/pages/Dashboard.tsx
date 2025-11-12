@@ -94,7 +94,7 @@ export default function Dashboard() {
       const response = await fetch('/api/races?limit=1000');
       const data = await response.json();
       if (data.races && data.races.length > 0) {
-        const dates = data.races.map((r: Race) => r.date);
+        const dates = data.races.map((r: Race) => r.date.split('T')[0]); // Extract just YYYY-MM-DD
         setEarliestDate(dates.sort()[0]);
       }
     } catch (error) {

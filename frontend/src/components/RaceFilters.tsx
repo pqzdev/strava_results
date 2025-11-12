@@ -23,15 +23,10 @@ interface RaceFiltersProps {
 const DISTANCE_RANGES = [
   { label: '<5K', minMeters: 0, maxMeters: 4800 },
   { label: '5K', minMeters: 4800, maxMeters: 5200 },
-  { label: '5K-10K', minMeters: 5200, maxMeters: 9700 },
   { label: '10K', minMeters: 9700, maxMeters: 10300 },
-  { label: '10K-14K', minMeters: 10300, maxMeters: 13700 },
   { label: '14K', minMeters: 13700, maxMeters: 14300 },
-  { label: '14K-HM', minMeters: 14300, maxMeters: 20800 },
   { label: 'Half Marathon', minMeters: 20800, maxMeters: 21600 },
-  { label: 'HM-30K', minMeters: 21600, maxMeters: 29500 },
   { label: '30K', minMeters: 29500, maxMeters: 30500 },
-  { label: '30K-Marathon', minMeters: 30500, maxMeters: 41700 },
   { label: 'Marathon', minMeters: 41700, maxMeters: 43200 },
   { label: 'Ultra', minMeters: 43200, maxMeters: 999999 },
 ];
