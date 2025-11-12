@@ -354,27 +354,38 @@ export default function Admin() {
     setSyncing((prev) => new Set(prev).add(athleteId));
 
     try {
+      // Queue the athlete with high priority (10) so manual syncs are processed before weekly batch syncs
       const response = await fetch(
-        `/api/admin/athletes/${athleteId}/sync`,
+        `/api/queue/athletes/${athleteId}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ admin_strava_id: currentAthleteId }),
+          body: JSON.stringify({
+            jobType: 'full_sync',
+            priority: 10  // Higher priority = processed first
+          }),
         }
       );
 
       if (!response.ok) {
-        throw new Error('Failed to trigger sync');
+        throw new Error('Failed to queue sync');
       }
 
-      // Get session_id from response
       const data = await response.json();
-      const sessionId = data.session_id;
 
-      // Navigate to sync monitor to watch progress
-      navigate(`/sync-monitor?athlete_id=${athleteId}${sessionId ? `&session_id=${sessionId}` : ''}`);
+      // Show success message
+      const athlete = athletes.find(a => a.id === athleteId);
+      const athleteName = athlete ? `${athlete.firstname} ${athlete.lastname}` : `Athlete ${athleteId}`;
+      alert(`✅ ${athleteName} has been queued for sync (Job #${data.jobId})\n\nThe sync will start within 2 minutes. Check the queue stats above for progress.`);
+
+      // Refresh data to show updated state
+      await Promise.all([
+        fetchAthletes(),
+        fetchQueueStats()
+      ]);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to trigger sync');
+      alert(err instanceof Error ? err.message : 'Failed to queue sync');
+    } finally {
       setSyncing((prev) => {
         const newSet = new Set(prev);
         newSet.delete(athleteId);
@@ -792,9 +803,9 @@ export default function Admin() {
                         onClick={() => triggerSync(athlete.id)}
                         disabled={syncing.has(athlete.id)}
                         className="button button-sync"
-                        title="Start manual sync"
+                        title="Queue athlete for full sync (high priority)"
                       >
-                        🔄 Start
+                        🚀 Queue
                       </button>
                     )}
                     <button
