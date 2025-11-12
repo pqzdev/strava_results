@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import './Admin.css';
 
 interface AdminAthlete {
@@ -56,7 +55,6 @@ type ParkrunSortField = 'name' | 'runs' | 'events';
 type ParkrunSortDirection = 'asc' | 'desc';
 
 export default function Admin() {
-  const navigate = useNavigate();
   const [athletes, setAthletes] = useState<AdminAthlete[]>([]);
   const [parkrunAthletes, setParkrunAthletes] = useState<ParkrunAthlete[]>([]);
   const [eventSuggestions, setEventSuggestions] = useState<EventSuggestion[]>([]);
