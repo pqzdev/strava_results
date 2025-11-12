@@ -269,8 +269,11 @@ Located at `/admin`, the queue management section shows:
 
 ### Manual Controls
 
-- **Queue All Athletes** - Trigger full sync for all connected athletes
-- Individual athlete sync via existing "Start" button
+- **Queue All Athletes** - Trigger full sync for all connected athletes (priority: 0)
+- **Individual "Queue" button** - Queue specific athlete for sync (priority: 10)
+  - Higher priority = processed before weekly batch syncs
+  - Displayed as 🚀 Queue button in athlete row
+  - Shows confirmation with job ID when queued
 
 ## Implementation Files
 
@@ -290,21 +293,21 @@ frontend/src/pages/
 
 ### From Loop-Based Sync to Queue-Based Sync
 
-The queue system **complements** the existing sync system:
+The queue system has **fully replaced** the old sync system:
 
-1. **Weekly cron** now queues jobs instead of processing directly
-2. **Queue processor** handles jobs one by one
-3. **Existing `syncAthlete()` function** remains unchanged
-4. **Admin UI** can still trigger individual syncs
+1. **Weekly cron** - Queues all athletes for sync (priority: 0)
+2. **Queue processor** - Processes jobs one by one every 2 minutes
+3. **Existing `syncAthlete()` function** - Remains unchanged, called by queue processor
+4. **Admin UI** - All syncs now use the queue system:
+   - "Queue All Athletes" button → Batch queue (priority: 0)
+   - Individual "Queue" buttons → High priority queue (priority: 10)
 
-### Gradual Adoption
+### Benefits of Full Migration
 
-You can run both systems simultaneously:
-
-- Keep existing manual sync triggers working
-- Queue-based sync runs in parallel
-- Monitor queue stats to verify reliability
-- Gradually migrate all syncs to use the queue
+✅ **All syncs** get automatic retry and timeout protection
+✅ **Manual syncs** have higher priority (processed first)
+✅ **Consistent behavior** across all sync triggers
+✅ **Full observability** via queue stats
 
 ## Performance Characteristics
 
