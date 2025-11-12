@@ -139,9 +139,9 @@ export default function Heatmap() {
             ]);
 
             L.polyline(latLngs, {
-              color: '#0033cc',
-              weight: 1.5,
-              opacity: 0.12,
+              color: '#0055ff',
+              weight: 2,
+              opacity: 0.25,
               smoothFactor: 1,
             }).addTo(mapRef.current);
           } catch (error) {
@@ -161,7 +161,7 @@ export default function Heatmap() {
   return (
     <div className="heatmap-container">
       <div className="heatmap-header">
-        <h1>Sydney Running Heatmap</h1>
+        <h1>Sydney Racing Heatmap</h1>
         <div className="heatmap-stats">
           {loading ? (
             <p>Loading activities...</p>
