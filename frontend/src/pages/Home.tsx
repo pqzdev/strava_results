@@ -74,7 +74,7 @@ export default function Home() {
               <div className="stat-label">Total Races</div>
             </div>
             <div className="stat-card">
-              <div className="stat-value">{stats.total_distance_km.toLocaleString()}</div>
+              <div className="stat-value">{(stats.total_distance_km ?? 0).toLocaleString()}</div>
               <div className="stat-label">Total Distance (km)</div>
             </div>
             <div className="stat-card">
