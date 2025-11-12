@@ -138,13 +138,15 @@ async function syncAthleteInternal(
       console.log(`Full sync fetched ${activities.length} total activities`);
     } else {
       // For incremental syncs, only fetch activities since last sync
+      // Limit to 5 pages (1000 activities) to avoid timeout
       afterTimestamp = athlete.last_synced_at;
 
       const { activities, rateLimits } = await fetchAthleteActivities(
         accessToken,
         afterTimestamp,
         undefined,
-        200
+        200,
+        5  // maxPages - limit to prevent timeout
       );
       allActivities = activities;
     }
