@@ -12,23 +12,12 @@ interface Athlete {
   last_synced_at?: number;
 }
 
-interface SyncLog {
-  athlete_id: number;
-  sync_session_id: string;
-  log_level: 'info' | 'warning' | 'error' | 'success';
-  message: string;
-  metadata?: string;
-  created_at: number;
-}
-
 export default function SyncMonitor() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const athleteId = searchParams.get('athlete_id');
-  const sessionId = searchParams.get('session_id');
 
   const [athlete, setAthlete] = useState<Athlete | null>(null);
-  const [logs, setLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
@@ -82,42 +71,6 @@ export default function SyncMonitor() {
 
     return () => clearInterval(interval);
   }, [athleteId, athlete?.sync_status]);
-
-  // Fetch sync logs if session_id is provided
-  useEffect(() => {
-    if (!sessionId) return;
-
-    const fetchLogs = async () => {
-      try {
-        const currentAthleteId = parseInt(
-          localStorage.getItem('strava_athlete_id') || '0'
-        );
-
-        const response = await fetch(
-          `/api/admin/sync-logs?session_id=${sessionId}&admin_strava_id=${currentAthleteId}`
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          setLogs(data.logs || []);
-        }
-      } catch (err) {
-        console.error('Failed to fetch sync logs:', err);
-      }
-    };
-
-    // Initial fetch
-    fetchLogs();
-
-    // Poll every 2 seconds while sync is in progress
-    const interval = setInterval(() => {
-      if (athlete?.sync_status === 'in_progress') {
-        fetchLogs();
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [sessionId, athlete?.sync_status]);
 
   const formatDate = (timestamp?: number) => {
     if (!timestamp) return 'Never';
@@ -242,40 +195,6 @@ export default function SyncMonitor() {
           </div>
         )}
       </div>
-
-      {/* Sync Logs Section */}
-      {sessionId && logs.length > 0 && (
-        <div className="status-card" style={{ marginTop: '2rem' }}>
-          <div className="status-header">
-            <h3>Sync Logs</h3>
-            <span style={{ fontSize: '0.9rem', color: '#64748b' }}>
-              {logs.length} log entries
-            </span>
-          </div>
-          <div className="logs-container">
-            {logs.map((log, index) => (
-              <div
-                key={index}
-                className={`log-entry log-${log.log_level}`}
-              >
-                <span className="log-time">
-                  {new Date(log.created_at * 1000).toLocaleTimeString()}
-                </span>
-                <span className={`log-level level-${log.log_level}`}>
-                  {log.log_level.toUpperCase()}
-                </span>
-                <span className="log-message">{log.message}</span>
-                {log.metadata && (
-                  <details className="log-metadata">
-                    <summary>Details</summary>
-                    <pre>{JSON.stringify(JSON.parse(log.metadata), null, 2)}</pre>
-                  </details>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

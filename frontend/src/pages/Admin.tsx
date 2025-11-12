@@ -314,12 +314,8 @@ export default function Admin() {
         throw new Error('Failed to trigger sync');
       }
 
-      // Get session_id from response
-      const data = await response.json();
-      const sessionId = data.session_id;
-
       // Navigate to sync monitor to watch progress
-      navigate(`/sync-monitor?athlete_id=${athleteId}${sessionId ? `&session_id=${sessionId}` : ''}`);
+      navigate(`/sync-monitor?athlete_id=${athleteId}`);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to trigger sync');
       setSyncing((prev) => {
