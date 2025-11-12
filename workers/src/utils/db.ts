@@ -109,8 +109,8 @@ export async function insertRace(
   await env.DB.prepare(
     `INSERT INTO races (
       athlete_id, strava_activity_id, name, distance, elapsed_time,
-      moving_time, date, elevation_gain, average_heartrate, max_heartrate, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       athleteId,
@@ -123,6 +123,7 @@ export async function insertRace(
       activity.total_elevation_gain,
       activity.average_heartrate || null,
       activity.max_heartrate || null,
+      activity.map?.summary_polyline || null,
       now
     )
     .run();
