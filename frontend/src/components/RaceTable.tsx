@@ -297,12 +297,17 @@ function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteI
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
   // Helper to generate Strava calendar link for the race's year/month
+  // Uses Text Fragments to highlight the event name on the page
   const getCalendarLink = (): string => {
     const date = new Date(race.date);
     const year = date.getFullYear();
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const month = months[date.getMonth()];
-    return `https://www.strava.com/athlete/calendar/${year}#${month}`;
+
+    // Add Text Fragment to highlight the event name
+    // Format: #MonthAbbr:~:text=EventName
+    const eventNameEncoded = encodeURIComponent(race.event_name || '');
+    return `https://www.strava.com/athlete/calendar/${year}#${month}:~:text=${eventNameEncoded}`;
   };
 
   // Check if current user already has a race with same event name on same date
