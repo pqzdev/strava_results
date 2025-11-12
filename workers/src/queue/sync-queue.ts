@@ -39,8 +39,9 @@ export async function syncAthlete(
     const moreDataAvailable = await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync);
 
     // If more data is available and we have an execution context, trigger another batch
-    if (moreDataAvailable && ctx && !fullSync) {
-      console.log(`More activities available for athlete ${athleteStravaId}, scheduling follow-up sync`);
+    // For full syncs, continue with fullSync=true; for incremental, use fullSync=false
+    if (moreDataAvailable && ctx) {
+      console.log(`More activities available for athlete ${athleteStravaId}, scheduling follow-up sync (fullSync: ${fullSync})`);
 
       // Schedule another sync in the background
       ctx.waitUntil(
@@ -48,7 +49,7 @@ export async function syncAthlete(
           // Small delay to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 1000));
           console.log(`Starting follow-up sync for athlete ${athleteStravaId}`);
-          await syncAthlete(athleteStravaId, env, false, false, ctx);
+          await syncAthlete(athleteStravaId, env, false, fullSync, ctx);
         })()
       );
     }
@@ -98,7 +99,8 @@ async function syncAthleteInternal(
     };
 
     // For full sync, delete all existing races first for a true refresh
-    if (fullSync) {
+    // But only do this on the FIRST batch of a full sync
+    if (fullSync && athlete.last_synced_at !== null) {
       console.log(`Full sync - deleting all existing races for athlete ${athleteStravaId}`);
       const deleteResult = await env.DB.prepare(
         `DELETE FROM races WHERE athlete_id = ?`
@@ -106,6 +108,13 @@ async function syncAthleteInternal(
         .bind(athlete.id)
         .run();
       console.log(`Deleted ${deleteResult.meta.changes} existing races`);
+
+      // Reset last_synced_at so we fetch from the beginning
+      await env.DB.prepare(
+        `UPDATE athletes SET last_synced_at = NULL WHERE id = ?`
+      )
+        .bind(athlete.id)
+        .run();
     }
 
     // Set athlete status to in_progress (only if not already set by caller)
@@ -133,43 +142,20 @@ async function syncAthleteInternal(
     // Ensure valid access token
     const accessToken = await ensureValidToken(athlete, env);
 
-    // Fetch activities
-    // For full syncs, fetch ALL activities (no date restriction)
-    // For incremental syncs, fetch from last_synced_at
-    let afterTimestamp: number | undefined;
-    let allActivities: any[] = [];
+    // Fetch activities in batches (limit to 5 pages = 1000 activities per batch)
+    // For full syncs: afterTimestamp will be null/undefined (fetch from beginning)
+    // For incremental syncs: afterTimestamp will be last_synced_at
+    const afterTimestamp = fullSync ? undefined : athlete.last_synced_at;
 
-    if (fullSync) {
-      // For full syncs, delete all existing races first for a true refresh
-      console.log(`Full sync - this will process ALL activities. Note: This may require multiple syncs for large activity counts.`);
+    console.log(`Fetching activities (fullSync: ${fullSync}, afterTimestamp: ${afterTimestamp || 'none'})`);
 
-      // Fetch ALL activities with proper pagination (fetchAthleteActivities handles pagination internally)
-      const { activities } = await fetchAthleteActivities(
-        accessToken,
-        undefined,  // no after timestamp - fetch all
-        undefined,  // no before timestamp
-        200  // perPage - fetch in pages of 200
-      );
-      allActivities = activities;
-
-      console.log(`[DEBUG] fetchAthleteActivities returned ${activities.length} activities`);
-      console.log(`Full sync fetched ${activities.length} total activities`);
-    } else {
-      // For incremental syncs, only fetch activities since last sync
-      // Limit to 5 pages (1000 activities) to avoid timeout
-      afterTimestamp = athlete.last_synced_at;
-
-      const { activities, rateLimits } = await fetchAthleteActivities(
-        accessToken,
-        afterTimestamp,
-        undefined,
-        200,
-        5  // maxPages - limit to prevent timeout
-      );
-      allActivities = activities;
-    }
-
-    const activities = allActivities;
+    const { activities } = await fetchAthleteActivities(
+      accessToken,
+      afterTimestamp,
+      undefined,  // no before timestamp
+      200,        // perPage
+      5           // maxPages - limit to prevent timeout
+    );
 
     console.log(`Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
 
@@ -290,9 +276,9 @@ async function syncAthleteInternal(
 
     console.log(`Athlete ${athleteStravaId} sync complete: ${newRacesAdded} races added (${racesRemoved} removed). Total activities processed: ${activities.length}`);
 
-    // If we got exactly maxPages worth of activities (1000) in an incremental sync, there may be more
-    // Return true to indicate more batches may be needed, but only for incremental syncs
-    return !fullSync && activities.length === 1000;
+    // If we got exactly maxPages worth of activities (1000), there may be more
+    // Return true to indicate more batches may be needed (works for both full and incremental syncs)
+    return activities.length === 1000;
   } catch (error) {
     // Error handling is done in the outer syncAthlete function
     throw error;
