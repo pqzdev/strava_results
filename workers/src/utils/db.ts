@@ -131,6 +131,7 @@ async function fetchDetailedPolyline(
 
 /**
  * Insert a new race into the database with detailed polyline
+ * Automatically restores event_name from persistent mapping table if available
  */
 export async function insertRace(
   athleteId: number,
@@ -154,11 +155,25 @@ export async function insertRace(
     }
   }
 
+  // Look up event name from persistent mapping table (survives full syncs)
+  const eventMapping = await env.DB.prepare(
+    `SELECT event_name FROM activity_event_mappings
+     WHERE strava_activity_id = ? AND athlete_id = ?`
+  )
+    .bind(activity.id, athleteId)
+    .first<{ event_name: string }>();
+
+  const eventName = eventMapping?.event_name || null;
+
+  if (eventName) {
+    console.log(`Restored event name "${eventName}" for activity ${activity.id}`);
+  }
+
   await env.DB.prepare(
     `INSERT INTO races (
       athlete_id, strava_activity_id, name, distance, elapsed_time,
-      moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, event_name, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       athleteId,
@@ -172,6 +187,7 @@ export async function insertRace(
       activity.average_heartrate || null,
       activity.max_heartrate || null,
       polyline,
+      eventName,
       now
     )
     .run();
