@@ -25,6 +25,7 @@ interface Race {
 interface RaceTableProps {
   races: Race[];
   currentAthleteId?: number; // Strava ID of the current logged-in user
+  isAdmin?: boolean; // Whether the current user is an admin
   onTimeUpdate?: () => void; // Callback to refresh races after update
 }
 
@@ -277,7 +278,7 @@ function EditableDistance({ race, isOwner, onSave }: EditableDistanceProps) {
   );
 }
 
-export default function RaceTable({ races, currentAthleteId, onTimeUpdate }: RaceTableProps) {
+export default function RaceTable({ races, currentAthleteId, isAdmin = false, onTimeUpdate }: RaceTableProps) {
   const [sortField, setSortField] = useState<keyof Race | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -432,14 +433,14 @@ export default function RaceTable({ races, currentAthleteId, onTimeUpdate }: Rac
               <td>
                 <EditableDistance
                   race={race}
-                  isOwner={race.strava_id === currentAthleteId}
+                  isOwner={isAdmin || race.strava_id === currentAthleteId}
                   onSave={handleDistanceUpdate}
                 />
               </td>
               <td>
                 <EditableTime
                   race={race}
-                  isOwner={race.strava_id === currentAthleteId}
+                  isOwner={isAdmin || race.strava_id === currentAthleteId}
                   onSave={handleTimeUpdate}
                 />
               </td>
