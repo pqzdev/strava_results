@@ -257,6 +257,44 @@
   accent-color: var(--primary-color);
 }
 
+.custom-distance-range {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--background-light);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.custom-distance-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.custom-distance-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.625rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.custom-distance-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.distance-separator {
+  color: var(--text-light);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
 .quick-filters {
   display: flex;
   align-items: center;
