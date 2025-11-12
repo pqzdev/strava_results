@@ -38,6 +38,7 @@ export interface Race {
   elevation_gain?: number;
   average_heartrate?: number;
   max_heartrate?: number;
+  polyline?: string;
   created_at: number;
   // Additional fields for API responses
   athlete_name?: string;
@@ -89,6 +90,11 @@ export interface StravaActivity {
   total_elevation_gain: number;
   average_heartrate?: number;
   max_heartrate?: number;
+  map?: {
+    id: string;
+    summary_polyline?: string;
+    resource_state: number;
+  };
 }
 
 export interface RateLimitInfo {

@@ -50,6 +50,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
         r.elevation_gain,
         r.average_heartrate,
         r.max_heartrate,
+        r.polyline,
         r.athlete_id,
         a.firstname,
         a.lastname,
