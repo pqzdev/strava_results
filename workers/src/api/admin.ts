@@ -252,7 +252,7 @@ export async function triggerAthleteSync(
       (async () => {
         try {
           console.log(`Admin triggering FULL REFRESH for athlete ${athlete.strava_id} (ID: ${athleteId})`);
-          await syncAthlete(athlete.strava_id, env, true, false, ctx);
+          await syncAthlete(athlete.strava_id, env, false, true, ctx);
           console.log(`Admin sync completed successfully for athlete ${athlete.strava_id}`);
         } catch (error) {
           console.error(`Admin sync failed for athlete ${athlete.strava_id}:`, error);
