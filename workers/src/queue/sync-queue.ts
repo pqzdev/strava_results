@@ -98,9 +98,27 @@ async function syncAthleteInternal(
       return status?.sync_status !== 'in_progress';
     };
 
-    // For full sync, delete all existing races first for a true refresh
-    // But only do this on the FIRST batch of a full sync
+    // For full sync, preserve event_name mappings before deletion
+    // Store mapping of strava_activity_id -> event_name
+    let eventNameMappings = new Map<number, string>();
+
     if (fullSync && athlete.last_synced_at !== null) {
+      console.log(`Full sync - saving event name mappings before deletion`);
+
+      // Save all existing event_name assignments
+      const existingMappings = await env.DB.prepare(
+        `SELECT strava_activity_id, event_name FROM races WHERE athlete_id = ? AND event_name IS NOT NULL`
+      )
+        .bind(athlete.id)
+        .all<{ strava_activity_id: number; event_name: string }>();
+
+      if (existingMappings.results) {
+        for (const mapping of existingMappings.results) {
+          eventNameMappings.set(mapping.strava_activity_id, mapping.event_name);
+        }
+        console.log(`Saved ${eventNameMappings.size} event name mappings`);
+      }
+
       console.log(`Full sync - deleting all existing races for athlete ${athleteStravaId}`);
       const deleteResult = await env.DB.prepare(
         `DELETE FROM races WHERE athlete_id = ?`
@@ -198,11 +216,24 @@ async function syncAthleteInternal(
         try {
           await insertRace(athlete.id, race, env);
           newRacesAdded++;
+
+          // Restore event_name mapping if it existed before deletion
+          const savedEventName = eventNameMappings.get(race.id);
+          if (savedEventName) {
+            await env.DB.prepare(
+              `UPDATE races SET event_name = ? WHERE strava_activity_id = ? AND athlete_id = ?`
+            )
+              .bind(savedEventName, race.id, athlete.id)
+              .run();
+            console.log(`Restored event name "${savedEventName}" for race ${race.id}`);
+          }
+
           console.log(`Inserted race: ${race.name} (ID: ${race.id})`);
         } catch (error) {
           console.error(`Failed to insert race ${race.id}:`, error);
         }
       }
+      console.log(`Restored ${eventNameMappings.size} event name mappings after full sync`);
     } else {
       // For incremental syncs, handle race additions and removals intelligently
       // Get all activity IDs that are currently races from the sync
