@@ -8,6 +8,7 @@ import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, sto
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis } from './api/events';
+import { backfillPolylines } from './api/polyline-backfill';
 import {
   processNextQueuedJob,
   createSyncJob,
@@ -169,6 +170,11 @@ export default {
 
       if (path === '/api/event-suggestions/analyze' && request.method === 'POST') {
         return triggerEventAnalysis(request, env, ctx);
+      }
+
+      // Polyline backfill route
+      if (path === '/api/polyline/backfill' && request.method === 'POST') {
+        return backfillPolylines(request, env);
       }
 
       // Queue management API routes

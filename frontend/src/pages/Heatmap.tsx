@@ -161,7 +161,7 @@ export default function Heatmap() {
   return (
     <div className="heatmap-container">
       <div className="heatmap-header">
-        <h1>Sydney Running Heatmap</h1>
+        <h1>Sydney Racing Heatmap</h1>
         <div className="heatmap-stats">
           {loading ? (
             <p>Loading activities...</p>
