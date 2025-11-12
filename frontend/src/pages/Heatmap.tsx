@@ -15,34 +15,11 @@ interface Race {
   lastname: string;
 }
 
-// Sydney bounding box
-const SYDNEY_BOUNDS = {
-  minLat: -34.2,
-  maxLat: -33.5,
-  minLng: 150.5,
-  maxLng: 151.35,
+// Sydney coordinates for initial map center
+const SYDNEY_CENTER = {
+  lat: -33.8688,
+  lng: 151.2093,
 };
-
-// Check if a coordinate is within Sydney bounds
-function isInSydney(lat: number, lng: number): boolean {
-  return (
-    lat >= SYDNEY_BOUNDS.minLat &&
-    lat <= SYDNEY_BOUNDS.maxLat &&
-    lng >= SYDNEY_BOUNDS.minLng &&
-    lng <= SYDNEY_BOUNDS.maxLng
-  );
-}
-
-// Check if a polyline has any points within Sydney bounds
-function hasPointsInSydney(encodedPolyline: string): boolean {
-  try {
-    const coordinates = polyline.decode(encodedPolyline);
-    return coordinates.some(([lat, lng]) => isInSydney(lat, lng));
-  } catch (error) {
-    console.error('Error decoding polyline:', error);
-    return false;
-  }
-}
 
 export default function Heatmap() {
   const [loading, setLoading] = useState(true);
@@ -72,61 +49,38 @@ export default function Heatmap() {
 
       console.log(`Fetched ${races.length} races`);
 
-      // Check for specific activity 16247558055
-      const targetActivity = races.find(r => r.strava_activity_id === 16247558055);
-      if (targetActivity) {
-        console.log('Found Bondi to Manly activity:', targetActivity);
-        console.log('Has polyline:', !!targetActivity.polyline);
-        if (targetActivity.polyline) {
-          console.log('Polyline length:', targetActivity.polyline.length);
-          console.log('Has points in Sydney:', hasPointsInSydney(targetActivity.polyline));
-          try {
-            const coords = polyline.decode(targetActivity.polyline);
-            console.log('Decoded coordinates count:', coords.length);
-            console.log('First coord:', coords[0]);
-            console.log('Last coord:', coords[coords.length - 1]);
-          } catch (e) {
-            console.error('Error decoding target polyline:', e);
-          }
-        }
-      } else {
-        console.warn('Activity 16247558055 not found in fetched races');
-      }
-
-      // Filter races with polylines that have points in Sydney
-      const racesWithPolylines = races.filter(
-        (race) => race.polyline && hasPointsInSydney(race.polyline)
-      );
-      console.log(`${racesWithPolylines.length} races have polylines in Sydney`);
-
-      const racesInSydney = racesWithPolylines.length;
+      // Filter races with polylines (all locations)
+      const racesWithPolylines = races.filter((race) => race.polyline);
+      console.log(`${racesWithPolylines.length} races have polylines`);
 
       setStats({
         total: races.length,
         withPolylines: racesWithPolylines.length,
-        inSydney: racesInSydney,
+        inSydney: racesWithPolylines.length, // All races are shown
       });
 
       // Initialize map if not already done
       if (!mapRef.current && mapContainerRef.current) {
-        // Center on Sydney
+        // Center on Sydney initially
         const map = L.map(mapContainerRef.current).setView(
-          [-33.8688, 151.2093],
+          [SYDNEY_CENTER.lat, SYDNEY_CENTER.lng],
           12
         );
 
-        // Add OpenStreetMap tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // Add CartoDB Positron tiles (light background for better line visibility)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
           attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 18,
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          maxZoom: 19,
+          subdomains: 'abcd',
         }).addTo(map);
 
         mapRef.current = map;
       }
 
-      // Draw polylines with semi-transparent blue color
+      // Draw all polylines with semi-transparent blue color
       // Overlapping lines will appear brighter (closer to white)
+      // Map starts centered on Sydney but shows all races worldwide
       if (mapRef.current && racesWithPolylines.length > 0) {
         for (const race of racesWithPolylines) {
           if (!race.polyline) continue;
@@ -140,9 +94,11 @@ export default function Heatmap() {
 
             L.polyline(latLngs, {
               color: '#0055ff',
-              weight: 2,
-              opacity: 0.25,
-              smoothFactor: 1,
+              weight: 2.5,
+              opacity: 0.3,
+              smoothFactor: 0.5,
+              lineCap: 'round',
+              lineJoin: 'round',
             }).addTo(mapRef.current);
           } catch (error) {
             console.error('Error drawing polyline:', error);
@@ -176,7 +132,7 @@ export default function Heatmap() {
                 <strong>{stats.withPolylines}</strong> with route data
               </p>
               <p>
-                <strong>{stats.inSydney}</strong> in Sydney area
+                <strong>{stats.inSydney}</strong> displayed on map
               </p>
             </>
           )}

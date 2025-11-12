@@ -25,7 +25,7 @@ async function fetchDetailedActivity(
       return null;
     }
 
-    const activity = await response.json();
+    const activity: any = await response.json();
     return {
       polyline: activity.map?.polyline || activity.map?.summary_polyline || null,
     };
