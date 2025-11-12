@@ -1,10 +1,10 @@
-# This file tells Cloudflare to deploy Pages assets, not Workers
-# The actual Workers configuration is in wrangler.workers.toml
-# Workers deployment happens via GitHub Actions with --config wrangler.workers.toml
+# This file is a placeholder to prevent build errors
+# Actual deployments:
+# - Workers: GitHub Actions with wrangler.workers.toml
+# - Pages: GitHub Actions with wrangler pages deploy
+#
+# Cloudflare Pages automatic builds should be DISABLED in the dashboard
+# to avoid conflicts with GitHub Actions deployments
 
-name = "woodstock-results-pages"
+name = "placeholder"
 compatibility_date = "2024-11-10"
-
-# Tell wrangler this is a Pages project with static assets
-[assets]
-directory = "dist"
