@@ -9,13 +9,40 @@
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
 .filter-group-wide {
   grid-column: 1 / -1;
+}
+
+/* Row 2: Event and Activity Name side by side */
+.filter-group:nth-child(2),
+.filter-group:nth-child(3) {
+  grid-column: span 1;
+}
+
+/* Row 3: Date Range and Distance side by side */
+.filter-group:nth-child(4),
+.filter-group:nth-child(5) {
+  grid-column: span 1;
+}
+
+/* Clear Filters button spans full width */
+.filter-actions {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-group {
+    grid-column: 1 / -1 !important;
+  }
 }
 
 .filter-group {
@@ -326,15 +353,4 @@
   background: var(--primary-color);
   color: white;
   border-color: var(--primary-color);
-}
-
-@media (max-width: 768px) {
-  .filters-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .quick-filters {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }
