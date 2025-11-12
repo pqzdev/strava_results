@@ -4,7 +4,7 @@ import { Env } from './types';
 import { handleAuthorize, handleCallback, handleDisconnect } from './auth/oauth';
 import { syncAllAthletes } from './cron/sync';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent } from './api/races';
-import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, resetStuckSyncs, getAdminSyncLogs } from './api/admin';
+import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs } from './api/admin';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis } from './api/events';
@@ -91,6 +91,12 @@ export default {
       const adminSyncMatch = path.match(/^\/api\/admin\/athletes\/(\d+)\/sync$/);
       if (adminSyncMatch && request.method === 'POST') {
         return triggerAthleteSync(request, env, ctx, parseInt(adminSyncMatch[1]));
+      }
+
+      // Stop sync
+      const adminStopSyncMatch = path.match(/^\/api\/admin\/athletes\/(\d+)\/sync\/stop$/);
+      if (adminStopSyncMatch && request.method === 'POST') {
+        return stopAthleteSync(request, env, parseInt(adminStopSyncMatch[1]));
       }
 
       // Reset stuck syncs

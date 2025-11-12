@@ -193,6 +193,19 @@
   transform: scale(1.1);
 }
 
+.button-stop {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.button-stop:hover {
+  background: #fde68a;
+  transform: scale(1.05);
+}
+
 .button-delete {
   background: #fee2e2;
 }

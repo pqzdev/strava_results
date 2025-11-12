@@ -58,7 +58,7 @@ export async function syncAthlete(
       );
     }
 
-    // Loop until all data is fetched
+    // Loop until all data is fetched (keeps worker alive, avoiding waitUntil 30s limit)
     while (true) {
       console.log(`Fetching batch ${batchNumber} for athlete ${athleteStravaId}${currentTimestamp ? ` (before: ${currentTimestamp})` : ''}`);
 

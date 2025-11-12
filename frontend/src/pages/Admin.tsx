@@ -330,6 +330,28 @@ export default function Admin() {
     }
   };
 
+  const stopSync = async (athleteId: number) => {
+    try {
+      const response = await fetch(
+        `/api/admin/athletes/${athleteId}/sync/stop`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ admin_strava_id: currentAthleteId }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to stop sync');
+      }
+
+      // Refresh athletes list to show updated status
+      fetchAthletes();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to stop sync');
+    }
+  };
+
   const formatDate = (timestamp?: number) => {
     if (!timestamp) return 'Never';
     return new Date(timestamp * 1000).toLocaleString();
@@ -648,14 +670,24 @@ export default function Admin() {
                 </td>
                 <td>
                   <div className="action-buttons">
-                    <button
-                      onClick={() => triggerSync(athlete.id)}
-                      disabled={syncing.has(athlete.id)}
-                      className="button button-sync"
-                      title="Trigger manual sync"
-                    >
-                      {syncing.has(athlete.id) ? '⏳' : '🔄'}
-                    </button>
+                    {athlete.sync_status === 'in_progress' ? (
+                      <button
+                        onClick={() => stopSync(athlete.id)}
+                        className="button button-stop"
+                        title="Stop sync"
+                      >
+                        ⏹️ Stop
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => triggerSync(athlete.id)}
+                        disabled={syncing.has(athlete.id)}
+                        className="button button-sync"
+                        title="Start manual sync"
+                      >
+                        🔄 Start
+                      </button>
+                    )}
                     <button
                       onClick={() =>
                         deleteAthlete(

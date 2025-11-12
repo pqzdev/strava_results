@@ -294,6 +294,71 @@ export async function triggerAthleteSync(
 }
 
 /**
+ * POST /api/admin/athletes/:id/sync/stop - Stop an in-progress sync
+ */
+export async function stopAthleteSync(
+  request: Request,
+  env: Env,
+  athleteId: number
+): Promise<Response> {
+  try {
+    const body = await request.json() as { admin_strava_id: number };
+
+    if (!body.admin_strava_id || !(await isAdmin(body.admin_strava_id, env))) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check current status
+    const athlete = await env.DB.prepare(
+      'SELECT sync_status FROM athletes WHERE id = ?'
+    )
+      .bind(athleteId)
+      .first<{ sync_status: string }>();
+
+    if (!athlete) {
+      return new Response(
+        JSON.stringify({ error: 'Athlete not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (athlete.sync_status !== 'in_progress') {
+      return new Response(
+        JSON.stringify({ error: 'No sync in progress for this athlete' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Stop the sync by setting status back to completed
+    await env.DB.prepare(
+      "UPDATE athletes SET sync_status = 'completed', sync_error = 'Stopped by admin' WHERE id = ?"
+    )
+      .bind(athleteId)
+      .run();
+
+    return new Response(
+      JSON.stringify({ success: true, message: 'Sync stopped' }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error stopping sync:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to stop sync' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
+/**
  * POST /api/admin/reset-stuck-syncs - Reset all athletes stuck in "in_progress"
  */
 export async function resetStuckSyncs(
