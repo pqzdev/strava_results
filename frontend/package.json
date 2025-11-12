@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && cp -r functions ../dist/functions",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler pages deploy dist"
   },
