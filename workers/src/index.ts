@@ -9,6 +9,7 @@ import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAt
 import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis } from './api/events';
 import { backfillPolylines } from './api/polyline-backfill';
+import { extractActivities, submitActivities, getManualSubmissions, approveSubmission, rejectSubmission } from './api/manual-submissions';
 import {
   processNextQueuedJob,
   createSyncJob,
@@ -175,6 +176,29 @@ export default {
       // Polyline backfill route
       if (path === '/api/polyline/backfill' && request.method === 'POST') {
         return backfillPolylines(request, env);
+      }
+
+      // Manual submissions API routes
+      if (path === '/api/manual-submissions/extract' && request.method === 'POST') {
+        return extractActivities(request, env);
+      }
+
+      if (path === '/api/manual-submissions/submit' && request.method === 'POST') {
+        return submitActivities(request, env);
+      }
+
+      if (path === '/api/admin/manual-submissions' && request.method === 'GET') {
+        return getManualSubmissions(request, env);
+      }
+
+      const approveMatch = path.match(/^\/api\/admin\/manual-submissions\/(\d+)\/approve$/);
+      if (approveMatch && request.method === 'POST') {
+        return approveSubmission(request, env, parseInt(approveMatch[1]));
+      }
+
+      const rejectMatch = path.match(/^\/api\/admin\/manual-submissions\/(\d+)\/reject$/);
+      if (rejectMatch && request.method === 'POST') {
+        return rejectSubmission(request, env, parseInt(rejectMatch[1]));
       }
 
       // Queue management API routes

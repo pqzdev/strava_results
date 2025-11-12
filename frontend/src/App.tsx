@@ -10,6 +10,8 @@ const Parkrun = lazy(() => import('./pages/Parkrun'));
 const Admin = lazy(() => import('./pages/Admin'));
 const SyncMonitor = lazy(() => import('./pages/SyncMonitor'));
 const Heatmap = lazy(() => import('./pages/Heatmap'));
+const SubmitActivities = lazy(() => import('./pages/SubmitActivities'));
+const SubmitActivitiesReview = lazy(() => import('./pages/SubmitActivitiesReview'));
 
 function App() {
   return (
@@ -60,6 +62,22 @@ function App() {
           element={
             <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
               <Heatmap />
+            </Suspense>
+          }
+        />
+        <Route
+          path="submit-activities"
+          element={
+            <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
+              <SubmitActivities />
+            </Suspense>
+          }
+        />
+        <Route
+          path="submit-activities/review"
+          element={
+            <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
+              <SubmitActivitiesReview />
             </Suspense>
           }
         />

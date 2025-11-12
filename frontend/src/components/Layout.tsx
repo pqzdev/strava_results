@@ -59,6 +59,12 @@ export default function Layout() {
               >
                 Heatmap
               </Link>
+              <Link
+                to="/submit-activities"
+                className={`nav-link ${location.pathname.startsWith('/submit-activities') ? 'active' : ''}`}
+              >
+                Submit Activities
+              </Link>
               {isAdmin && (
                 <Link
                   to="/admin"
