@@ -579,6 +579,25 @@ export async function updateRaceEvent(
       .bind(body.event_name, raceId)
       .run();
 
+    // Also save to persistent mapping table so it survives full syncs
+    if (body.event_name) {
+      await env.DB.prepare(
+        `INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, updated_at)
+         VALUES (?, ?, ?, strftime('%s', 'now'))
+         ON CONFLICT(strava_activity_id, athlete_id)
+         DO UPDATE SET event_name = excluded.event_name, updated_at = excluded.updated_at`
+      )
+        .bind(race.strava_activity_id, race.athlete_id, body.event_name)
+        .run();
+    } else {
+      // If event_name is being cleared, remove from mapping table
+      await env.DB.prepare(
+        `DELETE FROM activity_event_mappings WHERE strava_activity_id = ? AND athlete_id = ?`
+      )
+        .bind(race.strava_activity_id, race.athlete_id)
+        .run();
+    }
+
     return new Response(
       JSON.stringify({ success: true }),
       {

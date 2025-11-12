@@ -137,27 +137,28 @@ async function syncAthleteInternal(
       return status?.sync_status !== 'in_progress';
     };
 
-    // For full sync, preserve event_name mappings before deletion
-    // Store mapping of strava_activity_id -> event_name
+    // For full syncs, save event names to persistent table before deletion
     // Only do this on the FIRST batch of a full sync (not on continuation batches)
-    let eventNameMappings = new Map<number, string>();
-
     if (fullSync && !continuationTimestamp && athlete.last_synced_at !== null) {
-      console.log(`Full sync (first batch) - saving event name mappings before deletion`);
+      console.log(`Full sync (first batch) - saving event name mappings to persistent table before deletion`);
 
-      // Save all existing event_name assignments
-      const existingMappings = await env.DB.prepare(
-        `SELECT strava_activity_id, event_name FROM races WHERE athlete_id = ? AND event_name IS NOT NULL`
+      // Migrate any event names from races table to persistent mapping table
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, updated_at)
+         SELECT strava_activity_id, athlete_id, event_name, strftime('%s', 'now')
+         FROM races
+         WHERE athlete_id = ? AND event_name IS NOT NULL`
       )
         .bind(athlete.id)
-        .all<{ strava_activity_id: number; event_name: string }>();
+        .run();
 
-      if (existingMappings.results) {
-        for (const mapping of existingMappings.results) {
-          eventNameMappings.set(mapping.strava_activity_id, mapping.event_name);
-        }
-        console.log(`Saved ${eventNameMappings.size} event name mappings`);
-      }
+      const mappingCount = await env.DB.prepare(
+        `SELECT COUNT(*) as count FROM activity_event_mappings WHERE athlete_id = ?`
+      )
+        .bind(athlete.id)
+        .first<{ count: number }>();
+
+      console.log(`Saved ${Number(mappingCount?.count) || 0} event name mappings to persistent table`);
 
       console.log(`Full sync (first batch) - deleting all existing races for athlete ${athleteStravaId}`);
       const deleteResult = await env.DB.prepare(
@@ -303,30 +304,18 @@ async function syncAthleteInternal(
     let newRacesAdded = 0;
 
     // For full syncs, we already deleted all races, so just insert everything
+    // Event names are automatically restored from the persistent mapping table in insertRace()
     if (fullSync) {
       console.log(`Full sync - attempting to insert ${races.length} races`);
       for (const race of races) {
         try {
           await insertRace(athlete.id, race, env, accessToken);
           newRacesAdded++;
-
-          // Restore event_name mapping if it existed before deletion
-          const savedEventName = eventNameMappings.get(race.id);
-          if (savedEventName) {
-            await env.DB.prepare(
-              `UPDATE races SET event_name = ? WHERE strava_activity_id = ? AND athlete_id = ?`
-            )
-              .bind(savedEventName, race.id, athlete.id)
-              .run();
-            console.log(`Restored event name "${savedEventName}" for race ${race.id}`);
-          }
-
           console.log(`Inserted race: ${race.name} (ID: ${race.id})`);
         } catch (error) {
           console.error(`Failed to insert race ${race.id}:`, error);
         }
       }
-      console.log(`Restored ${eventNameMappings.size} event name mappings after full sync`);
     } else {
       // For incremental syncs, handle race additions and removals intelligently
       // Get all activity IDs that are currently races from the sync
