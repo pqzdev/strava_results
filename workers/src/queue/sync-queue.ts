@@ -307,7 +307,7 @@ async function syncAthleteInternal(
       console.log(`Full sync - attempting to insert ${races.length} races`);
       for (const race of races) {
         try {
-          await insertRace(athlete.id, race, env);
+          await insertRace(athlete.id, race, env, accessToken);
           newRacesAdded++;
 
           // Restore event_name mapping if it existed before deletion
@@ -362,7 +362,7 @@ async function syncAthleteInternal(
       for (const race of races) {
         const exists = await raceExists(race.id, env);
         if (!exists) {
-          await insertRace(athlete.id, race, env);
+          await insertRace(athlete.id, race, env, accessToken);
           newRacesAdded++;
         }
       }
