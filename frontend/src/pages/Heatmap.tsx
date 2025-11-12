@@ -112,7 +112,7 @@ export default function Heatmap() {
               lng,
             ]);
 
-            L.polyline(latLngs, {
+            const line = L.polyline(latLngs, {
               color: '#0055ff',
               weight: 2.5,
               opacity: 0.3,
@@ -120,6 +120,28 @@ export default function Heatmap() {
               lineCap: 'round',
               lineJoin: 'round',
             }).addTo(mapRef.current);
+
+            // Add tooltip with event name that appears on hover
+            line.bindTooltip(race.name, {
+              sticky: true, // Tooltip follows the mouse cursor
+              opacity: 0.9,
+              className: 'polyline-tooltip'
+            });
+
+            // Highlight polyline on hover
+            line.on('mouseover', function(this: L.Polyline) {
+              this.setStyle({
+                weight: 4,
+                opacity: 0.8,
+              });
+            });
+
+            line.on('mouseout', function(this: L.Polyline) {
+              this.setStyle({
+                weight: 2.5,
+                opacity: 0.3,
+              });
+            });
           } catch (error) {
             console.error('Error drawing polyline:', error);
           }

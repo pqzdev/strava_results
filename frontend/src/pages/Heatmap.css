@@ -76,3 +76,15 @@
 .heatmap-stats p:first-child {
   animation: pulse 2s ease-in-out infinite;
 }
+
+/* Polyline tooltip styling */
+.polyline-tooltip {
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 2px solid #0055ff;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0055ff;
+}
