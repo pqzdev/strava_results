@@ -41,6 +41,14 @@ interface EventSuggestion {
   reviewed_by?: number;
 }
 
+interface QueueStats {
+  pending: number;
+  processing: number;
+  completed_24h: number;
+  failed_24h: number;
+  total_queued: number;
+}
+
 type SortField = 'name' | 'activities' | 'races' | 'runs';
 type SortDirection = 'asc' | 'desc';
 
@@ -69,6 +77,8 @@ export default function Admin() {
   const [parkrunSortDirection, setParkrunSortDirection] = useState<ParkrunSortDirection>('desc');
   const [parkrunPage, setParkrunPage] = useState(0);
   const [parkrunSearch, setParkrunSearch] = useState('');
+  const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
+  const [queueingAll, setQueueingAll] = useState(false);
   const PARKRUN_PAGE_SIZE = 50;
 
   // Get admin strava ID from localStorage
@@ -80,6 +90,11 @@ export default function Admin() {
     fetchAthletes();
     fetchParkrunAthletes();
     fetchEventSuggestions();
+    fetchQueueStats();
+
+    // Poll queue stats every 30 seconds
+    const interval = setInterval(fetchQueueStats, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchAthletes = async () => {
@@ -157,6 +172,44 @@ export default function Admin() {
       setEventSuggestions(uniqueSuggestions);
     } catch (err) {
       console.error('Error fetching event suggestions:', err);
+    }
+  };
+
+  const fetchQueueStats = async () => {
+    try {
+      const response = await fetch('/api/queue/stats');
+      if (!response.ok) {
+        throw new Error('Failed to fetch queue stats');
+      }
+      const data = await response.json();
+      setQueueStats(data);
+    } catch (err) {
+      console.error('Error fetching queue stats:', err);
+    }
+  };
+
+  const queueAllAthletes = async () => {
+    setQueueingAll(true);
+    try {
+      const response = await fetch('/api/queue/all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobType: 'full_sync', priority: 0 }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to queue athletes');
+      }
+
+      const data = await response.json();
+      alert(`Successfully queued ${data.jobIds.length} athletes for sync`);
+
+      // Refresh stats
+      await fetchQueueStats();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to queue athletes');
+    } finally {
+      setQueueingAll(false);
     }
   };
 
@@ -559,6 +612,62 @@ export default function Admin() {
             {athletes.filter((a) => a.is_blocked === 1).length}
           </div>
           <div className="stat-label">Blocked</div>
+        </div>
+      </div>
+
+      <div className="admin-header" style={{ marginTop: '3rem' }}>
+        <h2>🔄 Sync Queue</h2>
+        <p className="subtitle">Reliable batched activity downloads using database queue</p>
+      </div>
+
+      <div style={{ marginBottom: '2rem' }}>
+        <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#666' }}>
+          The sync queue processes athlete syncs in batches, one at a time, with automatic retry on failure.
+          Jobs are processed every 2 minutes by the queue worker.
+        </p>
+
+        {queueStats && (
+          <div className="admin-stats">
+            <div className="stat-card">
+              <div className="stat-value">{queueStats.pending}</div>
+              <div className="stat-label">⏳ Pending Jobs</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">{queueStats.processing}</div>
+              <div className="stat-label">⚙️ Processing</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">{queueStats.completed_24h}</div>
+              <div className="stat-label">✅ Completed (24h)</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">{queueStats.failed_24h}</div>
+              <div className="stat-label">❌ Failed (24h)</div>
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginTop: '1.5rem' }}>
+          <button
+            onClick={queueAllAthletes}
+            disabled={queueingAll}
+            className="button"
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#22c55e',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: queueingAll ? 'not-allowed' : 'pointer',
+              fontWeight: 500,
+              opacity: queueingAll ? 0.6 : 1,
+            }}
+          >
+            {queueingAll ? '⏳ Queueing...' : '🚀 Queue All Athletes for Full Sync'}
+          </button>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#666' }}>
+            This will queue all connected athletes for a full sync. The queue processor will handle them one by one.
+          </p>
         </div>
       </div>
 
