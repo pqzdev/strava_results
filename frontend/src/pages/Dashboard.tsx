@@ -34,6 +34,13 @@ interface Filters {
   maxDistance: string;
 }
 
+// Helper function to get default start date (January 1st of previous year)
+const getDefaultStartDate = () => {
+  const now = new Date();
+  const previousYear = now.getFullYear() - 1;
+  return `${previousYear}-01-01`;
+};
+
 export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [races, setRaces] = useState<Race[]>([]);
@@ -45,7 +52,7 @@ export default function Dashboard() {
     return {
       athletes: athletesParam ? athletesParam.split('|').filter(Boolean) : [],
       activityName: searchParams.get('activityName') || '',
-      dateFrom: searchParams.get('dateFrom') || '',
+      dateFrom: searchParams.get('dateFrom') || getDefaultStartDate(),
       dateTo: searchParams.get('dateTo') || '',
       minDistance: searchParams.get('minDistance') || '',
       maxDistance: searchParams.get('maxDistance') || '',
@@ -172,7 +179,7 @@ export default function Dashboard() {
     setFilters({
       athletes: [],
       activityName: '',
-      dateFrom: '',
+      dateFrom: getDefaultStartDate(),
       dateTo: '',
       minDistance: '',
       maxDistance: '',
