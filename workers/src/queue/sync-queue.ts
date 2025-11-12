@@ -25,31 +25,32 @@ interface SyncMessage {
  * @param isInitialSync - Whether this is the initial sync for a new athlete
  * @param fullSync - If true, deletes all existing data and fetches ALL activities from the beginning
  * @param ctx - Execution context for scheduling follow-up syncs
+ * @param continuationTimestamp - For paginated syncs, the timestamp to continue from
  */
 export async function syncAthlete(
   athleteStravaId: number,
   env: Env,
   isInitialSync: boolean = false,
   fullSync: boolean = false,
-  ctx?: ExecutionContext
+  ctx?: ExecutionContext,
+  continuationTimestamp?: number
 ): Promise<void> {
-  console.log(`Starting sync for athlete ${athleteStravaId} (initial: ${isInitialSync}, full: ${fullSync})`);
+  console.log(`Starting sync for athlete ${athleteStravaId} (initial: ${isInitialSync}, full: ${fullSync}, continuation: ${continuationTimestamp || 'none'})`);
 
   try {
-    const moreDataAvailable = await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync);
+    const result = await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync, continuationTimestamp);
 
-    // If more data is available and we have an execution context, trigger another batch
-    // For full syncs, continue with fullSync=true; for incremental, use fullSync=false
-    if (moreDataAvailable && ctx) {
-      console.log(`More activities available for athlete ${athleteStravaId}, scheduling follow-up sync (fullSync: ${fullSync})`);
+    // If more data is available, continue fetching
+    if (result.moreDataAvailable && ctx) {
+      console.log(`More activities available for athlete ${athleteStravaId}, scheduling follow-up sync (fullSync: ${fullSync}, next before: ${result.oldestTimestamp})`);
 
-      // Schedule another sync in the background
+      // Schedule another sync in the background with the continuation timestamp
       ctx.waitUntil(
         (async () => {
           // Small delay to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 1000));
-          console.log(`Starting follow-up sync for athlete ${athleteStravaId}`);
-          await syncAthlete(athleteStravaId, env, false, fullSync, ctx);
+          console.log(`Starting follow-up sync for athlete ${athleteStravaId} from timestamp ${result.oldestTimestamp}`);
+          await syncAthlete(athleteStravaId, env, false, fullSync, ctx, result.oldestTimestamp);
         })()
       );
     }
@@ -72,14 +73,15 @@ export async function syncAthlete(
 
 /**
  * Internal sync implementation
- * @returns true if more data may be available (hit maxPages limit), false otherwise
+ * @returns Object with moreDataAvailable flag and oldestTimestamp for pagination
  */
 async function syncAthleteInternal(
   athleteStravaId: number,
   env: Env,
   isInitialSync: boolean,
-  fullSync: boolean
-): Promise<boolean> {
+  fullSync: boolean,
+  continuationTimestamp?: number
+): Promise<{ moreDataAvailable: boolean; oldestTimestamp?: number }> {
   try {
     // Get athlete from database
     const athlete = await getAthleteByStravaId(athleteStravaId, env);
@@ -100,10 +102,11 @@ async function syncAthleteInternal(
 
     // For full sync, preserve event_name mappings before deletion
     // Store mapping of strava_activity_id -> event_name
+    // Only do this on the FIRST batch of a full sync (not on continuation batches)
     let eventNameMappings = new Map<number, string>();
 
-    if (fullSync && athlete.last_synced_at !== null) {
-      console.log(`Full sync - saving event name mappings before deletion`);
+    if (fullSync && !continuationTimestamp && athlete.last_synced_at !== null) {
+      console.log(`Full sync (first batch) - saving event name mappings before deletion`);
 
       // Save all existing event_name assignments
       const existingMappings = await env.DB.prepare(
@@ -119,7 +122,7 @@ async function syncAthleteInternal(
         console.log(`Saved ${eventNameMappings.size} event name mappings`);
       }
 
-      console.log(`Full sync - deleting all existing races for athlete ${athleteStravaId}`);
+      console.log(`Full sync (first batch) - deleting all existing races for athlete ${athleteStravaId}`);
       const deleteResult = await env.DB.prepare(
         `DELETE FROM races WHERE athlete_id = ?`
       )
@@ -154,25 +157,42 @@ async function syncAthleteInternal(
     // Check if sync was cancelled before we start
     if (await isSyncCancelled()) {
       console.log(`Sync cancelled for athlete ${athleteStravaId} before fetching activities`);
-      return false;
+      return { moreDataAvailable: false };
     }
 
     // Ensure valid access token
     const accessToken = await ensureValidToken(athlete, env);
 
-    // Fetch activities in batches (limit to 5 pages = 1000 activities per batch)
-    // For full syncs: afterTimestamp will be null/undefined (fetch from beginning)
-    // For incremental syncs: afterTimestamp will be last_synced_at
-    const afterTimestamp = fullSync ? undefined : athlete.last_synced_at;
+    // Determine pagination parameters
+    // For full syncs:
+    //   - First batch: no after/before (fetch from beginning)
+    //   - Subsequent batches: use continuationTimestamp as 'before' to paginate backwards
+    // For incremental syncs: use last_synced_at as 'after'
+    let afterTimestamp: number | undefined;
+    let beforeTimestamp: number | undefined;
 
-    console.log(`Fetching activities (fullSync: ${fullSync}, afterTimestamp: ${afterTimestamp || 'none'})`);
+    if (fullSync || continuationTimestamp) {
+      // For full sync pagination, use 'before' to go backwards in time
+      beforeTimestamp = continuationTimestamp;
+      afterTimestamp = undefined;
+    } else {
+      // For incremental sync, use 'after' to get new activities
+      afterTimestamp = athlete.last_synced_at;
+      beforeTimestamp = undefined;
+    }
+
+    console.log(`Fetching activities (fullSync: ${fullSync}, after: ${afterTimestamp || 'none'}, before: ${beforeTimestamp || 'none'})`);
+
+    // For full syncs, fetch more activities per batch (up to 10 pages = 2000 activities)
+    // This is safe because we use continuation timestamps to paginate
+    const maxPagesPerBatch = fullSync ? 10 : 5;
 
     const { activities } = await fetchAthleteActivities(
       accessToken,
       afterTimestamp,
-      undefined,  // no before timestamp
-      200,        // perPage
-      5           // maxPages - limit to prevent timeout
+      beforeTimestamp,
+      200,                  // perPage (max allowed by Strava)
+      maxPagesPerBatch      // maxPages per batch
     );
 
     console.log(`Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
@@ -180,7 +200,17 @@ async function syncAthleteInternal(
     // Check if sync was cancelled after fetching activities
     if (await isSyncCancelled()) {
       console.log(`Sync cancelled for athlete ${athleteStravaId} after fetching activities`);
-      return false;
+      return { moreDataAvailable: false };
+    }
+
+    // Calculate the oldest activity timestamp for pagination
+    // Activities are returned newest first, so the last activity is the oldest
+    let oldestActivityTimestamp: number | undefined;
+    if (activities.length > 0) {
+      const oldestActivity = activities[activities.length - 1];
+      // Convert ISO date string to Unix timestamp
+      oldestActivityTimestamp = Math.floor(new Date(oldestActivity.start_date).getTime() / 1000);
+      console.log(`Oldest activity in batch: ${oldestActivity.name} (${oldestActivity.start_date}, timestamp: ${oldestActivityTimestamp})`);
     }
 
     // Filter for race activities
@@ -279,37 +309,59 @@ async function syncAthleteInternal(
       }
     }
 
-    // Update last synced timestamp, activity count, and mark as completed
-    // For full syncs, reset the activity count; for incremental syncs, add to it
-    if (fullSync) {
+    // Determine if more data may be available
+    // For full syncs: if we got maxPagesPerBatch worth of activities, there may be more
+    // For incremental syncs: if we got a full batch, there may be more
+    const moreDataAvailable = activities.length === (maxPagesPerBatch * 200);
+
+    if (moreDataAvailable) {
+      console.log(`More data may be available - fetched ${activities.length} activities (max was ${maxPagesPerBatch * 200})`);
+    } else {
+      console.log(`All data fetched - got ${activities.length} activities (less than max of ${maxPagesPerBatch * 200})`);
+    }
+
+    // Update last synced timestamp and activity count
+    // For full syncs with continuation: add to the count (we're paginating)
+    // For full syncs without continuation (first batch): reset the count
+    // For incremental syncs: add to the count
+    const isFirstBatchOfFullSync = fullSync && !continuationTimestamp;
+
+    // Only mark as 'completed' if we're done (no more data available)
+    // Otherwise keep it as 'in_progress' for the next batch
+    const syncStatus = moreDataAvailable ? 'in_progress' : 'completed';
+
+    if (isFirstBatchOfFullSync) {
+      // First batch of full sync: reset the count
       await env.DB.prepare(
         `UPDATE athletes
          SET last_synced_at = ?,
-             sync_status = 'completed',
+             sync_status = ?,
              total_activities_count = ?,
              sync_error = NULL
          WHERE id = ?`
       )
-        .bind(Math.floor(Date.now() / 1000), activities.length, athlete.id)
+        .bind(Math.floor(Date.now() / 1000), syncStatus, activities.length, athlete.id)
         .run();
     } else {
+      // Continuation batch or incremental sync: add to the count
       await env.DB.prepare(
         `UPDATE athletes
          SET last_synced_at = ?,
-             sync_status = 'completed',
+             sync_status = ?,
              total_activities_count = total_activities_count + ?,
              sync_error = NULL
          WHERE id = ?`
       )
-        .bind(Math.floor(Date.now() / 1000), activities.length, athlete.id)
+        .bind(Math.floor(Date.now() / 1000), syncStatus, activities.length, athlete.id)
         .run();
     }
 
     console.log(`Athlete ${athleteStravaId} sync complete: ${newRacesAdded} races added (${racesRemoved} removed). Total activities processed: ${activities.length}`);
 
-    // If we got exactly maxPages worth of activities (1000), there may be more
-    // Return true to indicate more batches may be needed (works for both full and incremental syncs)
-    return activities.length === 1000;
+    return {
+      moreDataAvailable,
+      oldestTimestamp: oldestActivityTimestamp
+    };
   } catch (error) {
     // Error handling is done in the outer syncAthlete function
     throw error;
