@@ -4,7 +4,7 @@ import { Env } from './types';
 import { handleAuthorize, handleCallback, handleDisconnect } from './auth/oauth';
 import { syncAllAthletes } from './cron/sync';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent } from './api/races';
-import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, resetStuckSyncs, getSyncLogsForSession } from './api/admin';
+import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, resetStuckSyncs } from './api/admin';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis } from './api/events';
@@ -96,11 +96,6 @@ export default {
       // Reset stuck syncs
       if (path === '/api/admin/reset-stuck-syncs' && request.method === 'POST') {
         return resetStuckSyncs(request, env);
-      }
-
-      // Get sync logs
-      if (path === '/api/admin/sync-logs' && request.method === 'GET') {
-        return getSyncLogsForSession(request, env);
       }
 
       // Manual sync trigger (for testing)
