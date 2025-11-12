@@ -24,17 +24,34 @@ interface SyncMessage {
  * @param env - Cloudflare environment
  * @param isInitialSync - Whether this is the initial sync for a new athlete
  * @param fullSync - If true, deletes all existing data and fetches ALL activities from the beginning
+ * @param ctx - Execution context for scheduling follow-up syncs
  */
 export async function syncAthlete(
   athleteStravaId: number,
   env: Env,
   isInitialSync: boolean = false,
-  fullSync: boolean = false
+  fullSync: boolean = false,
+  ctx?: ExecutionContext
 ): Promise<void> {
   console.log(`Starting sync for athlete ${athleteStravaId} (initial: ${isInitialSync}, full: ${fullSync})`);
 
   try {
-    await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync);
+    const moreDataAvailable = await syncAthleteInternal(athleteStravaId, env, isInitialSync, fullSync);
+
+    // If more data is available and we have an execution context, trigger another batch
+    if (moreDataAvailable && ctx && !fullSync) {
+      console.log(`More activities available for athlete ${athleteStravaId}, scheduling follow-up sync`);
+
+      // Schedule another sync in the background
+      ctx.waitUntil(
+        (async () => {
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          console.log(`Starting follow-up sync for athlete ${athleteStravaId}`);
+          await syncAthlete(athleteStravaId, env, false, false, ctx);
+        })()
+      );
+    }
   } catch (error) {
     console.error(`Error syncing athlete ${athleteStravaId}:`, error);
 
@@ -54,13 +71,14 @@ export async function syncAthlete(
 
 /**
  * Internal sync implementation
+ * @returns true if more data may be available (hit maxPages limit), false otherwise
  */
 async function syncAthleteInternal(
   athleteStravaId: number,
   env: Env,
   isInitialSync: boolean,
   fullSync: boolean
-): Promise<void> {
+): Promise<boolean> {
   try {
     // Get athlete from database
     const athlete = await getAthleteByStravaId(athleteStravaId, env);
@@ -109,7 +127,7 @@ async function syncAthleteInternal(
     // Check if sync was cancelled before we start
     if (await isSyncCancelled()) {
       console.log(`Sync cancelled for athlete ${athleteStravaId} before fetching activities`);
-      return;
+      return false;
     }
 
     // Ensure valid access token
@@ -158,7 +176,7 @@ async function syncAthleteInternal(
     // Check if sync was cancelled after fetching activities
     if (await isSyncCancelled()) {
       console.log(`Sync cancelled for athlete ${athleteStravaId} after fetching activities`);
-      return;
+      return false;
     }
 
     // Filter for race activities
@@ -271,6 +289,10 @@ async function syncAthleteInternal(
     }
 
     console.log(`Athlete ${athleteStravaId} sync complete: ${newRacesAdded} races added (${racesRemoved} removed). Total activities processed: ${activities.length}`);
+
+    // If we got exactly maxPages worth of activities (1000) in an incremental sync, there may be more
+    // Return true to indicate more batches may be needed, but only for incremental syncs
+    return !fullSync && activities.length === 1000;
   } catch (error) {
     // Error handling is done in the outer syncAthlete function
     throw error;

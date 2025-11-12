@@ -246,13 +246,13 @@ export async function triggerAthleteSync(
       .bind(athleteId)
       .run();
 
-    // Trigger incremental sync in background using waitUntil to extend execution time
-    // Changed from full syncs to incremental syncs to avoid Worker timeout with large activity counts
+    // Trigger incremental sync in background with automatic batching
+    // The sync will automatically trigger follow-up syncs if more data is available
     ctx.waitUntil(
       (async () => {
         try {
-          console.log(`Admin triggering incremental sync for athlete ${athlete.strava_id} (ID: ${athleteId})`);
-          await syncAthlete(athlete.strava_id, env, false, false);
+          console.log(`Admin triggering incremental sync with auto-batching for athlete ${athlete.strava_id} (ID: ${athleteId})`);
+          await syncAthlete(athlete.strava_id, env, false, false, ctx);
           console.log(`Admin sync completed successfully for athlete ${athlete.strava_id}`);
         } catch (error) {
           console.error(`Admin sync failed for athlete ${athlete.strava_id}:`, error);
