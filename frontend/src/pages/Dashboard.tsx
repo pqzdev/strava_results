@@ -28,11 +28,10 @@ interface Race {
 
 interface Filters {
   athletes: string[];
+  distances: string[];
   activityName: string;
   dateFrom: string;
   dateTo: string;
-  minDistance: string;
-  maxDistance: string;
 }
 
 // Helper function to get default start date (January 1st of previous year)
@@ -50,13 +49,13 @@ export default function Dashboard() {
   // Initialize filters from URL params
   const [filters, setFilters] = useState<Filters>(() => {
     const athletesParam = searchParams.get('athletes');
+    const distancesParam = searchParams.get('distances');
     return {
       athletes: athletesParam ? athletesParam.split('|').filter(Boolean) : [],
+      distances: distancesParam ? distancesParam.split('|').filter(Boolean) : [],
       activityName: searchParams.get('activityName') || '',
       dateFrom: searchParams.get('dateFrom') || getDefaultStartDate(),
       dateTo: searchParams.get('dateTo') || '',
-      minDistance: searchParams.get('minDistance') || '',
-      maxDistance: searchParams.get('maxDistance') || '',
     };
   });
 
@@ -128,11 +127,12 @@ export default function Dashboard() {
       // Handle multi-select athletes filter
       filters.athletes.forEach(athlete => params.append('athlete', athlete));
 
+      // Handle multi-select distance filter
+      filters.distances.forEach(distance => params.append('distance', distance));
+
       if (filters.activityName) params.set('activity_name', filters.activityName);
       if (filters.dateFrom) params.set('date_from', filters.dateFrom);
       if (filters.dateTo) params.set('date_to', filters.dateTo);
-      if (filters.minDistance) params.set('min_distance', filters.minDistance);
-      if (filters.maxDistance) params.set('max_distance', filters.maxDistance);
 
       const response = await fetch(`/api/races?${params.toString()}`);
       const data = await response.json();
@@ -158,6 +158,9 @@ export default function Dashboard() {
     if (updatedFilters.athletes.length > 0) {
       params.set('athletes', updatedFilters.athletes.join('|'));
     }
+    if (updatedFilters.distances.length > 0) {
+      params.set('distances', updatedFilters.distances.join('|'));
+    }
     if (updatedFilters.activityName) {
       params.set('activityName', updatedFilters.activityName);
     }
@@ -167,23 +170,16 @@ export default function Dashboard() {
     if (updatedFilters.dateTo) {
       params.set('dateTo', updatedFilters.dateTo);
     }
-    if (updatedFilters.minDistance) {
-      params.set('minDistance', updatedFilters.minDistance);
-    }
-    if (updatedFilters.maxDistance) {
-      params.set('maxDistance', updatedFilters.maxDistance);
-    }
     setSearchParams(params, { replace: true });
   };
 
   const handleClearFilters = () => {
     setFilters({
       athletes: [],
+      distances: [],
       activityName: '',
       dateFrom: getDefaultStartDate(),
       dateTo: '',
-      minDistance: '',
-      maxDistance: '',
     });
     setPagination({ ...pagination, offset: 0 });
     setSearchParams({}, { replace: true });
