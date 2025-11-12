@@ -114,6 +114,7 @@ export async function fetchAthleteActivities(
 
   const allActivities: StravaActivity[] = [];
   let page = 1;
+  let currentBefore = before;  // Track the 'before' timestamp for pagination
   let rateLimits: RateLimitInfo = {
     limit_15min: 100,
     usage_15min: 0,
@@ -125,12 +126,18 @@ export async function fetchAthleteActivities(
   while (true) {
     const url = new URL(`${STRAVA_API_BASE}/athlete/activities`);
     url.searchParams.set('per_page', perPage.toString());
-    url.searchParams.set('page', page.toString());
+
+    // When using 'before' for backward pagination, DON'T use 'page' parameter
+    // Instead, adjust the 'before' timestamp for each iteration
+    if (currentBefore) {
+      url.searchParams.set('before', currentBefore.toString());
+    } else {
+      // Only use page parameter when not doing backward pagination with 'before'
+      url.searchParams.set('page', page.toString());
+    }
+
     if (after) {
       url.searchParams.set('after', after.toString());
-    }
-    if (before) {
-      url.searchParams.set('before', before.toString());
     }
 
     console.log(`[fetchAthleteActivities] Page ${page}: Fetching URL: ${url.toString()}`);
@@ -180,6 +187,13 @@ export async function fetchAthleteActivities(
     if (maxPages && page >= maxPages) {
       console.log(`[fetchAthleteActivities] Page ${page}: Reached maxPages limit (${maxPages}), stopping pagination`);
       break;
+    }
+
+    // For backward pagination with 'before', update the timestamp to the oldest activity
+    if (currentBefore && activities.length > 0) {
+      const oldestActivity = activities[activities.length - 1];
+      currentBefore = Math.floor(new Date(oldestActivity.start_date).getTime() / 1000);
+      console.log(`[fetchAthleteActivities] Updated currentBefore to ${currentBefore} (oldest activity timestamp)`);
     }
 
     page++;

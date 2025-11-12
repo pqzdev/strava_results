@@ -220,9 +220,9 @@ async function syncAthleteInternal(
 
     console.log(`Fetching activities (fullSync: ${fullSync}, after: ${afterTimestamp || 'none'}, before: ${beforeTimestamp || 'none'})`);
 
-    // Limit ALL syncs to 5 pages (1000 activities) per batch to avoid timeouts
+    // Limit ALL syncs to 1 page (200 activities) per batch to avoid timeouts
     // Full syncs will trigger follow-up batches automatically via waitUntil
-    const maxPagesPerBatch = 5;
+    const maxPagesPerBatch = 1;
 
     if (sessionId) {
       await logSyncProgress(env, athlete.id, sessionId, 'info',
@@ -373,8 +373,8 @@ async function syncAthleteInternal(
     }
 
     // Determine if more data may be available
-    // If we got a full batch (1000 activities), there may be more to fetch
-    const moreDataAvailable = activities.length === (maxPagesPerBatch * 200);
+    // If we got a full page (200 activities), there may be more to fetch
+    const moreDataAvailable = activities.length === 200;
 
     if (moreDataAvailable) {
       console.log(`More data may be available - fetched ${activities.length} activities (max was ${maxPagesPerBatch * 200})`);
