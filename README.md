@@ -14,12 +14,12 @@ A full-featured web application that automatically aggregates race results from 
 ### parkrun Integration
 - **Manual Data Collection** - Admins process parkrun results using a browser-based tool
 - **CSV Import** - Upload processed results via admin panel
-- **Athlete Matching** - Smart matching of parkrun athletes to Strava profiles
-- **Historical Data** - Track parkrun history alongside Strava races
+- **Historical Data** - Track parkrun history for club members
 - **Date-based Filtering** - View specific parkrun events by date
+- **Separate View** - parkrun results displayed in dedicated page
 
 ### Dashboard & Analytics
-- **Unified Race View** - Combined Strava and parkrun results in one place
+- **Dual Race Views** - Separate views for Strava and parkrun results
 - **Advanced Filtering** - Filter by athlete, date, distance, and event
 - **Statistics** - Aggregate stats: total races, distance, participants
 - **Mobile Responsive** - Works seamlessly on all devices
@@ -241,8 +241,7 @@ Access the admin panel at `/admin`:
 
 #### parkrun Management
 - Process parkrun results using browser-based data collection tool
-- Import CSV results via admin panel
-- Match parkrun athletes to Strava profiles
+- Import results directly to D1 database via API
 - Control visibility of parkrun athletes
 - View parkrun-specific statistics
 
@@ -266,17 +265,9 @@ parkrun doesn't currently provide a public API for accessing club results. Until
 
 3. **Import the Results**
    - The tool generates a CSV with all results
-   - Go to your **Admin** panel
-   - Navigate to the parkrun section
-   - Upload the generated CSV file
-   - Results are automatically matched to Strava athletes where possible
-
-### Smart Athlete Matching
-
-The system uses fuzzy matching to link parkrun and Strava profiles:
-- Matches by first name + last name
-- Case-insensitive, handles variations
-- Manual review available in admin panel
+   - Use the import API to send data directly to Cloudflare D1
+   - Results appear immediately in the parkrun dashboard
+   - Admin can control visibility of individual athletes
 
 ### Future: API Integration
 
