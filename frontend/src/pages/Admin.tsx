@@ -150,7 +150,7 @@ export default function Admin() {
           }
           return map;
         }, new Map<string, EventSuggestion>()).values()
-      );
+      ) as EventSuggestion[];
 
       setEventSuggestions(uniqueSuggestions);
     } catch (err) {
