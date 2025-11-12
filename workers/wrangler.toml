@@ -12,6 +12,10 @@ database_name = "strava-club-db"
 database_id = "4b79f9e5-f6bb-4cd9-852b-51e2c0a7c5d1"
 migrations_dir = "../database/migrations"
 
+# AI binding for event name analysis
+[ai]
+binding = "AI"
+
 # Scheduled cron trigger for weekly activity sync
 [triggers]
 crons = ["0 2 * * 1"] # Run at 2 AM UTC every Monday

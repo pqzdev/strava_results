@@ -30,6 +30,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
         r.moving_time,
         COALESCE(re.manual_time, r.manual_time) as manual_time,
         COALESCE(re.manual_distance, r.manual_distance) as manual_distance,
+        r.event_name,
         r.date,
         r.elevation_gain,
         r.average_heartrate,

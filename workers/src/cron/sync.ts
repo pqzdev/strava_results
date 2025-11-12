@@ -3,6 +3,7 @@
 import { Env } from '../types';
 import { getAllAthletes } from '../utils/db';
 import { syncAthlete } from '../queue/sync-queue';
+import { analyzeEvents } from '../utils/eventAnalysis';
 
 /**
  * Main sync function - called by cron trigger
@@ -88,6 +89,16 @@ export async function syncAllAthletes(env: Env): Promise<void> {
     console.log(
       `Stats: ${athletesProcessed} athletes, ${errorsEncountered} errors`
     );
+
+    // Run AI event analysis for newly synced races
+    try {
+      console.log('Starting event name analysis...');
+      await analyzeEvents(env);
+      console.log('Event analysis completed');
+    } catch (error) {
+      console.error('Event analysis failed (non-fatal):', error);
+      // Don't throw - event analysis failure shouldn't fail the whole sync
+    }
   } catch (error) {
     console.error('Fatal sync error:', error);
 

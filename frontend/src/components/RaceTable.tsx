@@ -10,6 +10,7 @@ interface Race {
   moving_time: number;
   manual_time?: number;
   manual_distance?: number;
+  event_name?: string;
   date: string;
   elevation_gain: number;
   average_heartrate?: number;
@@ -387,6 +388,9 @@ export default function RaceTable({ races, currentAthleteId, onTimeUpdate }: Rac
             <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>
               Date{getSortIndicator('date')}
             </th>
+            <th onClick={() => handleSort('event_name')} style={{ cursor: 'pointer' }}>
+              Event{getSortIndicator('event_name')}
+            </th>
             <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>
               Activity Name{getSortIndicator('name')}
             </th>
@@ -408,6 +412,13 @@ export default function RaceTable({ races, currentAthleteId, onTimeUpdate }: Rac
                 <span>{race.firstname} {race.lastname}</span>
               </td>
               <td>{formatDate(race.date)}</td>
+              <td className="event-name">
+                {race.event_name ? (
+                  <span className="event-badge">{race.event_name}</span>
+                ) : (
+                  <span className="no-event">—</span>
+                )}
+              </td>
               <td>
                 <a
                   href={`https://www.strava.com/activities/${race.strava_activity_id}`}
