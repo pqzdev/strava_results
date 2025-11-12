@@ -91,24 +91,78 @@ export async function extractEventName(
   const distanceKm = (group.avgDistance / 1000).toFixed(1);
   const dateStr = group.avgDate.toISOString().split('T')[0];
 
-  // Fetch some approved event names to use as examples
-  const approvedExamples = await env.DB.prepare(`
+  // Fetch examples from two sources:
+  // 1. Approved event suggestions (from AI workflow)
+  // 2. Manual event assignments (typed in by admins)
+  const examples: string[] = [];
+
+  // Get approved suggestions with their activity names
+  const approvedSuggestions = await env.DB.prepare(`
+    SELECT suggested_event_name, race_ids
+    FROM event_suggestions
+    WHERE status = 'approved'
+    ORDER BY RANDOM()
+    LIMIT 2
+  `).all();
+
+  if (approvedSuggestions.results && approvedSuggestions.results.length > 0) {
+    for (const suggestion of approvedSuggestions.results as { suggested_event_name: string; race_ids: string }[]) {
+      const raceIds = JSON.parse(suggestion.race_ids) as number[];
+
+      // Fetch the actual activity names for these races
+      const racesResult = await env.DB.prepare(`
+        SELECT name
+        FROM races
+        WHERE id IN (${raceIds.slice(0, 3).map(() => '?').join(',')})
+        LIMIT 3
+      `).bind(...raceIds.slice(0, 3)).all();
+
+      if (racesResult.results && racesResult.results.length > 0) {
+        const activityNames = (racesResult.results as { name: string }[])
+          .map(r => r.name)
+          .join('\n  - ');
+
+        examples.push(`Activity names:\n  - ${activityNames}\n  Event name: ${suggestion.suggested_event_name}`);
+      }
+    }
+  }
+
+  // Also get some manually assigned event names (not from suggestions)
+  const manualEvents = await env.DB.prepare(`
     SELECT DISTINCT event_name
     FROM races
     WHERE event_name IS NOT NULL
+    AND event_name NOT IN (
+      SELECT suggested_event_name
+      FROM event_suggestions
+      WHERE status = 'approved'
+    )
     ORDER BY RANDOM()
-    LIMIT 5
+    LIMIT 2
   `).all();
 
-  const examplesList = approvedExamples.results && approvedExamples.results.length > 0
-    ? (approvedExamples.results as { event_name: string }[])
-        .map(r => r.event_name)
-        .filter(name => name && name.length > 0)
-        .slice(0, 3)
-    : [];
+  if (manualEvents.results && manualEvents.results.length > 0) {
+    for (const event of manualEvents.results as { event_name: string }[]) {
+      // Get a few activity names for this event
+      const racesResult = await env.DB.prepare(`
+        SELECT name
+        FROM races
+        WHERE event_name = ?
+        LIMIT 3
+      `).bind(event.event_name).all();
 
-  const examplesSection = examplesList.length > 0
-    ? `\n\nHere are some examples of good event names from our database:\n${examplesList.map(e => `- ${e}`).join('\n')}`
+      if (racesResult.results && racesResult.results.length > 0) {
+        const activityNames = (racesResult.results as { name: string }[])
+          .map(r => r.name)
+          .join('\n  - ');
+
+        examples.push(`Activity names:\n  - ${activityNames}\n  Event name: ${event.event_name}`);
+      }
+    }
+  }
+
+  const examplesSection = examples.length > 0
+    ? `\n\nHere are real examples from our database showing how activity names map to event names:\n\n${examples.join('\n\n')}`
     : '';
 
   const prompt = `You are analyzing running race data from Strava. Given these activity names from different athletes who ran the same race event:
