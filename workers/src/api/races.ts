@@ -2,6 +2,17 @@
 
 import { Env } from '../types';
 
+// Distance categories with meters and buffer
+const DISTANCE_CATEGORIES: { [key: string]: { minMeters: number; maxMeters: number } } = {
+  '5K': { minMeters: 4800, maxMeters: 5200 },
+  '10K': { minMeters: 9700, maxMeters: 10300 },
+  '14K': { minMeters: 13700, maxMeters: 14300 },
+  'Half Marathon': { minMeters: 20800, maxMeters: 21600 },
+  '30K': { minMeters: 29500, maxMeters: 30500 },
+  'Marathon': { minMeters: 41700, maxMeters: 43200 },
+  'Ultra': { minMeters: 43200, maxMeters: 999999 },
+};
+
 /**
  * GET /api/races - Get recent races with filtering
  */
@@ -13,6 +24,9 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
   const activityName = url.searchParams.get('activity_name');
   const dateFrom = url.searchParams.get('date_from');
   const dateTo = url.searchParams.get('date_to');
+  const distanceCategories = url.searchParams.getAll('distance'); // Get all distance category parameters
+
+  // Legacy support for min/max distance
   const minDistanceParam = url.searchParams.get('min_distance');
   const maxDistanceParam = url.searchParams.get('max_distance');
   const minDistance = minDistanceParam ? parseFloat(minDistanceParam) : null;
@@ -70,14 +84,52 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
       bindings.push(dateTo);
     }
 
-    if (minDistance !== null && minDistance > 0) {
-      query += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ?`;
-      bindings.push(minDistance);
-    }
+    // Handle distance category filtering
+    if (distanceCategories.length > 0) {
+      const hasOther = distanceCategories.includes('Other');
+      const selectedCategories = distanceCategories.filter(c => c !== 'Other');
 
-    if (maxDistance !== null && maxDistance < 999999) {
-      query += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?`;
-      bindings.push(maxDistance);
+      const distanceConditions: string[] = [];
+
+      // Add conditions for selected preset categories
+      selectedCategories.forEach(category => {
+        const range = DISTANCE_CATEGORIES[category];
+        if (range) {
+          distanceConditions.push(
+            `(COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ? AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?)`
+          );
+          bindings.push(range.minMeters, range.maxMeters);
+        }
+      });
+
+      // Add condition for "Other" - races not in any preset category
+      if (hasOther) {
+        const allRanges = Object.values(DISTANCE_CATEGORIES);
+        const otherConditions = allRanges.map(() =>
+          `(COALESCE(re.manual_distance, r.manual_distance, r.distance) < ? OR COALESCE(re.manual_distance, r.manual_distance, r.distance) > ?)`
+        );
+        const otherCondition = otherConditions.join(' AND ');
+        distanceConditions.push(`(${otherCondition})`);
+
+        allRanges.forEach(range => {
+          bindings.push(range.minMeters, range.maxMeters);
+        });
+      }
+
+      if (distanceConditions.length > 0) {
+        query += ` AND (${distanceConditions.join(' OR ')})`;
+      }
+    } else if (minDistance !== null || maxDistance !== null) {
+      // Legacy min/max distance filtering
+      if (minDistance !== null && minDistance > 0) {
+        query += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ?`;
+        bindings.push(minDistance);
+      }
+
+      if (maxDistance !== null && maxDistance < 999999) {
+        query += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?`;
+        bindings.push(maxDistance);
+      }
     }
 
     query += ` ORDER BY r.date DESC LIMIT ? OFFSET ?`;
@@ -113,13 +165,52 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
       countQuery += ` AND r.date <= ?`;
       countBindings.push(dateTo);
     }
-    if (minDistance !== null && minDistance > 0) {
-      countQuery += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ?`;
-      countBindings.push(minDistance);
-    }
-    if (maxDistance !== null && maxDistance < 999999) {
-      countQuery += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?`;
-      countBindings.push(maxDistance);
+
+    // Handle distance category filtering (same as main query)
+    if (distanceCategories.length > 0) {
+      const hasOther = distanceCategories.includes('Other');
+      const selectedCategories = distanceCategories.filter(c => c !== 'Other');
+
+      const distanceConditions: string[] = [];
+
+      // Add conditions for selected preset categories
+      selectedCategories.forEach(category => {
+        const range = DISTANCE_CATEGORIES[category];
+        if (range) {
+          distanceConditions.push(
+            `(COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ? AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?)`
+          );
+          countBindings.push(range.minMeters, range.maxMeters);
+        }
+      });
+
+      // Add condition for "Other" - races not in any preset category
+      if (hasOther) {
+        const allRanges = Object.values(DISTANCE_CATEGORIES);
+        const otherConditions = allRanges.map(() =>
+          `(COALESCE(re.manual_distance, r.manual_distance, r.distance) < ? OR COALESCE(re.manual_distance, r.manual_distance, r.distance) > ?)`
+        );
+        const otherCondition = otherConditions.join(' AND ');
+        distanceConditions.push(`(${otherCondition})`);
+
+        allRanges.forEach(range => {
+          countBindings.push(range.minMeters, range.maxMeters);
+        });
+      }
+
+      if (distanceConditions.length > 0) {
+        countQuery += ` AND (${distanceConditions.join(' OR ')})`;
+      }
+    } else if (minDistance !== null || maxDistance !== null) {
+      // Legacy min/max distance filtering
+      if (minDistance !== null && minDistance > 0) {
+        countQuery += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ?`;
+        countBindings.push(minDistance);
+      }
+      if (maxDistance !== null && maxDistance < 999999) {
+        countQuery += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?`;
+        countBindings.push(maxDistance);
+      }
     }
 
     const countResult = await env.DB.prepare(countQuery)
@@ -253,8 +344,15 @@ export async function updateRaceTime(
       );
     }
 
-    // Verify athlete owns this race
-    if (race.strava_id !== body.athlete_strava_id) {
+    // Check if the user is an admin
+    const requestingAthlete = await env.DB.prepare(
+      'SELECT is_admin FROM athletes WHERE strava_id = ?'
+    ).bind(body.athlete_strava_id).first<{ is_admin: number }>();
+
+    const isAdmin = requestingAthlete?.is_admin === 1;
+
+    // Verify athlete owns this race OR is an admin
+    if (!isAdmin && race.strava_id !== body.athlete_strava_id) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized: You can only edit your own race times' }),
         {
@@ -344,8 +442,15 @@ export async function updateRaceDistance(
       );
     }
 
-    // Verify athlete owns this race
-    if (race.strava_id !== body.athlete_strava_id) {
+    // Check if the user is an admin
+    const requestingAthlete = await env.DB.prepare(
+      'SELECT is_admin FROM athletes WHERE strava_id = ?'
+    ).bind(body.athlete_strava_id).first<{ is_admin: number }>();
+
+    const isAdmin = requestingAthlete?.is_admin === 1;
+
+    // Verify athlete owns this race OR is an admin
+    if (!isAdmin && race.strava_id !== body.athlete_strava_id) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized: You can only edit your own race distances' }),
         {

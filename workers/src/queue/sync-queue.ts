@@ -116,20 +116,17 @@ async function syncAthleteInternal(
     const accessToken = await ensureValidToken(athlete, env);
 
     // Fetch activities
-    // For full syncs, fetch from start of previous year but in smaller batches to avoid timeouts
-    // For incremental syncs, fetch from last_synced_at or start of previous year
-    let afterTimestamp: number;
+    // For full syncs, fetch ALL activities (no date restriction)
+    // For incremental syncs, fetch from last_synced_at
+    let afterTimestamp: number | undefined;
     let allActivities: any[] = [];
 
     if (fullSync) {
-      // For full syncs, fetch from start of previous year (up to 24 months of data)
-      // This ensures we catch all racing activity for the current and previous year
-      const currentYear = new Date().getFullYear();
-      const startOfPreviousYear = new Date(`${currentYear - 1}-01-01`);
-      afterTimestamp = Math.floor(startOfPreviousYear.getTime() / 1000);
+      // For full syncs, fetch ALL activities from all time (no after timestamp)
+      afterTimestamp = undefined;
 
-      console.log(`Full sync requested - fetching activities from ${startOfPreviousYear.toISOString()}`);
-      console.log(`[DEBUG] About to call fetchAthleteActivities with after=${afterTimestamp}, perPage=200`);
+      console.log(`Full sync requested - fetching ALL activities from all time`);
+      console.log(`[DEBUG] About to call fetchAthleteActivities with no after timestamp, perPage=200`);
 
       // Fetch ALL activities with proper pagination (fetchAthleteActivities handles pagination internally)
       const { activities } = await fetchAthleteActivities(
@@ -143,9 +140,8 @@ async function syncAthleteInternal(
       console.log(`[DEBUG] fetchAthleteActivities returned ${activities.length} activities`);
       console.log(`Full sync fetched ${activities.length} total activities`);
     } else {
-      afterTimestamp = athlete.last_synced_at
-        ? athlete.last_synced_at
-        : Math.floor(new Date(`${new Date().getFullYear() - 1}-01-01`).getTime() / 1000);
+      // For incremental syncs, only fetch activities since last sync
+      afterTimestamp = athlete.last_synced_at;
 
       const { activities, rateLimits } = await fetchAthleteActivities(
         accessToken,
