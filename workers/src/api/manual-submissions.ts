@@ -127,53 +127,146 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
     const html = await response.text();
 
     // Parse HTML to extract activity details
-    // Note: This is a simple regex-based parser. For production, consider using a proper HTML parser.
+    // Try multiple patterns for robustness
 
-    // Extract athlete name
-    const athleteMatch = html.match(/<a[^>]*class="[^"]*minimal-athlete[^"]*"[^>]*>([^<]+)<\/a>/i) ||
-                        html.match(/<span[^>]*class="[^"]*athlete-name[^"]*"[^>]*>([^<]+)<\/span>/i) ||
-                        html.match(/Athlete:<\/strong>\s*([^<]+)/i);
-    const athleteName = athleteMatch ? athleteMatch[1].trim() : 'Unknown Athlete';
-
-    // Extract activity title
-    const titleMatch = html.match(/<h1[^>]*class="[^"]*activity-name[^"]*"[^>]*>([^<]+)<\/h1>/i) ||
-                      html.match(/<title>([^|]+)/i);
-    const activityName = titleMatch ? titleMatch[1].trim() : 'Untitled Activity';
-
-    // Extract activity type
-    const typeMatch = html.match(/Activity Type:<\/strong>\s*([^<]+)/i) ||
-                     html.match(/data-activity-type="([^"]+)"/i) ||
-                     html.match(/<span[^>]*class="[^"]*activity-type[^"]*"[^>]*>([^<]+)<\/span>/i);
-    const activityType = typeMatch ? typeMatch[1].trim() : 'Run';
-
-    // Extract date
-    const dateMatch = html.match(/<time[^>]*datetime="([^"]+)"/i) ||
-                     html.match(/data-date="([^"]+)"/i);
-    const date = dateMatch ? dateMatch[1].split('T')[0] : new Date().toISOString().split('T')[0];
-
-    // Extract distance (in meters, convert to km)
-    const distanceMatch = html.match(/Distance:<\/strong>\s*([0-9.]+)\s*km/i) ||
-                         html.match(/data-distance="([0-9.]+)"/i);
-    const distance = distanceMatch ? parseFloat(distanceMatch[1]) : null;
-
-    // Extract time
-    const timeMatch = html.match(/Moving Time:<\/strong>\s*([0-9:hms\s]+)/i) ||
-                     html.match(/Elapsed Time:<\/strong>\s*([0-9:hms\s]+)/i) ||
-                     html.match(/data-elapsed-time="([0-9]+)"/i);
-    let timeSeconds: number | null = null;
-    if (timeMatch) {
-      if (timeMatch[1].match(/^\d+$/)) {
-        // Already in seconds
-        timeSeconds = parseInt(timeMatch[1]);
-      } else {
-        timeSeconds = parseTimeToSeconds(timeMatch[1]);
+    // Extract athlete name - try various patterns
+    let athleteName = 'Unknown Athlete';
+    const athletePatterns = [
+      /<h3[^>]*>([^<]+)<\/h3>/i,  // Simple h3 tag
+      /<a[^>]*class="[^"]*minimal-athlete[^"]*"[^>]*>([^<]+)<\/a>/i,
+      /<span[^>]*class="[^"]*athlete-name[^"]*"[^>]*>([^<]+)<\/span>/i,
+      /Athlete:<\/strong>\s*([^<]+)/i,
+      /"athlete_firstname":"([^"]+)","athlete_lastname":"([^"]+)"/i
+    ];
+    for (const pattern of athletePatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        athleteName = match[2] ? `${match[1]} ${match[2]}` : match[1].trim();
+        break;
       }
     }
 
-    // Extract elevation gain
-    const elevationMatch = html.match(/Elevation Gain:<\/strong>\s*([0-9,]+)\s*m/i) ||
-                          html.match(/data-elevation-gain="([0-9.]+)"/i);
-    const elevationGain = elevationMatch ? parseFloat(elevationMatch[1].replace(/,/g, '')) : null;
+    // Extract activity title - try various patterns
+    let activityName = 'Untitled Activity';
+    const titlePatterns = [
+      /<h1[^>]*>([^<]+)<\/h1>/i,  // Simple h1 tag
+      /<h1[^>]*class="[^"]*activity-name[^"]*"[^>]*>([^<]+)<\/h1>/i,
+      /<title>([^|]+)/i,
+      /"name":"([^"]+)"/i
+    ];
+    for (const pattern of titlePatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        activityName = match[1].trim();
+        if (activityName !== 'Untitled Activity' && activityName.length > 0) break;
+      }
+    }
+
+    // Extract activity type
+    let activityType = 'Run';
+    const typePatterns = [
+      /"type":"([^"]+)"/i,
+      /Activity Type:<\/strong>\s*([^<]+)/i,
+      /data-activity-type="([^"]+)"/i,
+      /<span[^>]*class="[^"]*activity-type[^"]*"[^>]*>([^<]+)<\/span>/i
+    ];
+    for (const pattern of typePatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        activityType = match[1].trim();
+        break;
+      }
+    }
+
+    // Extract date
+    let date = new Date().toISOString().split('T')[0];
+    const datePatterns = [
+      /<time[^>]*datetime="([^"]+)"/i,
+      /data-date="([^"]+)"/i,
+      /"start_date":"([^"]+)"/i,
+      /"start_date_local":"([^"]+)"/i
+    ];
+    for (const pattern of datePatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        date = match[1].split('T')[0];
+        break;
+      }
+    }
+
+    // Extract distance (in km)
+    let distance: number | null = null;
+    const distancePatterns = [
+      /([0-9.,]+)\s*km/i,  // Match number followed by km
+      /Distance:<\/strong>\s*([0-9.]+)\s*km/i,
+      /data-distance="([0-9.]+)"/i,
+      /"distance":([0-9.]+)/i
+    ];
+    for (const pattern of distancePatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        const value = parseFloat(match[1].replace(/,/g, ''));
+        if (value > 0) {
+          // If it's a very large number, it might be in meters
+          distance = value > 1000 ? value / 1000 : value;
+          break;
+        }
+      }
+    }
+
+    // Extract time
+    let timeSeconds: number | null = null;
+    const timePatterns = [
+      /([0-9]+)h\s*([0-9]+)m\s*([0-9]+)s/i,  // Match "9h 37m 44s"
+      /Time:<\/strong>\s*([0-9:hms\s]+)/i,
+      /Moving Time:<\/strong>\s*([0-9:hms\s]+)/i,
+      /Elapsed Time:<\/strong>\s*([0-9:hms\s]+)/i,
+      /data-elapsed-time="([0-9]+)"/i,
+      /"elapsed_time":([0-9]+)/i,
+      /"moving_time":([0-9]+)/i
+    ];
+    for (const pattern of timePatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        if (match.length > 3 && match[1] && match[2] && match[3]) {
+          // Format: 9h 37m 44s
+          timeSeconds = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]);
+        } else if (match[1].match(/^\d+$/)) {
+          // Already in seconds
+          timeSeconds = parseInt(match[1]);
+        } else {
+          // Try to parse time string
+          timeSeconds = parseTimeToSeconds(match[1]);
+        }
+        if (timeSeconds && timeSeconds > 0) break;
+      }
+    }
+
+    // Extract elevation gain (in meters)
+    let elevationGain: number | null = null;
+    const elevationPatterns = [
+      /([0-9,]+)\s*m/i,  // Match number followed by m (after "Elevation")
+      /Elevation:<\/div>[^<]*<div[^>]*>([0-9,]+)\s*m/i,
+      /Elevation Gain:<\/strong>\s*([0-9,]+)\s*m/i,
+      /data-elevation-gain="([0-9.]+)"/i,
+      /"total_elevation_gain":([0-9.]+)/i
+    ];
+    // First find "Elevation" context, then look for number nearby
+    const elevContext = html.match(/Elevation<\/div>[^<]*<div[^>]*>([0-9,]+)\s*m/i);
+    if (elevContext) {
+      elevationGain = parseFloat(elevContext[1].replace(/,/g, ''));
+    } else {
+      for (const pattern of elevationPatterns) {
+        const match = html.match(pattern);
+        if (match) {
+          const value = parseFloat(match[1].replace(/,/g, ''));
+          if (value > 0) {
+            elevationGain = value;
+            break;
+          }
+        }
+      }
+    }
 
     return {
       strava_activity_id: activityId,
