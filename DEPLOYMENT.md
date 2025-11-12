@@ -1,244 +1,419 @@
-# Deployment Configuration Guide
+# Deployment Guide
 
-This project uses two separate Cloudflare services:
-- **Cloudflare Workers** for the backend API (`/workers`)
-- **Cloudflare Pages** for the frontend static site (`/frontend`)
+This guide covers deploying your Strava Club Results application to production using Cloudflare Pages and Workers.
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     GitHub Repository                        │
-│  ┌──────────────────────┐    ┌──────────────────────────┐  │
-│  │  /workers            │    │  /frontend               │  │
-│  │  (API Backend)       │    │  (React Frontend)        │  │
-│  └──────────────────────┘    └──────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-           │                              │
-           │ GitHub Actions               │ Cloudflare Pages
-           │ (on merge to main)           │ (automatic)
-           ▼                              ▼
-┌─────────────────────┐        ┌──────────────────────────┐
-│ Cloudflare Workers  │        │  Cloudflare Pages        │
-│ strava-club-workers │        │  woodstock-results       │
-│                     │        │                          │
-│ API + Cron Jobs     │        │  Static Site Hosting     │
-│ + D1 Database       │        │                          │
-└─────────────────────┘        └──────────────────────────┘
+GitHub Repository
+├── /workers (Backend API)
+│   └── GitHub Actions → Cloudflare Workers
+└── /frontend (React App)
+    └── Cloudflare Pages → Static Hosting
 ```
 
-## 1. Workers Deployment (Backend API)
+## Prerequisites
 
-### Deployment Method: GitHub Actions
+- Cloudflare account (free tier is sufficient)
+- GitHub repository with your code
+- Strava API credentials configured
 
-The Workers are deployed automatically via GitHub Actions when you merge to `main`.
+## GitHub Actions Deployment (Recommended)
 
-**Configuration:** `.github/workflows/deploy.yml`
+### 1. Create Cloudflare API Token
 
-**Workflow:**
-1. Push/merge to `main` branch
-2. GitHub Action triggers
-3. Runs `npm ci` in `/workers`
-4. Runs database migrations (if any)
-5. Deploys with `wrangler deploy`
+1. Go to https://dash.cloudflare.com/profile/api-tokens
+2. Click "Create Token"
+3. Use template: **"Edit Cloudflare Workers"**
+4. Add these permissions:
+   - **Account** → **D1** → Edit
+   - **Account** → **Cloudflare Pages** → Edit
+   - **Account** → **Workers Scripts** → Edit
+5. Set Account Resources: Include → Your account
+6. Continue and create token
+7. **Copy the token** - you'll only see it once!
 
-**Manual Deployment:**
-```bash
-cd workers
-npm run deploy
-# or from root:
-npm run deploy
-```
+### 2. Get Your Cloudflare Account ID
 
-### Build Configuration
+1. Go to https://dash.cloudflare.com/
+2. Click on "Workers & Pages"
+3. Copy the Account ID from the right sidebar (or from the URL)
 
-**File:** `workers/wrangler.toml`
+### 3. Set GitHub Secrets
+
+1. Go to your GitHub repository
+2. Navigate to **Settings** → **Secrets and variables** → **Actions**
+3. Click **"New repository secret"** and add:
+   - Name: `CLOUDFLARE_API_TOKEN`
+   - Value: The token from step 1
+4. Add another secret:
+   - Name: `CLOUDFLARE_ACCOUNT_ID`
+   - Value: Your account ID from step 2
+
+### 4. Configure Workers Settings
+
+Update `workers/wrangler.workers.toml`:
 
 ```toml
-[build]
-command = "npm run build"
-watch_dirs = ["src"]
+[vars]
+STRAVA_REDIRECT_URI = "https://your-production-domain.pages.dev/auth/callback"
 ```
 
-This runs TypeScript type checking before deployment. Wrangler automatically handles TypeScript compilation for the actual Worker bundle.
+### 5. Set Production Secrets
 
-### Environment Variables (Secrets)
+These secrets are separate from your local `.dev.vars` file:
 
-Set these via Wrangler CLI:
 ```bash
+cd workers
+
+# Set Strava credentials
 wrangler secret put STRAVA_CLIENT_ID
+# Enter your Strava Client ID when prompted
+
 wrangler secret put STRAVA_CLIENT_SECRET
+# Enter your Strava Client Secret when prompted
 ```
 
-Or via Cloudflare Dashboard:
-Workers > strava-club-workers > Settings > Variables > Add variable (encrypt)
+### 6. Update Strava Application Settings
 
-## 2. Pages Deployment (Frontend)
+1. Go to https://www.strava.com/settings/api
+2. Update your application:
+   - **Website**: `https://your-production-domain.pages.dev`
+   - **Authorization Callback Domain**: `your-production-domain.pages.dev`
 
-### Deployment Method: Automatic via Cloudflare Pages
+   **Important**: No `http://`, `https://`, or trailing slash!
 
-The frontend is deployed automatically by Cloudflare Pages on every push.
+### 7. Set Up Cloudflare Pages
 
-### Required Settings in Cloudflare Dashboard
+1. Go to https://dash.cloudflare.com/
+2. Navigate to **Workers & Pages** → **Create application** → **Pages**
+3. Click **"Connect to Git"**
+4. Select your repository
+5. Configure build settings:
+   - **Build command**: `npm run build:frontend`
+   - **Build output directory**: `frontend/dist`
+   - **Deploy command**: *(LEAVE EMPTY)*
+6. Click **"Save and Deploy"**
 
-Navigate to: **Pages > woodstock-results > Settings > Builds & deployments**
+### 8. Deploy!
 
-**Build Configuration:**
-
-| Setting | Value |
-|---------|-------|
-| Framework preset | None (or React) |
-| Root directory | *(leave blank)* |
-| Build command | `npm run build:frontend` |
-| Build output directory | `frontend/dist` |
-| **Deploy command** | ***(MUST BE EMPTY)*** |
-
-⚠️ **CRITICAL:** The deploy command MUST be empty! Pages automatically deploys the built files. If you have any wrangler commands here, remove them.
-
-### Why No Deploy Command?
-
-- **Cloudflare Pages** = Static site hosting
-  - Automatically serves whatever is in the build output directory
-  - No deployment step needed
-
-- **Cloudflare Workers** = Serverless functions
-  - Requires `wrangler deploy` command
-  - Already handled by GitHub Actions
-
-## 3. Branch Configuration
-
-### Main Branch
-- Protected branch
-- Workers deploy via GitHub Actions
-- Pages deploy automatically
-
-### Feature Branches
-- Pages creates preview deployments automatically
-- Workers do NOT auto-deploy from feature branches
-- Test Workers changes locally with `npm run dev --workspace=workers`
-
-## 4. Local Development
-
-### Start Both Services
 ```bash
-npm run dev
+git add .
+git commit -m "Configure production deployment"
+git push origin main
 ```
 
-This starts:
-- Workers on `http://localhost:8787`
-- Frontend on `http://localhost:5173`
+GitHub Actions will automatically:
+1. Run database migrations
+2. Deploy Workers (backend API)
+3. Cloudflare Pages will build and deploy Frontend
 
-### Start Individual Services
+### 9. Monitor Deployment
+
+1. Go to your repository on GitHub
+2. Click the **"Actions"** tab
+3. Watch your deployment workflow run
+4. Check Cloudflare Pages for frontend deployment
+5. Once complete, your site will be live!
+
+### 10. Create Admin User
+
+After first deployment:
+
+1. Visit your production site
+2. Click "Connect with Strava" and authorize
+3. Go to Cloudflare Dashboard → **Storage & Databases** → **D1**
+4. Select your `strava-club-db` database
+5. Run this query (replace with your Strava ID):
+   ```sql
+   UPDATE athletes SET is_admin = 1 WHERE strava_id = YOUR_STRAVA_ID;
+   ```
+6. You can now access `/admin` on your site
+
+## Manual Deployment (Alternative)
+
+If you prefer not to use GitHub Actions:
+
+### Deploy Workers
+
 ```bash
-# Workers only
-npm run dev --workspace=workers
+cd workers
 
-# Frontend only
-npm run dev --workspace=frontend
+# Run migrations (first time only)
+npm run migrate
+
+# Deploy
+npm run deploy
 ```
 
-## 5. Build Commands Reference
+### Deploy Frontend
 
 ```bash
-# Build everything
+cd frontend
+
+# Build
 npm run build
 
-# Build workers only (type check)
-npm run build:workers
+# Deploy to Cloudflare Pages
+npx wrangler pages deploy dist --project-name=your-project-name
+```
 
-# Build frontend only
-npm run build:frontend
+## Verifying Deployment
 
-# Deploy workers
+### Check Workers
+
+```bash
+# Test the API
+curl https://your-worker.workers.dev/api/stats
+
+# View logs
+cd workers
+wrangler tail
+```
+
+### Check Pages
+
+1. Visit your Pages URL
+2. Click "Connect with Strava"
+3. After authorizing, you should see your profile
+4. Visit `/admin` to access the admin panel
+
+### Check Database
+
+```bash
+# List tables
+wrangler d1 execute strava-club-db --command="SELECT name FROM sqlite_master WHERE type='table'"
+
+# Check athletes
+wrangler d1 execute strava-club-db --command="SELECT COUNT(*) as count FROM athletes"
+```
+
+## Updating Deployment
+
+### GitHub Actions (Automatic)
+
+Simply push to main:
+
+```bash
+git add .
+git commit -m "Your changes"
+git push origin main
+```
+
+### Manual Updates
+
+```bash
+# Update Workers
+cd workers
 npm run deploy
 
-# Deploy frontend (manual)
-npm run deploy:frontend
+# Update Frontend
+cd frontend
+npm run build
+npx wrangler pages deploy dist --project-name=your-project-name
 ```
 
-## 6. Database Migrations
+## Database Migrations
 
-```bash
-# Run migrations on remote database
-cd workers
-npx wrangler d1 migrations apply strava-club-db --remote
+Migrations run automatically via GitHub Actions. To run manually:
 
-# Or from root
-npm run db:migrate
-```
-
-## 7. Troubleshooting
-
-### Pages Build Fails
-
-**Symptom:** Error about "Missing entry-point to Worker script"
-
-**Solution:** Remove any wrangler commands from Pages deploy command. Pages should ONLY build the frontend, not deploy Workers.
-
-### Workers Not Deploying
-
-**Check:**
-1. GitHub Actions has `CLOUDFLARE_API_TOKEN` secret set
-2. Token has Workers Deploy permission
-3. Workflow triggered on merge to main
-
-### Type Errors During Build
-
-```bash
-# Run type check locally
-npm run build:workers
-```
-
-Fix any TypeScript errors before deploying.
-
-## 8. Monitoring & Logs
-
-### Workers Logs
-
-**Live tail:**
 ```bash
 cd workers
-npm run tail
+
+# Remote (production)
+npm run migrate
+
+# Or run a specific migration
+wrangler d1 execute strava-club-db --file=../database/migrations/0010_your_migration.sql
 ```
 
-**Dashboard:**
-Workers > strava-club-workers > Logs
+## Custom Domain Setup
 
-**Observability** (enabled on this project):
-- Full sampling rate (all requests logged)
-- Invocation logs enabled
-- View in Cloudflare Dashboard > Workers > Logs > Observability
+### Add Custom Domain to Pages
 
-### Pages Logs
+1. Go to Cloudflare Dashboard → **Workers & Pages**
+2. Select your Pages project
+3. Go to **Custom domains** tab
+4. Click **"Set up a custom domain"**
+5. Enter your domain (e.g., `races.yourclub.com`)
+6. Cloudflare will automatically configure DNS
 
-Pages > woodstock-results > Deployments > View logs
+### Update Configuration
 
-## 9. Current Configuration Summary
+Edit `workers/wrangler.workers.toml`:
 
-✅ **Workers** (`/workers`)
-- TypeScript with automatic compilation
-- D1 Database binding
-- Cron trigger (Monday 2 AM UTC)
-- Observability logs enabled
-- Deploys via GitHub Actions
+```toml
+[vars]
+STRAVA_REDIRECT_URI = "https://races.yourclub.com/auth/callback"
+```
 
-✅ **Frontend** (`/frontend`)
-- React + Vite
-- TypeScript
-- Deploys via Cloudflare Pages
-- Automatic preview deployments
+Deploy:
 
-## 10. Next Steps After Setup
+```bash
+cd workers
+npm run deploy
+```
 
-1. **Remove deploy command from Pages settings** (if not already done)
-2. **Verify GitHub Actions has API token**
-3. **Set Worker secrets** (STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET)
-4. **Merge this branch to main**
-5. **Monitor first deployment**
+### Update Strava Settings
+
+Don't forget to update your Strava application with the new domain!
+
+## Environment-Specific Configuration
+
+### Development
+- Uses `workers/.dev.vars` for secrets
+- Frontend: `http://localhost:3000`
+- Workers: `http://localhost:8787`
+- Redirect URI: `http://localhost:3000/auth/callback`
+
+### Production
+- Uses `wrangler secret` for secrets
+- Frontend: `https://your-domain.pages.dev`
+- Workers: Bound to Pages project automatically
+- Redirect URI: `https://your-domain.pages.dev/auth/callback`
+
+## Troubleshooting
+
+### "Build failed" in GitHub Actions
+
+Check the Actions logs for specific errors. Common issues:
+- Missing secrets (`CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID`)
+- Incorrect `database_id` in `wrangler.workers.toml`
+- npm install failures (check package-lock.json is committed)
+
+### OAuth Redirect Error
+
+Ensure all three places have matching redirect URIs:
+1. `workers/wrangler.workers.toml` - `STRAVA_REDIRECT_URI` variable
+2. Strava API application settings - Authorization Callback Domain
+3. They must match exactly (domain only, no protocol or path)
+
+### Database Not Found
+
+```bash
+# List your databases
+wrangler d1 list
+
+# Verify binding in wrangler.workers.toml
+[[d1_databases]]
+binding = "DB"
+database_name = "strava-club-db"
+database_id = "YOUR_ACTUAL_DATABASE_ID"
+```
+
+### Workers Not Updating
+
+```bash
+# Force redeploy
+cd workers
+npm run deploy
+
+# Check current deployment
+wrangler deployments list
+
+# View logs
+wrangler tail
+```
+
+### Pages Build Issues
+
+Common issue: "Missing entry-point to Worker script"
+
+**Solution:** Ensure Pages deploy command is EMPTY. Pages should only build the frontend, not deploy Workers.
+
+## Monitoring
+
+### View Logs
+
+```bash
+# Real-time Workers logs
+cd workers
+wrangler tail
+
+# Filter by status code
+wrangler tail --status error
+```
+
+### Database Queries
+
+```bash
+# View recent syncs
+wrangler d1 execute strava-club-db --command="
+  SELECT
+    a.firstname || ' ' || a.lastname as name,
+    a.sync_status,
+    datetime(a.last_synced_at, 'unixepoch') as last_sync,
+    a.total_activities_count as activities
+  FROM athletes a
+  ORDER BY a.last_synced_at DESC
+  LIMIT 10
+"
+```
+
+### Check Sync Logs
+
+```bash
+wrangler d1 execute strava-club-db --command="
+  SELECT
+    message,
+    metadata,
+    datetime(created_at / 1000, 'unixepoch') as time
+  FROM sync_logs
+  WHERE log_level = 'warning'
+  ORDER BY created_at DESC
+  LIMIT 10
+"
+```
+
+## Security Checklist
+
+- [ ] Secrets set via `wrangler secret` (not in code)
+- [ ] `.dev.vars` added to `.gitignore`
+- [ ] Strava redirect URI matches exactly
+- [ ] Admin users set via database (not API)
+- [ ] GitHub Actions secrets configured
+- [ ] Custom domain uses HTTPS (automatic with Cloudflare)
+
+## Cost Estimate
+
+Cloudflare Free Tier includes:
+- **Workers**: 100,000 requests/day
+- **Pages**: Unlimited requests, 500 builds/month
+- **D1**: 5GB storage, 5M reads/day, 100K writes/day
+
+For a 200-member club:
+- Weekly syncs: ~200 Workers requests/week
+- Dashboard views: Depends on usage
+- **Estimated cost**: $0/month on free tier
+
+Paid plans start at $5/month for Workers if you exceed free limits.
+
+## Build Commands Reference
+
+```bash
+# Development
+npm run dev              # Start both frontend and workers
+
+# Building
+npm run build            # Build everything
+npm run build:workers    # Build workers only (type check)
+npm run build:frontend   # Build frontend only
+
+# Deployment
+npm run deploy           # Deploy workers
+npm run deploy:frontend  # Deploy frontend (manual)
+
+# Database
+npm run db:migrate       # Run migrations
+```
+
+## Support
+
+- **Cloudflare Docs**: https://developers.cloudflare.com/
+- **Wrangler CLI**: https://developers.cloudflare.com/workers/wrangler/
+- **GitHub Actions**: https://docs.github.com/en/actions
+- **Issues**: Open a GitHub issue in your repository
 
 ---
 
-For more information:
-- [Cloudflare Workers Docs](https://developers.cloudflare.com/workers/)
-- [Cloudflare Pages Docs](https://developers.cloudflare.com/pages/)
-- [Wrangler CLI Docs](https://developers.cloudflare.com/workers/wrangler/)
+**Happy deploying! 🚀**
