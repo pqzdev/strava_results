@@ -72,6 +72,27 @@ export default function Heatmap() {
 
       console.log(`Fetched ${races.length} races`);
 
+      // Check for specific activity 16247558055
+      const targetActivity = races.find(r => r.strava_activity_id === 16247558055);
+      if (targetActivity) {
+        console.log('Found Bondi to Manly activity:', targetActivity);
+        console.log('Has polyline:', !!targetActivity.polyline);
+        if (targetActivity.polyline) {
+          console.log('Polyline length:', targetActivity.polyline.length);
+          console.log('Has points in Sydney:', hasPointsInSydney(targetActivity.polyline));
+          try {
+            const coords = polyline.decode(targetActivity.polyline);
+            console.log('Decoded coordinates count:', coords.length);
+            console.log('First coord:', coords[0]);
+            console.log('Last coord:', coords[coords.length - 1]);
+          } catch (e) {
+            console.error('Error decoding target polyline:', e);
+          }
+        }
+      } else {
+        console.warn('Activity 16247558055 not found in fetched races');
+      }
+
       // Filter races with polylines that have points in Sydney
       const racesWithPolylines = races.filter(
         (race) => race.polyline && hasPointsInSydney(race.polyline)
