@@ -189,16 +189,16 @@ async function syncAthleteInternal(
 
     console.log(`Fetching activities (fullSync: ${fullSync}, after: ${afterTimestamp || 'none'}, before: ${beforeTimestamp || 'none'})`);
 
-    // For full syncs, fetch more activities per batch (up to 10 pages = 2000 activities)
-    // This is safe because we use continuation timestamps to paginate
-    const maxPagesPerBatch = fullSync ? 10 : 5;
+    // For full syncs, fetch ALL activities without page limit
+    // For incremental syncs, limit to 5 pages (1000 activities) per batch to avoid timeouts
+    const maxPagesPerBatch = fullSync ? undefined : 5;
 
     const { activities } = await fetchAthleteActivities(
       accessToken,
       afterTimestamp,
       beforeTimestamp,
       200,                  // perPage (max allowed by Strava)
-      maxPagesPerBatch      // maxPages per batch
+      maxPagesPerBatch      // maxPages per batch (undefined = no limit)
     );
 
     console.log(`Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
