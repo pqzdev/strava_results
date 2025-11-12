@@ -1,41 +1,7 @@
-# Cloudflare Workers configuration
-# This is the default wrangler.toml used by "npx wrangler deploy"
+# Placeholder wrangler.toml for repository root
+#
+# Workers deployment: Uses /workers/wrangler.toml (deploy command runs from /workers/)
+# Frontend deployment: Cloudflare Pages automatic builds
 
-name = "strava-club-workers"
-main = "workers/src/index.ts"
+name = "woodstock-results"
 compatibility_date = "2024-11-10"
-
-[build]
-command = "cd workers && npm run build"
-
-[dev]
-port = 8787
-
-# D1 Database binding
-[[d1_databases]]
-binding = "DB"
-database_name = "strava-club-db"
-database_id = "4b79f9e5-f6bb-4cd9-852b-51e2c0a7c5d1"
-migrations_dir = "database/migrations"
-
-# AI binding for event name analysis
-[ai]
-binding = "AI"
-
-# Scheduled cron trigger for weekly activity sync
-[triggers]
-crons = ["0 2 * * 1"] # Run at 2 AM UTC every Monday
-
-# Environment variables (secrets set via wrangler secret put)
-# STRAVA_CLIENT_ID - set via: wrangler secret put STRAVA_CLIENT_ID
-# STRAVA_CLIENT_SECRET - set via: wrangler secret put STRAVA_CLIENT_SECRET
-
-[vars]
-STRAVA_REDIRECT_URI = "https://strava-club-workers.pedroqueiroz.workers.dev/auth/callback"
-STRAVA_CLUB_ID = "4497" # Woodstock Runners club ID
-
-[observability]
-[observability.logs]
-enabled = true
-head_sampling_rate = 1
-invocation_logs = true
