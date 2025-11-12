@@ -23,10 +23,10 @@ export default function MultiSelectAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Filter options based on input and exclude already selected
+  // Preserve original order from options array (don't sort)
   const filteredOptions = options
     .filter(option => !selected.includes(option))
-    .filter(option => option.toLowerCase().includes(inputValue.toLowerCase()))
-    .sort();
+    .filter(option => option.toLowerCase().includes(inputValue.toLowerCase()));
 
   // Close dropdown when clicking outside
   useEffect(() => {
