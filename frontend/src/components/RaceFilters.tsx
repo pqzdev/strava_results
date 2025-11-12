@@ -102,10 +102,6 @@ export default function RaceFilters({
     }
   };
 
-  const hasActiveFilters = filters.athletes.length > 0 || filters.activityName ||
-                           filters.dateFrom || filters.dateTo ||
-                           selectedDistances.some((selected, idx) => !selected);
-
   const handleClear = () => {
     setSelectedDistances(new Array(DISTANCE_RANGES.length).fill(true));
     onClearFilters();
