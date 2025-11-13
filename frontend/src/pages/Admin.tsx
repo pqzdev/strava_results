@@ -72,9 +72,7 @@ interface ManualSubmission {
 
 interface EditableSubmission extends ManualSubmission {
   edit_distance?: number | null;
-  edit_time_hours?: number;
-  edit_time_minutes?: number;
-  edit_time_seconds?: number;
+  edit_time_string?: string;
   edit_event_name?: string | null;
 }
 
@@ -85,6 +83,34 @@ type ParkrunSortField = 'name' | 'runs' | 'events';
 type ParkrunSortDirection = 'asc' | 'desc';
 
 type AdminTab = 'athletes' | 'parkrun' | 'events' | 'submissions';
+
+/**
+ * Format time in seconds to HH:MM:SS
+ */
+function formatTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+/**
+ * Parse time string (HH:MM:SS or MM:SS) to seconds
+ */
+function parseTime(timeStr: string): number | null {
+  const parts = timeStr.split(':').map(p => parseInt(p, 10));
+
+  if (parts.length === 3) {
+    // HH:MM:SS
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  } else if (parts.length === 2) {
+    // MM:SS
+    return parts[0] * 60 + parts[1];
+  }
+
+  return null;
+}
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<AdminTab>('athletes');
@@ -242,9 +268,7 @@ export default function Admin() {
       const submissions: EditableSubmission[] = (data.submissions || []).map((s: ManualSubmission) => ({
         ...s,
         edit_distance: s.edited_distance,
-        edit_time_hours: Math.floor((s.edited_time_seconds || 0) / 3600),
-        edit_time_minutes: Math.floor(((s.edited_time_seconds || 0) % 3600) / 60),
-        edit_time_seconds: (s.edited_time_seconds || 0) % 60,
+        edit_time_string: s.edited_time_seconds ? formatTime(s.edited_time_seconds) : '',
         edit_event_name: s.event_name
       }));
       setManualSubmissions(submissions);
@@ -285,9 +309,14 @@ export default function Admin() {
   const handleApproveSubmission = async (submissionId: number, submission: EditableSubmission) => {
     try {
       // First update the submission with edited values
-      const editedTimeSeconds = (submission.edit_time_hours || 0) * 3600 +
-                                (submission.edit_time_minutes || 0) * 60 +
-                                (submission.edit_time_seconds || 0);
+      const editedTimeSeconds = submission.edit_time_string
+        ? parseTime(submission.edit_time_string)
+        : submission.edited_time_seconds;
+
+      if (editedTimeSeconds === null && submission.edit_time_string) {
+        alert('Invalid time format. Use HH:MM:SS');
+        return;
+      }
 
       await fetch(`/api/admin/manual-submissions/${submissionId}`, {
         method: 'PATCH',
@@ -1702,54 +1731,20 @@ export default function Admin() {
                       />
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-                        <input
-                          type="number"
-                          min="0"
-                          value={submission.edit_time_hours || 0}
-                          onChange={(e) => updateSubmissionField(index, { edit_time_hours: parseInt(e.target.value) || 0 })}
-                          style={{
-                            width: '40px',
-                            padding: '0.25rem 0.5rem',
-                            border: '1px solid #ddd',
-                            borderRadius: '4px',
-                            fontSize: '0.9rem',
-                          }}
-                          placeholder="H"
-                        />
-                        <span>:</span>
-                        <input
-                          type="number"
-                          min="0"
-                          max="59"
-                          value={submission.edit_time_minutes || 0}
-                          onChange={(e) => updateSubmissionField(index, { edit_time_minutes: parseInt(e.target.value) || 0 })}
-                          style={{
-                            width: '40px',
-                            padding: '0.25rem 0.5rem',
-                            border: '1px solid #ddd',
-                            borderRadius: '4px',
-                            fontSize: '0.9rem',
-                          }}
-                          placeholder="M"
-                        />
-                        <span>:</span>
-                        <input
-                          type="number"
-                          min="0"
-                          max="59"
-                          value={submission.edit_time_seconds || 0}
-                          onChange={(e) => updateSubmissionField(index, { edit_time_seconds: parseInt(e.target.value) || 0 })}
-                          style={{
-                            width: '40px',
-                            padding: '0.25rem 0.5rem',
-                            border: '1px solid #ddd',
-                            borderRadius: '4px',
-                            fontSize: '0.9rem',
-                          }}
-                          placeholder="S"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        value={submission.edit_time_string || ''}
+                        onChange={(e) => updateSubmissionField(index, { edit_time_string: e.target.value })}
+                        style={{
+                          width: '90px',
+                          padding: '0.25rem 0.5rem',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '0.9rem',
+                          fontFamily: 'monospace',
+                        }}
+                        placeholder="HH:MM:SS"
+                      />
                     </td>
                     <td>
                       <select
@@ -1863,7 +1858,7 @@ export default function Admin() {
                       <td>{new Date(submission.date).toLocaleDateString()}</td>
                       <td>{submission.edited_distance?.toFixed(2)} km</td>
                       <td>
-                        {submission.edited_time_seconds ? new Date(submission.edited_time_seconds * 1000).toISOString().substr(11, 8) : 'N/A'}
+                        {submission.edited_time_seconds ? formatTime(submission.edited_time_seconds) : 'N/A'}
                       </td>
                       <td>
                         {submission.event_name ? (
