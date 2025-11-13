@@ -296,22 +296,39 @@ export default function Parkrun() {
         </p>
       </div>
 
-      {stats && (
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-value">{stats.totalResults}</div>
-            <div className="stat-label">Total Parkruns</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value">{stats.uniqueAthletes}</div>
-            <div className="stat-label">Athletes</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-value">{stats.uniqueEvents}</div>
-            <div className="stat-label">Different Events</div>
-          </div>
-        </div>
-      )}
+      <div className="stats-grid">
+        {stats ? (
+          <>
+            <div className="stat-card">
+              <div className="stat-value">{stats.totalResults}</div>
+              <div className="stat-label">Total Parkruns</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">{stats.uniqueAthletes}</div>
+              <div className="stat-label">Athletes</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">{stats.uniqueEvents}</div>
+              <div className="stat-label">Different Events</div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="stat-card stat-card-loading">
+              <div className="stat-value">-</div>
+              <div className="stat-label">Total Parkruns</div>
+            </div>
+            <div className="stat-card stat-card-loading">
+              <div className="stat-value">-</div>
+              <div className="stat-label">Athletes</div>
+            </div>
+            <div className="stat-card stat-card-loading">
+              <div className="stat-value">-</div>
+              <div className="stat-label">Different Events</div>
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="filters-section">
         <MultiSelectAutocomplete
