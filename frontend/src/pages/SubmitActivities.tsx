@@ -253,135 +253,126 @@ https://www.strava.com/activities/16440077552
         </div>
 
         {activities.length > 0 && (
-          <div style={{ marginTop: '2rem' }}>
+          <div className="activities-review-section">
             <h3>Review Activities ({activities.length})</h3>
-            <div className="table-container">
-              <table className="activities-table">
-                <thead>
-                  <tr>
-                    <th>Activity</th>
-                    <th>Athlete</th>
-                    <th>Date</th>
-                    <th>Distance (km)</th>
-                    <th>Time (H:M:S)</th>
-                    <th>Elevation (m)</th>
-                    <th>Event</th>
-                    <th>Notes</th>
-                    <th>Remove</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activities.map((activity, index) => (
-                    <tr key={activity.strava_activity_id}>
-                      <td className="activity-name">
-                        <a href={activity.strava_url} target="_blank" rel="noopener noreferrer">
-                          {activity.activity_name}
-                        </a>
-                      </td>
-                      <td>{activity.athlete_name}</td>
-                      <td>{new Date(activity.date).toLocaleDateString()}</td>
-                      <td>
+            <div className="activities-list">
+              {activities.map((activity, index) => (
+                <div key={activity.strava_activity_id} className="activity-card">
+                  <div className="activity-card-header">
+                    <a href={activity.strava_url} target="_blank" rel="noopener noreferrer" className="activity-title">
+                      {activity.activity_name}
+                    </a>
+                    <button
+                      onClick={() => handleRemove(index)}
+                      className="button-remove"
+                      title="Remove this activity"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="activity-card-meta">
+                    <span className="athlete-name">{activity.athlete_name}</span>
+                    <span className="activity-date">{new Date(activity.date).toLocaleDateString()}</span>
+                  </div>
+
+                  <div className="activity-card-fields">
+                    <div className="field-group">
+                      <label>Distance (km)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={activity.edited_distance || ''}
+                        onChange={(e) => updateActivity(index, { edited_distance: parseFloat(e.target.value) || null })}
+                        className="field-input"
+                        placeholder={activity.distance?.toFixed(2) || 'N/A'}
+                      />
+                    </div>
+
+                    <div className="field-group field-group-time">
+                      <label>Time (H:M:S)</label>
+                      <div className="time-inputs">
                         <input
                           type="number"
-                          step="0.01"
-                          value={activity.edited_distance || ''}
-                          onChange={(e) => updateActivity(index, { edited_distance: parseFloat(e.target.value) || null })}
-                          className="table-input"
-                          placeholder={activity.distance?.toFixed(2) || 'N/A'}
+                          min="0"
+                          value={activity.edited_time_hours}
+                          onChange={(e) => updateActivity(index, { edited_time_hours: parseInt(e.target.value) || 0 })}
+                          className="time-input"
+                          placeholder="H"
                         />
-                      </td>
-                      <td>
-                        <div className="time-inputs-inline">
-                          <input
-                            type="number"
-                            min="0"
-                            value={activity.edited_time_hours}
-                            onChange={(e) => updateActivity(index, { edited_time_hours: parseInt(e.target.value) || 0 })}
-                            className="time-input-small"
-                            placeholder="H"
-                          />
-                          <span>:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max="59"
-                            value={activity.edited_time_minutes}
-                            onChange={(e) => updateActivity(index, { edited_time_minutes: parseInt(e.target.value) || 0 })}
-                            className="time-input-small"
-                            placeholder="M"
-                          />
-                          <span>:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            max="59"
-                            value={activity.edited_time_seconds}
-                            onChange={(e) => updateActivity(index, { edited_time_seconds: parseInt(e.target.value) || 0 })}
-                            className="time-input-small"
-                            placeholder="S"
-                          />
-                        </div>
-                      </td>
-                      <td>
+                        <span className="time-separator">:</span>
                         <input
                           type="number"
-                          step="1"
-                          value={activity.edited_elevation_gain || ''}
-                          onChange={(e) => updateActivity(index, { edited_elevation_gain: parseFloat(e.target.value) || null })}
-                          className="table-input"
-                          placeholder={activity.elevation_gain?.toFixed(0) || 'N/A'}
+                          min="0"
+                          max="59"
+                          value={activity.edited_time_minutes}
+                          onChange={(e) => updateActivity(index, { edited_time_minutes: parseInt(e.target.value) || 0 })}
+                          className="time-input"
+                          placeholder="M"
                         />
-                      </td>
-                      <td>
-                        {loadingEvents ? (
-                          <span style={{ color: '#999', fontSize: '0.85rem' }}>Loading...</span>
-                        ) : (
-                          <select
-                            value={activity.event_name || ''}
-                            onChange={(e) => updateActivity(index, { event_name: e.target.value || null })}
-                            className="table-select"
-                          >
-                            <option value="">-- Select --</option>
-                            {eventNames.map((name) => (
-                              <option key={name} value={name}>{name}</option>
-                            ))}
-                          </select>
-                        )}
-                      </td>
-                      <td>
+                        <span className="time-separator">:</span>
                         <input
-                          type="text"
-                          value={activity.notes || ''}
-                          onChange={(e) => updateActivity(index, { notes: e.target.value || null })}
-                          placeholder="Optional notes..."
-                          className="table-input"
+                          type="number"
+                          min="0"
+                          max="59"
+                          value={activity.edited_time_seconds}
+                          onChange={(e) => updateActivity(index, { edited_time_seconds: parseInt(e.target.value) || 0 })}
+                          className="time-input"
+                          placeholder="S"
                         />
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => handleRemove(index)}
-                          className="button-remove"
-                          title="Remove this activity"
+                      </div>
+                    </div>
+
+                    <div className="field-group">
+                      <label>Elevation (m)</label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={activity.edited_elevation_gain || ''}
+                        onChange={(e) => updateActivity(index, { edited_elevation_gain: parseFloat(e.target.value) || null })}
+                        className="field-input"
+                        placeholder={activity.elevation_gain?.toFixed(0) || 'N/A'}
+                      />
+                    </div>
+
+                    <div className="field-group field-group-wide">
+                      <label>Event</label>
+                      {loadingEvents ? (
+                        <span className="loading-text">Loading events...</span>
+                      ) : (
+                        <select
+                          value={activity.event_name || ''}
+                          onChange={(e) => updateActivity(index, { event_name: e.target.value || null })}
+                          className="field-select"
                         >
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          <option value="">-- Select Event --</option>
+                          {eventNames.map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    <div className="field-group field-group-wide">
+                      <label>Notes (optional)</label>
+                      <input
+                        type="text"
+                        value={activity.notes || ''}
+                        onChange={(e) => updateActivity(index, { notes: e.target.value || null })}
+                        placeholder="Add optional notes..."
+                        className="field-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+            <div className="submit-button-container">
               <button
                 onClick={handleSubmitAll}
                 className="button button-submit"
                 disabled={submitting || activities.length === 0}
-                style={{
-                  padding: '0.75rem 2rem',
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                }}
               >
                 {submitting ? 'Submitting...' : 'Submit All for Review'}
               </button>

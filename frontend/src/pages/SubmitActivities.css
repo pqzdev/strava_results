@@ -1,6 +1,6 @@
 .submit-activities-page {
-  padding: 2rem 0;
-  max-width: 800px;
+  padding: 2rem 1rem;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -214,6 +214,203 @@
   border-top: 1px solid rgba(59, 130, 246, 0.2);
   color: var(--text-light);
   font-size: 0.875rem;
+}
+
+/* Activities review section */
+.activities-review-section {
+  margin-top: 2rem;
+}
+
+.activities-review-section h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 1.5rem;
+}
+
+.activities-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.activity-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: box-shadow 0.2s;
+}
+
+.activity-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.activity-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+}
+
+.activity-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  text-decoration: none;
+  flex: 1;
+}
+
+.activity-title:hover {
+  text-decoration: underline;
+}
+
+.activity-card-meta {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.athlete-name {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.activity-date {
+  color: var(--text-light);
+  font-size: 0.875rem;
+}
+
+.activity-card-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field-group-wide {
+  grid-column: span 2;
+}
+
+.field-group-time {
+  min-width: 180px;
+}
+
+.field-group label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.field-input,
+.field-select {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.field-input:focus,
+.field-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.time-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.time-input {
+  width: 55px;
+  padding: 0.625rem 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  text-align: center;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.time-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.time-separator {
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.loading-text {
+  color: var(--text-light);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.button-remove {
+  background: #fee2e2;
+  color: #991b1b;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.button-remove:hover {
+  background: #fecaca;
+  transform: scale(1.05);
+}
+
+.button-submit {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.button-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+}
+
+.button-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.submit-button-container {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--border-color);
+  text-align: right;
+}
+
+.submit-button-container .button-submit {
+  padding: 0.875rem 2.5rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {
