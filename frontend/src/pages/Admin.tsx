@@ -1747,22 +1747,41 @@ export default function Admin() {
                       />
                     </td>
                     <td>
-                      <select
-                        value={submission.edit_event_name || ''}
-                        onChange={(e) => updateSubmissionField(index, { edit_event_name: e.target.value || null })}
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '0.9rem',
-                          minWidth: '150px',
-                        }}
-                      >
-                        <option value="">-- Select Event --</option>
-                        {submissionEventNames.map((name) => (
-                          <option key={name} value={name}>{name}</option>
-                        ))}
-                      </select>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <input
+                          type="text"
+                          value={submission.edit_event_name || ''}
+                          onChange={(e) => updateSubmissionField(index, { edit_event_name: e.target.value || null })}
+                          list={`admin-event-list-${index}`}
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '0.9rem',
+                            minWidth: '150px',
+                            flex: 1,
+                          }}
+                          placeholder="Type or select event..."
+                        />
+                        <datalist id={`admin-event-list-${index}`}>
+                          {submissionEventNames.map((name) => (
+                            <option key={name} value={name} />
+                          ))}
+                        </datalist>
+                        {submission.edit_event_name &&
+                         !submissionEventNames.includes(submission.edit_event_name) && (
+                          <span
+                            style={{
+                              color: '#f59e0b',
+                              fontSize: '1.2rem',
+                              cursor: 'help',
+                            }}
+                            title="New event name"
+                          >
+                            ⚠️
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <div className="action-buttons" style={{ gap: '0.5rem' }}>
