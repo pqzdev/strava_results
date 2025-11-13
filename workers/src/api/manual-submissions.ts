@@ -246,10 +246,14 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
     // Extract distance (in km)
     let distance: number | null = null;
     const distancePatterns = [
-      /([0-9.,]+)\s*km/i,  // Match number followed by km
-      /Distance:<\/strong>\s*([0-9.]+)\s*km/i,
+      // Most specific patterns first - target the actual distance stat element
+      /data-cy="summary-distance"[^>]*>.*?<div[^>]*class="[^"]*statValue[^"]*"[^>]*>([0-9.,]+)\s*km/is,  // New Strava UI with data-cy
+      /Stat_statValue[^>]*>([0-9.,]+)\s*km/i,  // Stat value class
+      /<div[^>]*class="[^"]*inline-stats[^"]*"[^>]*>.*?Distance[^<]*<[^>]*>([0-9.,]+)\s*km/is,
+      /Distance:<\/strong>\s*([0-9.,]+)\s*km/i,
       /data-distance="([0-9.]+)"/i,
-      /"distance":([0-9.]+)/i
+      /"distance":([0-9.]+)/i,
+      /([0-9.,]+)\s*km/i  // Generic pattern as last resort
     ];
     for (const pattern of distancePatterns) {
       const match = html.match(pattern);
