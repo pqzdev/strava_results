@@ -429,6 +429,7 @@ export async function submitActivities(request: Request, env: Env): Promise<Resp
     }
 
     const submissionIds: number[] = [];
+    const errors: { activity_id: number; error: string }[] = [];
     const submittedAt = Math.floor(Date.now() / 1000);
 
     for (const activity of body.activities) {
@@ -481,10 +482,19 @@ export async function submitActivities(request: Request, env: Env): Promise<Resp
 
         if (result?.id) {
           submissionIds.push(result.id);
+        } else {
+          errors.push({
+            activity_id: activity.strava_activity_id,
+            error: 'No ID returned from database'
+          });
         }
       } catch (error) {
-        console.error('Error inserting submission:', error);
-        // Continue with other activities
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Error inserting submission:', errorMsg, 'Activity:', activity.strava_activity_id);
+        errors.push({
+          activity_id: activity.strava_activity_id,
+          error: errorMsg
+        });
       }
     }
 
@@ -492,7 +502,8 @@ export async function submitActivities(request: Request, env: Env): Promise<Resp
       JSON.stringify({
         success: true,
         submission_ids: submissionIds,
-        count: submissionIds.length
+        count: submissionIds.length,
+        errors: errors.length > 0 ? errors : undefined
       }),
       {
         status: 200,

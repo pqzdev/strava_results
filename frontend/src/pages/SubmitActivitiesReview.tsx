@@ -132,8 +132,18 @@ export default function SubmitActivitiesReview() {
       // Clear session storage
       sessionStorage.removeItem('extracted_activities');
 
-      // Show success message and redirect
-      alert(`Successfully submitted ${result.count} activities for review!`);
+      // Show success/error messages
+      if (result.errors && result.errors.length > 0) {
+        const errorDetails = result.errors.map((e: any) =>
+          `Activity ${e.activity_id}: ${e.error}`
+        ).join('\n');
+        alert(`Submitted ${result.count} activities successfully.\n\nErrors:\n${errorDetails}`);
+      } else if (result.count === 0) {
+        alert('Failed to submit any activities. Please check the console for errors.');
+        return; // Don't navigate away
+      } else {
+        alert(`Successfully submitted ${result.count} activities for review!`);
+      }
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit activities');
