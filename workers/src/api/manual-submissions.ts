@@ -592,6 +592,49 @@ export async function approveSubmission(request: Request, env: Env, submissionId
     const movingTime = timeSeconds;
     const elapsedTime = timeSeconds;
 
+    // Find or create athlete based on name
+    // Split athlete_name into firstname and lastname
+    const nameParts = submission.athlete_name.trim().split(/\s+/);
+    const firstname = nameParts[0] || '';
+    const lastname = nameParts.slice(1).join(' ') || '';
+
+    // Check if athlete already exists by matching full name
+    let athlete = await env.DB.prepare(
+      `SELECT id FROM athletes WHERE firstname = ? AND lastname = ?`
+    )
+      .bind(firstname, lastname)
+      .first<{ id: number }>();
+
+    let athleteId: number | null = null;
+
+    if (!athlete) {
+      // Create new athlete record for manual submission
+      // Use a placeholder strava_id (negative number to avoid conflicts with real Strava IDs)
+      // Generate unique negative ID based on timestamp
+      const placeholderStravaId = -Math.floor(Date.now() / 1000);
+
+      const newAthlete = await env.DB.prepare(
+        `INSERT INTO athletes (
+          strava_id,
+          firstname,
+          lastname,
+          is_admin,
+          is_hidden,
+          is_blocked,
+          created_at
+        ) VALUES (?, ?, ?, 0, 0, 0, strftime('%s', 'now'))
+        RETURNING id`
+      )
+        .bind(placeholderStravaId, firstname, lastname)
+        .first<{ id: number }>();
+
+      athleteId = newAthlete?.id || null;
+      console.log(`Created new athlete for manual submission: ${submission.athlete_name} (ID: ${athleteId})`);
+    } else {
+      athleteId = athlete.id;
+      console.log(`Found existing athlete: ${submission.athlete_name} (ID: ${athleteId})`);
+    }
+
     // Insert into races table
     const raceResult = await env.DB.prepare(
       `INSERT INTO races (
@@ -607,10 +650,11 @@ export async function approveSubmission(request: Request, env: Env, submissionId
         source,
         manual_submission_id,
         created_at
-      ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)
       RETURNING id`
     )
       .bind(
+        athleteId,
         submission.strava_activity_id,
         submission.activity_name,
         distance,
