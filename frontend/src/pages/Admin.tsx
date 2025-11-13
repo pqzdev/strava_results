@@ -76,7 +76,10 @@ type SortDirection = 'asc' | 'desc';
 type ParkrunSortField = 'name' | 'runs' | 'events';
 type ParkrunSortDirection = 'asc' | 'desc';
 
+type AdminTab = 'athletes' | 'parkrun' | 'events' | 'submissions';
+
 export default function Admin() {
+  const [activeTab, setActiveTab] = useState<AdminTab>('athletes');
   const [athletes, setAthletes] = useState<AdminAthlete[]>([]);
   const [parkrunAthletes, setParkrunAthletes] = useState<ParkrunAthlete[]>([]);
   const [eventSuggestions, setEventSuggestions] = useState<EventSuggestion[]>([]);
@@ -686,7 +689,38 @@ export default function Admin() {
         <p className="subtitle">Manage athletes and sync status</p>
       </div>
 
-      <div className="admin-stats">
+      {/* Tab Navigation */}
+      <div className="admin-tabs">
+        <button
+          className={`admin-tab ${activeTab === 'athletes' ? 'active' : ''}`}
+          onClick={() => setActiveTab('athletes')}
+        >
+          👥 Athletes & Sync
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'parkrun' ? 'active' : ''}`}
+          onClick={() => setActiveTab('parkrun')}
+        >
+          🏃 Parkrun
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'events' ? 'active' : ''}`}
+          onClick={() => setActiveTab('events')}
+        >
+          🤖 AI Events
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'submissions' ? 'active' : ''}`}
+          onClick={() => setActiveTab('submissions')}
+        >
+          📝 Manual Submissions {manualSubmissions.length > 0 && `(${manualSubmissions.length})`}
+        </button>
+      </div>
+
+      {/* Athletes & Sync Tab */}
+      {activeTab === 'athletes' && (
+        <div className="tab-content">
+          <div className="admin-stats">
         <div className="stat-card">
           <div className="stat-value">{athletes.length}</div>
           <div className="stat-label">Total Athletes</div>
@@ -912,11 +946,16 @@ export default function Admin() {
           </tbody>
         </table>
       </div>
+        </div>
+      )}
 
-      <div className="admin-header" style={{ marginTop: '3rem' }}>
-        <h2>AI Event Classification</h2>
-        <p className="subtitle">Review and approve AI-generated event name suggestions</p>
-      </div>
+      {/* AI Events Tab */}
+      {activeTab === 'events' && (
+        <div className="tab-content">
+          <div className="admin-header">
+            <h2>AI Event Classification</h2>
+            <p className="subtitle">Review and approve AI-generated event name suggestions</p>
+          </div>
 
       <div style={{ marginBottom: '2rem' }}>
         <button
@@ -1211,11 +1250,16 @@ export default function Admin() {
           </p>
         </div>
       )}
+        </div>
+      )}
 
-      <div className="admin-header" style={{ marginTop: '3rem' }}>
-        <h2>Parkrun Data Sync</h2>
-        <p className="subtitle">Automatically scrape and import parkrun results</p>
-      </div>
+      {/* Parkrun Tab */}
+      {activeTab === 'parkrun' && (
+        <div className="tab-content">
+          <div className="admin-header">
+            <h2>Parkrun Data Sync</h2>
+            <p className="subtitle">Automatically scrape and import parkrun results</p>
+          </div>
 
       <div className="parkrun-sync-section" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -1486,11 +1530,16 @@ export default function Admin() {
           </button>
         </div>
       )}
+        </div>
+      )}
 
-      <div className="admin-header" style={{ marginTop: '3rem' }}>
-        <h2>📝 Manual Activity Submissions</h2>
-        <p className="subtitle">Review and approve manually submitted Strava activities</p>
-      </div>
+      {/* Manual Submissions Tab */}
+      {activeTab === 'submissions' && (
+        <div className="tab-content">
+          <div className="admin-header">
+            <h2>📝 Manual Activity Submissions</h2>
+            <p className="subtitle">Review and approve manually submitted Strava activities</p>
+          </div>
 
       {loadingSubmissions ? (
         <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
@@ -1650,6 +1699,8 @@ export default function Admin() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
         </div>
       )}
     </div>
