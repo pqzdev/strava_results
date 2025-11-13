@@ -84,27 +84,55 @@
 }
 
 .stat-card {
-  background: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
   padding: 2rem;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   text-align: center;
-  border: 1px solid var(--border-color);
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .stat-value {
   font-size: 2.5rem;
   font-weight: 700;
-  color: var(--primary-color);
+  color: white;
   margin-bottom: 0.5rem;
+  text-align: center;
 }
 
 .stat-label {
   font-size: 0.875rem;
-  color: var(--text-light);
+  color: white;
+  opacity: 0.9;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
+  text-align: center;
+}
+
+.stat-card-loading {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  opacity: 0.6;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.stat-card-loading .stat-value,
+.stat-card-loading .stat-label {
+  color: white !important;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .features {

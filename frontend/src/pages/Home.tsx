@@ -15,7 +15,6 @@ interface Stats {
 
 export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchStats();
@@ -28,8 +27,6 @@ export default function Home() {
       setStats(data);
     } catch (error) {
       console.error('Failed to fetch stats:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -52,7 +49,7 @@ export default function Home() {
 
           <div className="hero-buttons">
             <Link to="/submit-activities" className="button button-primary">
-              Submit Activities
+              Submit Results
             </Link>
             <Link to="/dashboard" className="button button-secondary">
               View Races
@@ -88,26 +85,47 @@ export default function Home() {
           </div>
         </div>
 
-        {!loading && stats && (
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-value">{stats.athletes}</div>
-              <div className="stat-label">Connected Athletes</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">{stats.total_races}</div>
-              <div className="stat-label">Total Races</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">{(stats.total_distance_km ?? 0).toLocaleString()}</div>
-              <div className="stat-label">Total Distance (km)</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">{stats.races_last_30_days}</div>
-              <div className="stat-label">Races This Month</div>
-            </div>
-          </div>
-        )}
+        <div className="stats-grid">
+          {stats ? (
+            <>
+              <div className="stat-card">
+                <div className="stat-value">{stats.athletes}</div>
+                <div className="stat-label">Connected Athletes</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{stats.total_races}</div>
+                <div className="stat-label">Total Races</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{(stats.total_distance_km ?? 0).toLocaleString()}</div>
+                <div className="stat-label">Total Distance (km)</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{stats.races_last_30_days}</div>
+                <div className="stat-label">Races This Month</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="stat-card stat-card-loading">
+                <div className="stat-value">-</div>
+                <div className="stat-label">Connected Athletes</div>
+              </div>
+              <div className="stat-card stat-card-loading">
+                <div className="stat-value">-</div>
+                <div className="stat-label">Total Races</div>
+              </div>
+              <div className="stat-card stat-card-loading">
+                <div className="stat-value">-</div>
+                <div className="stat-label">Total Distance (km)</div>
+              </div>
+              <div className="stat-card stat-card-loading">
+                <div className="stat-value">-</div>
+                <div className="stat-label">Races This Month</div>
+              </div>
+            </>
+          )}
+        </div>
 
         <div className="features">
           <h2 className="features-title">How It Works</h2>
