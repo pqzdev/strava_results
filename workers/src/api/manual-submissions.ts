@@ -278,7 +278,12 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
     // Extract time
     let timeSeconds: number | null = null;
     const timePatterns = [
-      /([0-9]+)h\s*([0-9]+)m\s*([0-9]+)s/i,  // Match "9h 37m 44s"
+      // Primary: Target the Stat_statValue class after "Time" label
+      /<span[^>]*class="[^"]*Stat_statLabel[^"]*"[^>]*>Time<\/span>[^<]*<div[^>]*class="[^"]*Stat_statValue[^"]*"[^>]*>([0-9]+)h\s*([0-9]+)m\s*([0-9]+)s/is,
+      // Alternative: Just look for time in statValue
+      /Stat_statValue[^>]*>([0-9]+)h\s*([0-9]+)m\s*([0-9]+)s/i,
+      // Fallback patterns
+      /([0-9]+)h\s*([0-9]+)m\s*([0-9]+)s/i,  // Match "9h 37m 44s" anywhere
       /Time:<\/strong>\s*([0-9:hms\s]+)/i,
       /Moving Time:<\/strong>\s*([0-9:hms\s]+)/i,
       /Elapsed Time:<\/strong>\s*([0-9:hms\s]+)/i,
@@ -292,10 +297,10 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
         if (match.length > 3 && match[1] && match[2] && match[3]) {
           // Format: 9h 37m 44s
           timeSeconds = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]);
-        } else if (match[1].match(/^\d+$/)) {
+        } else if (match[1] && match[1].match(/^\d+$/)) {
           // Already in seconds
           timeSeconds = parseInt(match[1]);
-        } else {
+        } else if (match[1]) {
           // Try to parse time string
           timeSeconds = parseTimeToSeconds(match[1]);
         }
