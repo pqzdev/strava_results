@@ -67,6 +67,28 @@
   border-bottom-color: var(--primary-color);
 }
 
+.nav-link-button {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  color: white !important;
+  padding: 0.5rem 1.25rem !important;
+  border-radius: 8px;
+  border-bottom: none !important;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.nav-link-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+  color: white !important;
+}
+
+.nav-link-button.active {
+  color: white !important;
+  border-bottom: none !important;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+}
+
 .main {
   flex: 1;
   padding: 2rem 0;

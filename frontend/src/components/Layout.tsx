@@ -54,14 +54,8 @@ export default function Layout() {
                 Parkrun
               </Link>
               <Link
-                to="/heatmap"
-                className={`nav-link ${location.pathname === '/heatmap' ? 'active' : ''}`}
-              >
-                Heatmap
-              </Link>
-              <Link
                 to="/submit-activities"
-                className={`nav-link ${location.pathname.startsWith('/submit-activities') ? 'active' : ''}`}
+                className={`nav-link nav-link-button ${location.pathname.startsWith('/submit-activities') ? 'active' : ''}`}
               >
                 Submit Activities
               </Link>
