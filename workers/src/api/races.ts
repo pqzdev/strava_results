@@ -57,9 +57,9 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
         a.profile_photo,
         a.strava_id
       FROM races r
-      JOIN athletes a ON r.athlete_id = a.id
+      LEFT JOIN athletes a ON r.athlete_id = a.id
       LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
-      WHERE a.is_hidden = 0
+      WHERE (a.is_hidden = 0 OR a.id IS NULL)
     `;
 
     const bindings: any[] = [];
@@ -150,9 +150,9 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
     let countQuery = `
       SELECT COUNT(*) as total
       FROM races r
-      JOIN athletes a ON r.athlete_id = a.id
+      LEFT JOIN athletes a ON r.athlete_id = a.id
       LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
-      WHERE a.is_hidden = 0
+      WHERE (a.is_hidden = 0 OR a.id IS NULL)
     `;
     const countBindings: any[] = [];
 
@@ -579,23 +579,25 @@ export async function updateRaceEvent(
       .bind(body.event_name, raceId)
       .run();
 
-    // Also save to persistent mapping table so it survives full syncs
-    if (body.event_name) {
-      await env.DB.prepare(
-        `INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, updated_at)
-         VALUES (?, ?, ?, strftime('%s', 'now'))
-         ON CONFLICT(strava_activity_id, athlete_id)
-         DO UPDATE SET event_name = excluded.event_name, updated_at = excluded.updated_at`
-      )
-        .bind(race.strava_activity_id, race.athlete_id, body.event_name)
-        .run();
-    } else {
-      // If event_name is being cleared, remove from mapping table
-      await env.DB.prepare(
-        `DELETE FROM activity_event_mappings WHERE strava_activity_id = ? AND athlete_id = ?`
-      )
-        .bind(race.strava_activity_id, race.athlete_id)
-        .run();
+    // Also save to persistent mapping table so it survives full syncs (only if athlete_id exists)
+    if (race.athlete_id) {
+      if (body.event_name) {
+        await env.DB.prepare(
+          `INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, updated_at)
+           VALUES (?, ?, ?, strftime('%s', 'now'))
+           ON CONFLICT(strava_activity_id, athlete_id)
+           DO UPDATE SET event_name = excluded.event_name, updated_at = excluded.updated_at`
+        )
+          .bind(race.strava_activity_id, race.athlete_id, body.event_name)
+          .run();
+      } else {
+        // If event_name is being cleared, remove from mapping table
+        await env.DB.prepare(
+          `DELETE FROM activity_event_mappings WHERE strava_activity_id = ? AND athlete_id = ?`
+        )
+          .bind(race.strava_activity_id, race.athlete_id)
+          .run();
+      }
     }
 
     return new Response(
