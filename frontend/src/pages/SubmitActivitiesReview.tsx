@@ -27,7 +27,6 @@ interface EditableActivity extends ExtractedActivity {
 export default function SubmitActivitiesReview() {
   const navigate = useNavigate();
   const [activities, setActivities] = useState<EditableActivity[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventNames, setEventNames] = useState<string[]>([]);
@@ -77,33 +76,17 @@ export default function SubmitActivitiesReview() {
     }
   };
 
-  const currentActivity = activities[currentIndex];
-
-  const handleNext = () => {
-    if (currentIndex < activities.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
-
-  const handleRemove = () => {
-    const newActivities = activities.filter((_, idx) => idx !== currentIndex);
+  const handleRemove = (index: number) => {
+    const newActivities = activities.filter((_, idx) => idx !== index);
     setActivities(newActivities);
     if (newActivities.length === 0) {
       navigate('/submit-activities');
-    } else if (currentIndex >= newActivities.length) {
-      setCurrentIndex(newActivities.length - 1);
     }
   };
 
-  const updateActivity = (updates: Partial<EditableActivity>) => {
+  const updateActivity = (index: number, updates: Partial<EditableActivity>) => {
     const newActivities = [...activities];
-    newActivities[currentIndex] = { ...newActivities[currentIndex], ...updates };
+    newActivities[index] = { ...newActivities[index], ...updates };
     setActivities(newActivities);
   };
 
@@ -149,8 +132,18 @@ export default function SubmitActivitiesReview() {
       // Clear session storage
       sessionStorage.removeItem('extracted_activities');
 
-      // Show success message and redirect
-      alert(`Successfully submitted ${result.count} activities for review!`);
+      // Show success/error messages
+      if (result.errors && result.errors.length > 0) {
+        const errorDetails = result.errors.map((e: any) =>
+          `Activity ${e.activity_id}: ${e.error}`
+        ).join('\n');
+        alert(`Submitted ${result.count} activities successfully.\n\nErrors:\n${errorDetails}`);
+      } else if (result.count === 0) {
+        alert('Failed to submit any activities. Please check the console for errors.');
+        return; // Don't navigate away
+      } else {
+        alert(`Successfully submitted ${result.count} activities for review!`);
+      }
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit activities');
@@ -159,7 +152,7 @@ export default function SubmitActivitiesReview() {
     }
   };
 
-  if (!currentActivity) {
+  if (activities.length === 0) {
     return <div>Loading...</div>;
   }
 
@@ -167,153 +160,126 @@ export default function SubmitActivitiesReview() {
     <div className="review-page">
       <div className="review-header">
         <h1>Review Submitted Activities ({activities.length})</h1>
-        <p className="subtitle">
-          Activity {currentIndex + 1} of {activities.length}
-        </p>
+        <p className="subtitle">Review and edit all activities before submission</p>
       </div>
 
-      <div className="review-card">
-        <div className="activity-info">
-          <h2>{currentActivity.activity_name}</h2>
-          <div className="info-row">
-            <span className="label">Athlete:</span>
-            <span className="value">{currentActivity.athlete_name}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">Date:</span>
-            <span className="value">{new Date(currentActivity.date).toLocaleDateString()}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">Type:</span>
-            <span className="value">{currentActivity.activity_type}</span>
-          </div>
-        </div>
-
-        <div className="editable-fields">
-          <div className="field-group">
-            <label>Distance (km)</label>
-            <div className="field-compare">
-              <span className="original">Original: {currentActivity.distance?.toFixed(2) || 'N/A'} km</span>
-              <input
-                type="number"
-                step="0.01"
-                value={currentActivity.edited_distance || ''}
-                onChange={(e) => updateActivity({ edited_distance: parseFloat(e.target.value) || null })}
-                className="edit-input"
-              />
-            </div>
-          </div>
-
-          <div className="field-group">
-            <label>Time</label>
-            <div className="field-compare">
-              <span className="original">
-                Original: {currentActivity.time_seconds ?
-                  new Date(currentActivity.time_seconds * 1000).toISOString().substr(11, 8) :
-                  'N/A'}
-              </span>
-              <div className="time-inputs">
-                <input
-                  type="number"
-                  min="0"
-                  value={currentActivity.edited_time_hours}
-                  onChange={(e) => updateActivity({ edited_time_hours: parseInt(e.target.value) || 0 })}
-                  className="time-input"
-                  placeholder="H"
-                />
-                <span>:</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="59"
-                  value={currentActivity.edited_time_minutes}
-                  onChange={(e) => updateActivity({ edited_time_minutes: parseInt(e.target.value) || 0 })}
-                  className="time-input"
-                  placeholder="M"
-                />
-                <span>:</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="59"
-                  value={currentActivity.edited_time_seconds}
-                  onChange={(e) => updateActivity({ edited_time_seconds: parseInt(e.target.value) || 0 })}
-                  className="time-input"
-                  placeholder="S"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="field-group">
-            <label>Elevation Gain (m)</label>
-            <div className="field-compare">
-              <span className="original">Original: {currentActivity.elevation_gain?.toFixed(0) || 'N/A'} m</span>
-              <input
-                type="number"
-                step="1"
-                value={currentActivity.edited_elevation_gain || ''}
-                onChange={(e) => updateActivity({ edited_elevation_gain: parseFloat(e.target.value) || null })}
-                className="edit-input"
-              />
-            </div>
-          </div>
-
-          <div className="field-group">
-            <label>Event Name (optional)</label>
-            {loadingEvents ? (
-              <div className="edit-input" style={{ color: '#999' }}>Loading events...</div>
-            ) : (
-              <select
-                value={currentActivity.event_name || ''}
-                onChange={(e) => updateActivity({ event_name: e.target.value || null })}
-                className="edit-input"
-              >
-                <option value="">-- Select Event or Leave Blank --</option>
-                {eventNames.map((name) => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-              </select>
-            )}
-            <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
-              If the event is not in the list, leave this blank and suggest the event name in the notes below.
-            </p>
-          </div>
-
-          <div className="field-group">
-            <label>Notes (optional)</label>
-            <textarea
-              value={currentActivity.notes || ''}
-              onChange={(e) => updateActivity({ notes: e.target.value || null })}
-              placeholder="Additional notes about this activity..."
-              className="notes-textarea"
-              rows={3}
-            />
-          </div>
-        </div>
-
-        <div className="navigation-buttons">
-          <button
-            onClick={handlePrevious}
-            disabled={currentIndex === 0}
-            className="button button-nav"
-          >
-            ← Previous
-          </button>
-          <button
-            onClick={handleRemove}
-            className="button button-danger"
-          >
-            Remove
-          </button>
-          <button
-            onClick={handleNext}
-            disabled={currentIndex === activities.length - 1}
-            className="button button-nav"
-          >
-            Next →
-          </button>
-        </div>
+      <div className="table-container">
+        <table className="activities-table">
+          <thead>
+            <tr>
+              <th>Activity Name</th>
+              <th>Athlete</th>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Distance (km)</th>
+              <th>Time (H:M:S)</th>
+              <th>Elevation (m)</th>
+              <th>Event</th>
+              <th>Notes</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {activities.map((activity, index) => (
+              <tr key={activity.strava_activity_id}>
+                <td className="activity-name">
+                  <a href={activity.strava_url} target="_blank" rel="noopener noreferrer">
+                    {activity.activity_name}
+                  </a>
+                </td>
+                <td>{activity.athlete_name}</td>
+                <td>{new Date(activity.date).toLocaleDateString()}</td>
+                <td>{activity.activity_type}</td>
+                <td>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={activity.edited_distance || ''}
+                    onChange={(e) => updateActivity(index, { edited_distance: parseFloat(e.target.value) || null })}
+                    className="table-input"
+                    placeholder={activity.distance?.toFixed(2) || 'N/A'}
+                  />
+                </td>
+                <td>
+                  <div className="time-inputs-inline">
+                    <input
+                      type="number"
+                      min="0"
+                      value={activity.edited_time_hours}
+                      onChange={(e) => updateActivity(index, { edited_time_hours: parseInt(e.target.value) || 0 })}
+                      className="time-input-small"
+                      placeholder="H"
+                    />
+                    <span>:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={activity.edited_time_minutes}
+                      onChange={(e) => updateActivity(index, { edited_time_minutes: parseInt(e.target.value) || 0 })}
+                      className="time-input-small"
+                      placeholder="M"
+                    />
+                    <span>:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={activity.edited_time_seconds}
+                      onChange={(e) => updateActivity(index, { edited_time_seconds: parseInt(e.target.value) || 0 })}
+                      className="time-input-small"
+                      placeholder="S"
+                    />
+                  </div>
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    step="1"
+                    value={activity.edited_elevation_gain || ''}
+                    onChange={(e) => updateActivity(index, { edited_elevation_gain: parseFloat(e.target.value) || null })}
+                    className="table-input"
+                    placeholder={activity.elevation_gain?.toFixed(0) || 'N/A'}
+                  />
+                </td>
+                <td>
+                  {loadingEvents ? (
+                    <span style={{ color: '#999', fontSize: '0.85rem' }}>Loading...</span>
+                  ) : (
+                    <select
+                      value={activity.event_name || ''}
+                      onChange={(e) => updateActivity(index, { event_name: e.target.value || null })}
+                      className="table-select"
+                    >
+                      <option value="">-- Select --</option>
+                      {eventNames.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  )}
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    value={activity.notes || ''}
+                    onChange={(e) => updateActivity(index, { notes: e.target.value || null })}
+                    placeholder="Optional notes..."
+                    className="table-input"
+                  />
+                </td>
+                <td>
+                  <button
+                    onClick={() => handleRemove(index)}
+                    className="button-remove"
+                    title="Remove this activity"
+                  >
+                    ✕
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {error && (
