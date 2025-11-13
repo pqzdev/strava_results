@@ -15,7 +15,6 @@ interface Stats {
 
 export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchStats();
@@ -28,8 +27,6 @@ export default function Home() {
       setStats(data);
     } catch (error) {
       console.error('Failed to fetch stats:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -88,52 +85,46 @@ export default function Home() {
           </div>
         </div>
 
-        {!loading && stats && (
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-value">{stats.athletes}</div>
-              <div className="stat-label">Connected Athletes</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">{stats.total_races}</div>
-              <div className="stat-label">Total Races</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">{(stats.total_distance_km ?? 0).toLocaleString()}</div>
-              <div className="stat-label">Total Distance (km)</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value">{stats.races_last_30_days}</div>
-              <div className="stat-label">Races This Month</div>
-            </div>
-          </div>
-        )}
-
-        <div className="features">
-          <h2 className="features-title">How It Works</h2>
-          <div className="features-grid">
-            <div className="feature">
-              <div className="feature-icon">🔗</div>
-              <h3 className="feature-title">Connect Your Strava</h3>
-              <p className="feature-text">
-                Securely link your Strava account with one click. We only access activities you've marked as races.
-              </p>
-            </div>
-            <div className="feature">
-              <div className="feature-icon">🔄</div>
-              <h3 className="feature-title">Automatic Sync</h3>
-              <p className="feature-text">
-                Race results sync automatically every day. Just mark your activity as a "Race" in Strava.
-              </p>
-            </div>
-            <div className="feature">
-              <div className="feature-icon">📊</div>
-              <h3 className="feature-title">View Club Results</h3>
-              <p className="feature-text">
-                See all club members' race results in one dashboard. Filter by date, distance, or athlete.
-              </p>
-            </div>
-          </div>
+        <div className="stats-grid">
+          {stats ? (
+            <>
+              <div className="stat-card">
+                <div className="stat-value">{stats.athletes}</div>
+                <div className="stat-label">Connected Athletes</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{stats.total_races}</div>
+                <div className="stat-label">Total Races</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{(stats.total_distance_km ?? 0).toLocaleString()}</div>
+                <div className="stat-label">Total Distance (km)</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{stats.races_last_30_days}</div>
+                <div className="stat-label">Races This Month</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="stat-card stat-card-loading">
+                <div className="stat-value">-</div>
+                <div className="stat-label">Connected Athletes</div>
+              </div>
+              <div className="stat-card stat-card-loading">
+                <div className="stat-value">-</div>
+                <div className="stat-label">Total Races</div>
+              </div>
+              <div className="stat-card stat-card-loading">
+                <div className="stat-value">-</div>
+                <div className="stat-label">Total Distance (km)</div>
+              </div>
+              <div className="stat-card stat-card-loading">
+                <div className="stat-value">-</div>
+                <div className="stat-label">Races This Month</div>
+              </div>
+            </>
+          )}
         </div>
 
         {stats?.last_sync && (
