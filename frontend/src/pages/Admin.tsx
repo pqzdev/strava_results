@@ -472,9 +472,15 @@ export default function Admin() {
 
     try {
       const response = await fetch(
-        `/api/admin/athletes/${athleteId}?admin_strava_id=${currentAthleteId}`,
+        `/api/admin/athletes/${athleteId}`,
         {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            admin_strava_id: currentAthleteId,
+          }),
         }
       );
 
