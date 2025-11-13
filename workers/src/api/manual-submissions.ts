@@ -6,6 +6,7 @@ interface ExtractedActivity {
   strava_activity_id: number;
   strava_url: string;
   athlete_name: string;
+  athlete_strava_id: number | null;
   athlete_profile_photo: string | null;
   activity_name: string;
   activity_type: string;
@@ -169,6 +170,26 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
         athleteProfilePhoto = match[1] || match[0];  // Use capture group if available, otherwise full match
         // Ensure we got a valid URL
         if (athleteProfilePhoto && athleteProfilePhoto.startsWith('http')) {
+          // Transform large.jpg to medium.jpg to match API format
+          athleteProfilePhoto = athleteProfilePhoto.replace('/large.jpg', '/medium.jpg');
+          break;
+        }
+      }
+    }
+
+    // Extract athlete Strava ID
+    let athleteStravaId: number | null = null;
+    const athleteIdPatterns = [
+      /"athlete":\{"id":"(\d+)"/i,  // Primary pattern: "athlete":{"id":"55442995"
+      /"athlete":\{"id":(\d+)/i,    // Alternative without quotes: "athlete":{"id":55442995
+      /"athleteId":(\d+)/i,
+      /"athlete_id":(\d+)/i
+    ];
+    for (const pattern of athleteIdPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        athleteStravaId = parseInt(match[1]);
+        if (athleteStravaId && athleteStravaId > 0) {
           break;
         }
       }
@@ -307,6 +328,7 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
       strava_activity_id: activityId,
       strava_url: canonicalUrl,
       athlete_name: athleteName,
+      athlete_strava_id: athleteStravaId,
       athlete_profile_photo: athleteProfilePhoto,
       activity_name: activityName,
       activity_type: activityType,
@@ -416,6 +438,7 @@ export async function submitActivities(request: Request, env: Env): Promise<Resp
             strava_activity_id,
             strava_url,
             athlete_name,
+            athlete_strava_id,
             athlete_profile_photo,
             activity_name,
             activity_type,
@@ -430,7 +453,7 @@ export async function submitActivities(request: Request, env: Env): Promise<Resp
             notes,
             status,
             submitted_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
           RETURNING id`
         )
           .bind(
@@ -438,6 +461,7 @@ export async function submitActivities(request: Request, env: Env): Promise<Resp
             activity.strava_activity_id,
             activity.strava_url,
             activity.athlete_name,
+            activity.athlete_strava_id || null,
             activity.athlete_profile_photo || null,
             activity.activity_name,
             activity.activity_type,
@@ -619,26 +643,37 @@ export async function approveSubmission(request: Request, env: Env, submissionId
     const movingTime = timeSeconds;
     const elapsedTime = timeSeconds;
 
-    // Find or create athlete based on name
+    // Find or create athlete based on Strava ID or name
     // Split athlete_name into firstname and lastname
     const nameParts = submission.athlete_name.trim().split(/\s+/);
     const firstname = nameParts[0] || '';
     const lastname = nameParts.slice(1).join(' ') || '';
 
-    // Check if athlete already exists by matching full name
-    let athlete = await env.DB.prepare(
-      `SELECT id FROM athletes WHERE firstname = ? AND lastname = ?`
-    )
-      .bind(firstname, lastname)
-      .first<{ id: number }>();
-
     let athleteId: number | null = null;
+    let athlete: { id: number } | null = null;
+
+    // If we have the real Strava athlete ID, try to find or create by that first
+    if (submission.athlete_strava_id) {
+      athlete = await env.DB.prepare(
+        `SELECT id FROM athletes WHERE strava_id = ?`
+      )
+        .bind(submission.athlete_strava_id)
+        .first<{ id: number }>();
+    }
+
+    // If not found by Strava ID, try matching by name
+    if (!athlete) {
+      athlete = await env.DB.prepare(
+        `SELECT id FROM athletes WHERE firstname = ? AND lastname = ?`
+      )
+        .bind(firstname, lastname)
+        .first<{ id: number }>();
+    }
 
     if (!athlete) {
       // Create new athlete record for manual submission
-      // Use a placeholder strava_id (negative number to avoid conflicts with real Strava IDs)
-      // Generate unique negative ID based on timestamp
-      const placeholderStravaId = -Math.floor(Date.now() / 1000);
+      // Use the real Strava ID if available, otherwise use a placeholder negative ID
+      const stravaId = submission.athlete_strava_id || -Math.floor(Date.now() / 1000);
 
       const newAthlete = await env.DB.prepare(
         `INSERT INTO athletes (
@@ -653,11 +688,11 @@ export async function approveSubmission(request: Request, env: Env, submissionId
         ) VALUES (?, ?, ?, ?, 0, 0, 0, strftime('%s', 'now'))
         RETURNING id`
       )
-        .bind(placeholderStravaId, firstname, lastname, submission.athlete_profile_photo || null)
+        .bind(stravaId, firstname, lastname, submission.athlete_profile_photo || null)
         .first<{ id: number }>();
 
       athleteId = newAthlete?.id || null;
-      console.log(`Created new athlete for manual submission: ${submission.athlete_name} (ID: ${athleteId})`);
+      console.log(`Created new athlete for manual submission: ${submission.athlete_name} (Strava ID: ${stravaId}, DB ID: ${athleteId})`);
     } else {
       athleteId = athlete.id;
       console.log(`Found existing athlete: ${submission.athlete_name} (ID: ${athleteId})`);
