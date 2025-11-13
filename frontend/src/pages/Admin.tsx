@@ -70,6 +70,14 @@ interface ManualSubmission {
   notes: string | null;
 }
 
+interface EditableSubmission extends ManualSubmission {
+  edit_distance?: number | null;
+  edit_time_hours?: number;
+  edit_time_minutes?: number;
+  edit_time_seconds?: number;
+  edit_event_name?: string | null;
+}
+
 type SortField = 'name' | 'activities' | 'races' | 'runs';
 type SortDirection = 'asc' | 'desc';
 
@@ -102,10 +110,11 @@ export default function Admin() {
   const [parkrunSearch, setParkrunSearch] = useState('');
   const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
   const [queueingAll, setQueueingAll] = useState(false);
-  const [manualSubmissions, setManualSubmissions] = useState<ManualSubmission[]>([]);
+  const [manualSubmissions, setManualSubmissions] = useState<EditableSubmission[]>([]);
   const [approvedSubmissions, setApprovedSubmissions] = useState<ManualSubmission[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [loadingApproved, setLoadingApproved] = useState(false);
+  const [submissionEventNames, setSubmissionEventNames] = useState<string[]>([]);
   const PARKRUN_PAGE_SIZE = 50;
 
   // Get admin strava ID from localStorage
@@ -220,12 +229,30 @@ export default function Admin() {
   const fetchManualSubmissions = async () => {
     setLoadingSubmissions(true);
     try {
-      const response = await fetch(`/api/admin/manual-submissions?admin_strava_id=${currentAthleteId}&status=pending`);
-      if (!response.ok) {
+      const [submissionsRes, eventsRes] = await Promise.all([
+        fetch(`/api/admin/manual-submissions?admin_strava_id=${currentAthleteId}&status=pending`),
+        fetch('/api/events/names')
+      ]);
+
+      if (!submissionsRes.ok) {
         throw new Error('Failed to fetch manual submissions');
       }
-      const data = await response.json();
-      setManualSubmissions(data.submissions || []);
+
+      const data = await submissionsRes.json();
+      const submissions: EditableSubmission[] = (data.submissions || []).map((s: ManualSubmission) => ({
+        ...s,
+        edit_distance: s.edited_distance,
+        edit_time_hours: Math.floor((s.edited_time_seconds || 0) / 3600),
+        edit_time_minutes: Math.floor(((s.edited_time_seconds || 0) % 3600) / 60),
+        edit_time_seconds: (s.edited_time_seconds || 0) % 60,
+        edit_event_name: s.event_name
+      }));
+      setManualSubmissions(submissions);
+
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json();
+        setSubmissionEventNames(eventsData.eventNames || []);
+      }
     } catch (err) {
       console.error('Error fetching manual submissions:', err);
     } finally {
@@ -249,12 +276,31 @@ export default function Admin() {
     }
   };
 
-  const handleApproveSubmission = async (submissionId: number) => {
-    if (!confirm('Approve this manual submission? It will appear in the main dashboard.')) {
-      return;
-    }
+  const updateSubmissionField = (index: number, updates: Partial<EditableSubmission>) => {
+    const newSubmissions = [...manualSubmissions];
+    newSubmissions[index] = { ...newSubmissions[index], ...updates };
+    setManualSubmissions(newSubmissions);
+  };
 
+  const handleApproveSubmission = async (submissionId: number, submission: EditableSubmission) => {
     try {
+      // First update the submission with edited values
+      const editedTimeSeconds = (submission.edit_time_hours || 0) * 3600 +
+                                (submission.edit_time_minutes || 0) * 60 +
+                                (submission.edit_time_seconds || 0);
+
+      await fetch(`/api/admin/manual-submissions/${submissionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          admin_strava_id: currentAthleteId,
+          edited_distance: submission.edit_distance,
+          edited_time_seconds: editedTimeSeconds,
+          event_name: submission.edit_event_name
+        }),
+      });
+
+      // Then approve
       const response = await fetch(`/api/admin/manual-submissions/${submissionId}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -265,7 +311,6 @@ export default function Admin() {
         throw new Error('Failed to approve submission');
       }
 
-      alert('Submission approved successfully!');
       fetchManualSubmissions();
       fetchApprovedSubmissions();
     } catch (err) {
@@ -274,10 +319,6 @@ export default function Admin() {
   };
 
   const handleRejectSubmission = async (submissionId: number) => {
-    if (!confirm('Reject this manual submission? This cannot be undone.')) {
-      return;
-    }
-
     try {
       const response = await fetch(`/api/admin/manual-submissions/${submissionId}/reject`, {
         method: 'POST',
@@ -289,7 +330,6 @@ export default function Admin() {
         throw new Error('Failed to reject submission');
       }
 
-      alert('Submission rejected.');
       fetchManualSubmissions();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to reject submission');
@@ -1629,75 +1669,110 @@ export default function Admin() {
               </tr>
             </thead>
             <tbody>
-              {manualSubmissions.map((submission) => (
+              {manualSubmissions.map((submission, index) => (
                   <tr key={submission.id}>
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontWeight: 600 }}>{submission.athlete_name}</span>
-                        <a
-                          href={submission.strava_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontSize: '0.85rem', color: '#0ea5e9' }}
-                        >
-                          View on Strava →
-                        </a>
-                      </div>
+                      <span style={{ fontWeight: 600 }}>{submission.athlete_name}</span>
                     </td>
                     <td>
-                      <span style={{ fontWeight: 500 }}>{submission.activity_name}</span>
+                      <a
+                        href={submission.strava_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontWeight: 500, color: '#0ea5e9', textDecoration: 'none' }}
+                      >
+                        {submission.activity_name}
+                      </a>
                     </td>
                     <td>{new Date(submission.date).toLocaleDateString()}</td>
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {submission.edited_distance !== submission.original_distance ? (
-                          <>
-                            <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.85rem' }}>
-                              {submission.original_distance?.toFixed(2)} km
-                            </span>
-                            <span style={{ fontWeight: 600, color: '#0ea5e9' }}>
-                              {submission.edited_distance?.toFixed(2)} km
-                            </span>
-                          </>
-                        ) : (
-                          <span>{submission.edited_distance?.toFixed(2)} km</span>
-                        )}
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={submission.edit_distance || ''}
+                        onChange={(e) => updateSubmissionField(index, { edit_distance: parseFloat(e.target.value) || null })}
+                        style={{
+                          width: '80px',
+                          padding: '0.25rem 0.5rem',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '0.9rem',
+                        }}
+                        placeholder={submission.original_distance?.toFixed(2) || 'N/A'}
+                      />
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                        <input
+                          type="number"
+                          min="0"
+                          value={submission.edit_time_hours || 0}
+                          onChange={(e) => updateSubmissionField(index, { edit_time_hours: parseInt(e.target.value) || 0 })}
+                          style={{
+                            width: '40px',
+                            padding: '0.25rem 0.5rem',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '0.9rem',
+                          }}
+                          placeholder="H"
+                        />
+                        <span>:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="59"
+                          value={submission.edit_time_minutes || 0}
+                          onChange={(e) => updateSubmissionField(index, { edit_time_minutes: parseInt(e.target.value) || 0 })}
+                          style={{
+                            width: '40px',
+                            padding: '0.25rem 0.5rem',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '0.9rem',
+                          }}
+                          placeholder="M"
+                        />
+                        <span>:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="59"
+                          value={submission.edit_time_seconds || 0}
+                          onChange={(e) => updateSubmissionField(index, { edit_time_seconds: parseInt(e.target.value) || 0 })}
+                          style={{
+                            width: '40px',
+                            padding: '0.25rem 0.5rem',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '0.9rem',
+                          }}
+                          placeholder="S"
+                        />
                       </div>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {submission.edited_time_seconds !== submission.original_time_seconds ? (
-                          <>
-                            <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.85rem' }}>
-                              {submission.original_time_seconds ? new Date(submission.original_time_seconds * 1000).toISOString().substr(11, 8) : 'N/A'}
-                            </span>
-                            <span style={{ fontWeight: 600, color: '#0ea5e9' }}>
-                              {submission.edited_time_seconds ? new Date(submission.edited_time_seconds * 1000).toISOString().substr(11, 8) : 'N/A'}
-                            </span>
-                          </>
-                        ) : (
-                          <span>{submission.edited_time_seconds ? new Date(submission.edited_time_seconds * 1000).toISOString().substr(11, 8) : 'N/A'}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {submission.event_name ? (
-                          <span style={{ fontWeight: 500 }}>{submission.event_name}</span>
-                        ) : (
-                          <span style={{ color: '#999', fontSize: '0.85rem' }}>No event</span>
-                        )}
-                        {submission.notes && (
-                          <span style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }} title={submission.notes}>
-                            📝 {submission.notes.substring(0, 30)}{submission.notes.length > 30 ? '...' : ''}
-                          </span>
-                        )}
-                      </div>
+                      <select
+                        value={submission.edit_event_name || ''}
+                        onChange={(e) => updateSubmissionField(index, { edit_event_name: e.target.value || null })}
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '0.9rem',
+                          minWidth: '150px',
+                        }}
+                      >
+                        <option value="">-- Select Event --</option>
+                        {submissionEventNames.map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
                     </td>
                     <td>
                       <div className="action-buttons" style={{ gap: '0.5rem' }}>
                         <button
-                          onClick={() => handleApproveSubmission(submission.id)}
+                          onClick={() => handleApproveSubmission(submission.id, submission)}
                           className="button"
                           style={{
                             padding: '0.5rem 1rem',
@@ -1773,20 +1848,17 @@ export default function Admin() {
                   {approvedSubmissions.map((submission) => (
                     <tr key={submission.id}>
                       <td>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontWeight: 600 }}>{submission.athlete_name}</span>
-                          <a
-                            href={submission.strava_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ fontSize: '0.85rem', color: '#0ea5e9' }}
-                          >
-                            View on Strava →
-                          </a>
-                        </div>
+                        <span style={{ fontWeight: 600 }}>{submission.athlete_name}</span>
                       </td>
                       <td>
-                        <span style={{ fontWeight: 500 }}>{submission.activity_name}</span>
+                        <a
+                          href={submission.strava_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontWeight: 500, color: '#0ea5e9', textDecoration: 'none' }}
+                        >
+                          {submission.activity_name}
+                        </a>
                       </td>
                       <td>{new Date(submission.date).toLocaleDateString()}</td>
                       <td>{submission.edited_distance?.toFixed(2)} km</td>

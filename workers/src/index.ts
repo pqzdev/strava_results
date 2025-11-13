@@ -9,7 +9,7 @@ import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAt
 import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames } from './api/events';
 import { backfillPolylines } from './api/polyline-backfill';
-import { extractActivities, submitActivities, getManualSubmissions, approveSubmission, rejectSubmission, deleteSubmission } from './api/manual-submissions';
+import { extractActivities, submitActivities, getManualSubmissions, updateSubmission, approveSubmission, rejectSubmission, deleteSubmission } from './api/manual-submissions';
 import {
   processNextQueuedJob,
   createSyncJob,
@@ -194,6 +194,11 @@ export default {
 
       if (path === '/api/admin/manual-submissions' && request.method === 'GET') {
         return getManualSubmissions(request, env);
+      }
+
+      const submissionUpdateMatch = path.match(/^\/api\/admin\/manual-submissions\/(\d+)$/);
+      if (submissionUpdateMatch && request.method === 'PATCH') {
+        return updateSubmission(request, env, parseInt(submissionUpdateMatch[1]));
       }
 
       const approveMatch = path.match(/^\/api\/admin\/manual-submissions\/(\d+)\/approve$/);

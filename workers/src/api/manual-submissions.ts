@@ -123,7 +123,14 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
     // Fetch the page
     const response = await fetch(canonicalUrl);
     if (!response.ok) {
-      return { error: `HTTP ${response.status}: ${response.statusText}` };
+      if (response.status === 404) {
+        return { error: 'Activity not found. Please check the activity ID or URL is correct.' };
+      } else if (response.status === 403) {
+        return { error: 'Access denied. This activity may be private or restricted.' };
+      } else if (response.status >= 500) {
+        return { error: 'Strava server error. Please try again later.' };
+      }
+      return { error: `Failed to fetch activity (HTTP ${response.status})` };
     }
 
     const html = await response.text();
@@ -489,7 +496,17 @@ export async function submitActivities(request: Request, env: Env): Promise<Resp
           });
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        let errorMsg = error instanceof Error ? error.message : 'Unknown error';
+
+        // Provide clearer error messages for common issues
+        if (errorMsg.includes('UNIQUE constraint failed')) {
+          errorMsg = 'This activity has already been submitted';
+        } else if (errorMsg.includes('NOT NULL constraint failed')) {
+          errorMsg = 'Missing required data from activity';
+        } else if (errorMsg.includes('FOREIGN KEY constraint failed')) {
+          errorMsg = 'Invalid reference data';
+        }
+
         console.error('Error inserting submission:', errorMsg, 'Activity:', activity.strava_activity_id);
         errors.push({
           activity_id: activity.strava_activity_id,
@@ -590,6 +607,92 @@ export async function getManualSubmissions(request: Request, env: Env): Promise<
     console.error('Error in getManualSubmissions:', error);
     return new Response(
       JSON.stringify({ error: 'Failed to get submissions' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  }
+}
+
+/**
+ * PATCH /api/admin/manual-submissions/:id
+ * Update manual submission fields before approval
+ */
+export async function updateSubmission(request: Request, env: Env, submissionId: number): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      admin_strava_id: number;
+      edited_distance?: number | null;
+      edited_time_seconds?: number | null;
+      event_name?: string | null;
+    };
+
+    // Verify admin
+    const admin = await env.DB.prepare(
+      'SELECT is_admin FROM athletes WHERE strava_id = ?'
+    )
+      .bind(body.admin_strava_id)
+      .first<{ is_admin: number }>();
+
+    if (!admin || admin.is_admin !== 1) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Build update query dynamically based on provided fields
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (body.edited_distance !== undefined) {
+      updates.push('edited_distance = ?');
+      values.push(body.edited_distance);
+    }
+
+    if (body.edited_time_seconds !== undefined) {
+      updates.push('edited_time_seconds = ?');
+      values.push(body.edited_time_seconds);
+    }
+
+    if (body.event_name !== undefined) {
+      updates.push('event_name = ?');
+      values.push(body.event_name);
+    }
+
+    if (updates.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No fields to update' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    values.push(submissionId);
+
+    await env.DB.prepare(
+      `UPDATE manual_submissions SET ${updates.join(', ')} WHERE id = ?`
+    )
+      .bind(...values)
+      .run();
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in updateSubmission:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to update submission' }),
       {
         status: 500,
         headers: {

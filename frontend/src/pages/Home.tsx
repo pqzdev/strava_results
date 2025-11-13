@@ -47,19 +47,44 @@ export default function Home() {
             <span className="gradient-text">Race Results</span>
           </h1>
           <p className="hero-subtitle">
-            Automatically sync race activities from Strava and view club-wide results in one place
+            Upload Strava activities for your races and view club-wide results in one place
           </p>
 
           <div className="hero-buttons">
-            <button className="button button-primary" onClick={handleConnectStrava}>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <Link to="/submit-activities" className="button button-primary">
+              Submit Activities
+            </Link>
+            <Link to="/dashboard" className="button button-secondary">
+              View Races
+            </Link>
+            <Link to="/parkrun" className="button button-secondary">
+              View Parkrun
+            </Link>
+          </div>
+
+          <div style={{ marginTop: '1.5rem' }}>
+            <button
+              className="button button-secondary"
+              onClick={handleConnectStrava}
+              style={{
+                padding: '0.5rem 1rem',
+                fontSize: '0.85rem',
+                opacity: 0.6,
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.5rem' }}>
                 <path d="M7.5 2L2 11h5.5l2-6 2 6H17l-5.5-9z"/>
               </svg>
               Connect with Strava
             </button>
-            <Link to="/dashboard" className="button button-secondary">
-              View Dashboard
-            </Link>
+            <p style={{
+              fontSize: '0.75rem',
+              color: '#999',
+              marginTop: '0.5rem',
+              fontStyle: 'italic'
+            }}>
+              Currently unavailable
+            </p>
           </div>
         </div>
 

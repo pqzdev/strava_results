@@ -1,70 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './SubmitActivities.css';
 
-interface QueuedActivity {
-  url: string;
-  activityId: number;
+interface ExtractedActivity {
+  strava_activity_id: number;
+  strava_url: string;
+  athlete_name: string;
+  activity_name: string;
+  activity_type: string;
+  date: string;
+  distance: number | null;
+  time_seconds: number | null;
+  elevation_gain: number | null;
+}
+
+interface EditableActivity extends ExtractedActivity {
+  edited_distance: number | null;
+  edited_time_hours: number;
+  edited_time_minutes: number;
+  edited_time_seconds: number;
+  edited_elevation_gain: number | null;
+  event_name: string | null;
+  notes: string | null;
 }
 
 export default function SubmitActivities() {
   const navigate = useNavigate();
   const [urlText, setUrlText] = useState('');
-  const [queuedActivities, setQueuedActivities] = useState<QueuedActivity[]>([]);
   const [processing, setProcessing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activities, setActivities] = useState<EditableActivity[]>([]);
+  const [eventNames, setEventNames] = useState<string[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
 
-  // Extract Strava activity URLs from text
-  const extractUrls = (text: string): string[] => {
-    const urlPattern = /https?:\/\/(?:www\.)?strava\.com\/activities\/\d+/g;
-    const matches = text.match(urlPattern);
-    return matches ? [...new Set(matches)] : [];
-  };
+  useEffect(() => {
+    // Fetch existing event names
+    fetchEventNames();
+  }, []);
 
-  // Extract activity ID from URL
-  const extractActivityId = (url: string): number | null => {
-    const match = url.match(/\/activities\/(\d+)/);
-    return match ? parseInt(match[1]) : null;
-  };
-
-  // Add URLs to queue
-  const handleAddToQueue = () => {
-    const urls = extractUrls(urlText);
-
-    if (urls.length === 0) {
-      setError('No valid Strava activity URLs found');
-      return;
+  const fetchEventNames = async () => {
+    try {
+      const response = await fetch('/api/events/names');
+      if (response.ok) {
+        const data = await response.json();
+        setEventNames(data.eventNames || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch event names:', err);
+    } finally {
+      setLoadingEvents(false);
     }
-
-    const newActivities: QueuedActivity[] = urls
-      .map(url => {
-        const activityId = extractActivityId(url);
-        return activityId ? { url, activityId } : null;
-      })
-      .filter((activity): activity is QueuedActivity => activity !== null)
-      .filter(activity => !queuedActivities.some(q => q.activityId === activity.activityId));
-
-    setQueuedActivities([...queuedActivities, ...newActivities]);
-    setUrlText('');
-    setError(null);
   };
 
-  // Remove activity from queue
-  const handleRemoveFromQueue = (activityId: number) => {
-    setQueuedActivities(queuedActivities.filter(a => a.activityId !== activityId));
-  };
-
-  // Clear all queued activities
-  const handleClear = () => {
-    setQueuedActivities([]);
-    setUrlText('');
-    setError(null);
-  };
-
-  // Process all queued activities
-  const handleProcessAll = async () => {
-    if (queuedActivities.length === 0) {
-      setError('No activities queued');
+  // Extract and process activities immediately
+  const handleSubmit = async () => {
+    if (!urlText.trim()) {
+      setError('Please paste Strava activity links');
       return;
     }
 
@@ -72,12 +64,13 @@ export default function SubmitActivities() {
     setError(null);
 
     try {
+      // Extract URLs or plain activity IDs from text
+      const lines = urlText.split(/[\n\s,]+/).filter(line => line.trim());
+
       const response = await fetch('/api/manual-submissions/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          urls: queuedActivities.map(a => a.url)
-        })
+        body: JSON.stringify({ urls: lines })
       });
 
       if (!response.ok) {
@@ -88,13 +81,37 @@ export default function SubmitActivities() {
 
       if (data.errors && data.errors.length > 0) {
         console.warn('Some activities failed to extract:', data.errors);
+
+        // Show detailed error messages to the user
+        const errorDetails = data.errors.map((e: any) =>
+          `${e.url}: ${e.error}`
+        ).join('\n');
+
+        if (data.activities && data.activities.length > 0) {
+          // Some succeeded, some failed
+          setError(`⚠️ ${data.errors.length} activity(ies) failed:\n${errorDetails}`);
+        } else {
+          // All failed
+          setError(`Failed to extract activities:\n${errorDetails}`);
+          return;
+        }
       }
 
       if (data.activities && data.activities.length > 0) {
-        // Store extracted data and navigate to review page
-        sessionStorage.setItem('extracted_activities', JSON.stringify(data.activities));
-        navigate('/submit-activities/review');
-      } else {
+        // Convert to editable format
+        const editable: EditableActivity[] = data.activities.map((activity: ExtractedActivity) => ({
+          ...activity,
+          edited_distance: activity.distance,
+          edited_time_hours: Math.floor((activity.time_seconds || 0) / 3600),
+          edited_time_minutes: Math.floor(((activity.time_seconds || 0) % 3600) / 60),
+          edited_time_seconds: (activity.time_seconds || 0) % 60,
+          edited_elevation_gain: activity.elevation_gain,
+          event_name: null,
+          notes: null
+        }));
+        setActivities(editable);
+        setUrlText('');
+      } else if (!data.errors || data.errors.length === 0) {
         setError('No activities could be extracted. Check URLs and try again.');
       }
     } catch (err) {
@@ -104,81 +121,271 @@ export default function SubmitActivities() {
     }
   };
 
+  const handleRemove = (index: number) => {
+    const newActivities = activities.filter((_, idx) => idx !== index);
+    setActivities(newActivities);
+  };
+
+  const updateActivity = (index: number, updates: Partial<EditableActivity>) => {
+    const newActivities = [...activities];
+    newActivities[index] = { ...newActivities[index], ...updates };
+    setActivities(newActivities);
+  };
+
+  const handleSubmitAll = async () => {
+    if (activities.length === 0) {
+      setError('No activities to submit');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const sessionId = `session-${Date.now()}`;
+
+      const submissionData = activities.map(activity => ({
+        strava_activity_id: activity.strava_activity_id,
+        strava_url: activity.strava_url,
+        athlete_name: activity.athlete_name,
+        activity_name: activity.activity_name,
+        activity_type: activity.activity_type,
+        date: activity.date,
+        original_distance: activity.distance,
+        original_time_seconds: activity.time_seconds,
+        original_elevation_gain: activity.elevation_gain,
+        edited_distance: activity.edited_distance,
+        edited_time_seconds: activity.edited_time_hours * 3600 + activity.edited_time_minutes * 60 + activity.edited_time_seconds,
+        edited_elevation_gain: activity.edited_elevation_gain,
+        event_name: activity.event_name,
+        notes: activity.notes
+      }));
+
+      const response = await fetch('/api/manual-submissions/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          activities: submissionData
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit activities');
+      }
+
+      const result = await response.json();
+
+      // Show success/error messages
+      if (result.errors && result.errors.length > 0) {
+        const errorDetails = result.errors.map((e: any) =>
+          `Activity ${e.activity_id}: ${e.error}`
+        ).join('\n');
+        alert(`Submitted ${result.count} activities successfully.\n\nErrors:\n${errorDetails}`);
+      } else if (result.count === 0) {
+        alert('Failed to submit any activities. Please check the console for errors.');
+        return; // Don't navigate away
+      } else {
+        alert(`Successfully submitted ${result.count} activities for review!`);
+      }
+
+      // Clear form and activities
+      setActivities([]);
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit activities');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="submit-activities-page">
       <div className="submit-header">
         <h1>Submit Strava Activities</h1>
         <p className="subtitle">
-          Manually submit race activities when OAuth authentication is unavailable
+          Paste links and submit - no queue needed!
         </p>
       </div>
 
       <div className="submit-form-container">
         <div className="form-section">
           <label htmlFor="url-input">
-            Paste Strava activity links below (one per line or separated by spaces):
+            Paste Strava activity links below (one per line, separated by spaces, or comma-separated):
           </label>
           <textarea
             id="url-input"
             value={urlText}
             onChange={(e) => setUrlText(e.target.value)}
-            placeholder={`https://www.strava.com/activities/16440077551\nhttps://www.strava.com/activities/16440077552\nhttps://www.strava.com/activities/16440077553`}
-            rows={8}
+            placeholder={`https://www.strava.com/activities/16440077551
+https://www.strava.com/activities/16440077552
+16440077553`}
+            rows={6}
             className="url-textarea"
           />
 
           <div className="form-actions">
             <button
-              onClick={handleClear}
+              onClick={() => {
+                setUrlText('');
+                setActivities([]);
+                setError(null);
+              }}
               className="button button-secondary"
-              disabled={processing}
+              disabled={processing || submitting}
             >
               Clear
             </button>
             <button
-              onClick={handleAddToQueue}
+              onClick={handleSubmit}
               className="button button-primary"
-              disabled={processing || !urlText.trim()}
+              disabled={processing || submitting || !urlText.trim()}
             >
-              Add to Queue
+              {processing ? 'Extracting...' : 'Extract Activities'}
             </button>
           </div>
 
           {error && (
-            <div className="error-message">
+            <div className="error-message" style={{ whiteSpace: 'pre-wrap', textAlign: 'left' }}>
               {error}
             </div>
           )}
         </div>
 
-        {queuedActivities.length > 0 && (
-          <div className="queued-section">
-            <h3>Queued Activities ({queuedActivities.length})</h3>
-            <div className="queued-list">
-              {queuedActivities.map((activity) => (
-                <div key={activity.activityId} className="queued-item">
-                  <span className="activity-id">
-                    ✓ Activity {activity.activityId}
-                  </span>
-                  <button
-                    onClick={() => handleRemoveFromQueue(activity.activityId)}
-                    className="remove-button"
-                    disabled={processing}
-                    title="Remove from queue"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
+        {activities.length > 0 && (
+          <div style={{ marginTop: '2rem' }}>
+            <h3>Review Activities ({activities.length})</h3>
+            <div className="table-container">
+              <table className="activities-table">
+                <thead>
+                  <tr>
+                    <th>Activity</th>
+                    <th>Athlete</th>
+                    <th>Date</th>
+                    <th>Distance (km)</th>
+                    <th>Time (H:M:S)</th>
+                    <th>Elevation (m)</th>
+                    <th>Event</th>
+                    <th>Notes</th>
+                    <th>Remove</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activities.map((activity, index) => (
+                    <tr key={activity.strava_activity_id}>
+                      <td className="activity-name">
+                        <a href={activity.strava_url} target="_blank" rel="noopener noreferrer">
+                          {activity.activity_name}
+                        </a>
+                      </td>
+                      <td>{activity.athlete_name}</td>
+                      <td>{new Date(activity.date).toLocaleDateString()}</td>
+                      <td>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={activity.edited_distance || ''}
+                          onChange={(e) => updateActivity(index, { edited_distance: parseFloat(e.target.value) || null })}
+                          className="table-input"
+                          placeholder={activity.distance?.toFixed(2) || 'N/A'}
+                        />
+                      </td>
+                      <td>
+                        <div className="time-inputs-inline">
+                          <input
+                            type="number"
+                            min="0"
+                            value={activity.edited_time_hours}
+                            onChange={(e) => updateActivity(index, { edited_time_hours: parseInt(e.target.value) || 0 })}
+                            className="time-input-small"
+                            placeholder="H"
+                          />
+                          <span>:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="59"
+                            value={activity.edited_time_minutes}
+                            onChange={(e) => updateActivity(index, { edited_time_minutes: parseInt(e.target.value) || 0 })}
+                            className="time-input-small"
+                            placeholder="M"
+                          />
+                          <span>:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="59"
+                            value={activity.edited_time_seconds}
+                            onChange={(e) => updateActivity(index, { edited_time_seconds: parseInt(e.target.value) || 0 })}
+                            className="time-input-small"
+                            placeholder="S"
+                          />
+                        </div>
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          step="1"
+                          value={activity.edited_elevation_gain || ''}
+                          onChange={(e) => updateActivity(index, { edited_elevation_gain: parseFloat(e.target.value) || null })}
+                          className="table-input"
+                          placeholder={activity.elevation_gain?.toFixed(0) || 'N/A'}
+                        />
+                      </td>
+                      <td>
+                        {loadingEvents ? (
+                          <span style={{ color: '#999', fontSize: '0.85rem' }}>Loading...</span>
+                        ) : (
+                          <select
+                            value={activity.event_name || ''}
+                            onChange={(e) => updateActivity(index, { event_name: e.target.value || null })}
+                            className="table-select"
+                          >
+                            <option value="">-- Select --</option>
+                            {eventNames.map((name) => (
+                              <option key={name} value={name}>{name}</option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          value={activity.notes || ''}
+                          onChange={(e) => updateActivity(index, { notes: e.target.value || null })}
+                          placeholder="Optional notes..."
+                          className="table-input"
+                        />
+                      </td>
+                      <td>
+                        <button
+                          onClick={() => handleRemove(index)}
+                          className="button-remove"
+                          title="Remove this activity"
+                        >
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            <button
-              onClick={handleProcessAll}
-              className="button button-process"
-              disabled={processing}
-            >
-              {processing ? 'Processing...' : 'Process All →'}
-            </button>
+            <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+              <button
+                onClick={handleSubmitAll}
+                className="button button-submit"
+                disabled={submitting || activities.length === 0}
+                style={{
+                  padding: '0.75rem 2rem',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                }}
+              >
+                {submitting ? 'Submitting...' : 'Submit All for Review'}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -186,10 +393,10 @@ export default function SubmitActivities() {
       <div className="help-section">
         <h3>How it works</h3>
         <ol>
-          <li>Paste Strava activity links in the text box above</li>
-          <li>Click "Add to Queue" (you can repeat this multiple times)</li>
-          <li>Click "Process All" to extract activity data</li>
-          <li>Review and edit the activities before final submission</li>
+          <li>Paste Strava activity links (full URLs or just activity IDs)</li>
+          <li>Click "Extract Activities" to fetch data from Strava</li>
+          <li>Review and edit distance, time, event, and notes as needed</li>
+          <li>Click "Submit All for Review" to send for admin approval</li>
         </ol>
         <p className="help-note">
           <strong>Note:</strong> Only public Strava activities can be extracted.
