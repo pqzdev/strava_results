@@ -19,6 +19,7 @@ interface EditableActivity extends ExtractedActivity {
   edited_time_hours: number;
   edited_time_minutes: number;
   edited_time_seconds: number;
+  edited_elevation_gain: number | null;
   event_name: string | null;
   notes: string | null;
 }
@@ -47,6 +48,7 @@ export default function SubmitActivitiesReview() {
         edited_time_hours: Math.floor((activity.time_seconds || 0) / 3600),
         edited_time_minutes: Math.floor(((activity.time_seconds || 0) % 3600) / 60),
         edited_time_seconds: (activity.time_seconds || 0) % 60,
+        edited_elevation_gain: activity.elevation_gain,
         event_name: null,
         notes: null
       }));
@@ -107,7 +109,7 @@ export default function SubmitActivitiesReview() {
         original_elevation_gain: activity.elevation_gain,
         edited_distance: activity.edited_distance,
         edited_time_seconds: activity.edited_time_hours * 3600 + activity.edited_time_minutes * 60 + activity.edited_time_seconds,
-        edited_elevation_gain: null,
+        edited_elevation_gain: activity.edited_elevation_gain,
         event_name: activity.event_name,
         notes: activity.notes
       }));
@@ -158,8 +160,10 @@ export default function SubmitActivitiesReview() {
               <th>Activity Name</th>
               <th>Athlete</th>
               <th>Date</th>
+              <th>Type</th>
               <th>Distance (km)</th>
               <th>Time (H:M:S)</th>
+              <th>Elevation (m)</th>
               <th>Event</th>
               <th>Notes</th>
               <th>Actions</th>
@@ -175,6 +179,7 @@ export default function SubmitActivitiesReview() {
                 </td>
                 <td>{activity.athlete_name}</td>
                 <td>{new Date(activity.date).toLocaleDateString()}</td>
+                <td>{activity.activity_type}</td>
                 <td>
                   <input
                     type="number"
@@ -216,6 +221,16 @@ export default function SubmitActivitiesReview() {
                       placeholder="S"
                     />
                   </div>
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    step="1"
+                    value={activity.edited_elevation_gain || ''}
+                    onChange={(e) => updateActivity(index, { edited_elevation_gain: parseFloat(e.target.value) || null })}
+                    className="table-input"
+                    placeholder={activity.elevation_gain?.toFixed(0) || 'N/A'}
+                  />
                 </td>
                 <td>
                   {loadingEvents ? (

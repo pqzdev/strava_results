@@ -214,6 +214,7 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
     // Extract activity type
     let activityType = 'Run';
     const typePatterns = [
+      /<span[^>]*class="[^"]*Summary_typeText[^"]*"[^>]*>([^<]+)<\/span>/i,  // Primary: Summary_typeText class
       /"type":"([^"]+)"/i,
       /Activity Type:<\/strong>\s*([^<]+)/i,
       /data-activity-type="([^"]+)"/i,
@@ -298,25 +299,21 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
     // Extract elevation gain (in meters)
     let elevationGain: number | null = null;
     const elevationPatterns = [
-      /([0-9,]+)\s*m/i,  // Match number followed by m (after "Elevation")
+      // Primary: Target the Stat_statValue class after Stat_statLabel with "Elevation"
+      /<span[^>]*class="[^"]*Stat_statLabel[^"]*"[^>]*>Elevation<\/span>[^<]*<div[^>]*class="[^"]*Stat_statValue[^"]*"[^>]*>([0-9,]+)\s*m/is,
+      /Elevation<\/span>[^<]*<div[^>]*>([0-9,]+)\s*m/is,
       /Elevation:<\/div>[^<]*<div[^>]*>([0-9,]+)\s*m/i,
       /Elevation Gain:<\/strong>\s*([0-9,]+)\s*m/i,
       /data-elevation-gain="([0-9.]+)"/i,
       /"total_elevation_gain":([0-9.]+)/i
     ];
-    // First find "Elevation" context, then look for number nearby
-    const elevContext = html.match(/Elevation<\/div>[^<]*<div[^>]*>([0-9,]+)\s*m/i);
-    if (elevContext) {
-      elevationGain = parseFloat(elevContext[1].replace(/,/g, ''));
-    } else {
-      for (const pattern of elevationPatterns) {
-        const match = html.match(pattern);
-        if (match) {
-          const value = parseFloat(match[1].replace(/,/g, ''));
-          if (value > 0) {
-            elevationGain = value;
-            break;
-          }
+    for (const pattern of elevationPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        const value = parseFloat(match[1].replace(/,/g, ''));
+        if (value >= 0) {  // Allow 0 elevation
+          elevationGain = value;
+          break;
         }
       }
     }
