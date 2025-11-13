@@ -103,7 +103,9 @@ export default function Admin() {
   const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
   const [queueingAll, setQueueingAll] = useState(false);
   const [manualSubmissions, setManualSubmissions] = useState<ManualSubmission[]>([]);
+  const [approvedSubmissions, setApprovedSubmissions] = useState<ManualSubmission[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [loadingApproved, setLoadingApproved] = useState(false);
   const PARKRUN_PAGE_SIZE = 50;
 
   // Get admin strava ID from localStorage
@@ -117,6 +119,7 @@ export default function Admin() {
     fetchEventSuggestions();
     fetchQueueStats();
     fetchManualSubmissions();
+    fetchApprovedSubmissions();
 
     // Poll queue stats every 30 seconds
     const interval = setInterval(fetchQueueStats, 30000);
@@ -217,7 +220,7 @@ export default function Admin() {
   const fetchManualSubmissions = async () => {
     setLoadingSubmissions(true);
     try {
-      const response = await fetch(`/api/admin/manual-submissions?admin_strava_id=${currentAthleteId}`);
+      const response = await fetch(`/api/admin/manual-submissions?admin_strava_id=${currentAthleteId}&status=pending`);
       if (!response.ok) {
         throw new Error('Failed to fetch manual submissions');
       }
@@ -227,6 +230,22 @@ export default function Admin() {
       console.error('Error fetching manual submissions:', err);
     } finally {
       setLoadingSubmissions(false);
+    }
+  };
+
+  const fetchApprovedSubmissions = async () => {
+    setLoadingApproved(true);
+    try {
+      const response = await fetch(`/api/admin/manual-submissions?admin_strava_id=${currentAthleteId}&status=approved`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch approved submissions');
+      }
+      const data = await response.json();
+      setApprovedSubmissions(data.submissions || []);
+    } catch (err) {
+      console.error('Error fetching approved submissions:', err);
+    } finally {
+      setLoadingApproved(false);
     }
   };
 
@@ -248,6 +267,7 @@ export default function Admin() {
 
       alert('Submission approved successfully!');
       fetchManualSubmissions();
+      fetchApprovedSubmissions();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to approve submission');
     }
@@ -273,6 +293,37 @@ export default function Admin() {
       fetchManualSubmissions();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to reject submission');
+    }
+  };
+
+  const handleDeleteSubmission = async (submissionId: number, activityName: string) => {
+    const confirmed = confirm(
+      `⚠️ WARNING: Delete approved submission?\n\n` +
+      `Activity: ${activityName}\n\n` +
+      `This will permanently delete the race from the dashboard.\n` +
+      `This action CANNOT be undone.\n\n` +
+      `Are you sure you want to proceed?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/manual-submissions/${submissionId}/delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_strava_id: currentAthleteId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete submission');
+      }
+
+      alert('Submission deleted successfully.');
+      fetchApprovedSubmissions();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete submission');
     }
   };
 
@@ -1567,7 +1618,6 @@ export default function Admin() {
                 <th>Date</th>
                 <th>Distance</th>
                 <th>Time</th>
-                <th>Elevation</th>
                 <th>Event</th>
                 <th>Actions</th>
               </tr>
@@ -1589,10 +1639,7 @@ export default function Admin() {
                       </div>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontWeight: 500 }}>{submission.activity_name}</span>
-                        <span style={{ fontSize: '0.85rem', color: '#666' }}>{submission.activity_type}</span>
-                      </div>
+                      <span style={{ fontWeight: 500 }}>{submission.activity_name}</span>
                     </td>
                     <td>{new Date(submission.date).toLocaleDateString()}</td>
                     <td>
@@ -1624,22 +1671,6 @@ export default function Admin() {
                           </>
                         ) : (
                           <span>{submission.edited_time_seconds ? new Date(submission.edited_time_seconds * 1000).toISOString().substr(11, 8) : 'N/A'}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {submission.edited_elevation_gain !== submission.original_elevation_gain ? (
-                          <>
-                            <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.85rem' }}>
-                              {submission.original_elevation_gain?.toFixed(0)} m
-                            </span>
-                            <span style={{ fontWeight: 600, color: '#0ea5e9' }}>
-                              {submission.edited_elevation_gain?.toFixed(0)} m
-                            </span>
-                          </>
-                        ) : (
-                          <span>{submission.edited_elevation_gain?.toFixed(0)} m</span>
                         )}
                       </div>
                     </td>
@@ -1694,6 +1725,97 @@ export default function Admin() {
           </table>
         </div>
       )}
+
+          {/* Approved Submissions Section */}
+          <div className="admin-header" style={{ marginTop: '3rem' }}>
+            <h2>✅ Approved Submissions</h2>
+            <p className="subtitle">Previously approved manual submissions</p>
+          </div>
+
+          {loadingApproved ? (
+            <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
+              Loading approved submissions...
+            </div>
+          ) : approvedSubmissions.length === 0 ? (
+            <div style={{
+              padding: '2rem',
+              textAlign: 'center',
+              backgroundColor: '#f9fafb',
+              borderRadius: '8px',
+              color: '#6b7280',
+            }}>
+              <p style={{ margin: 0, fontSize: '0.9rem' }}>
+                No approved submissions yet.
+              </p>
+            </div>
+          ) : (
+            <div className="admin-table-container">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Athlete</th>
+                    <th>Activity</th>
+                    <th>Date</th>
+                    <th>Distance</th>
+                    <th>Time</th>
+                    <th>Event</th>
+                    <th>Approved</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {approvedSubmissions.map((submission) => (
+                    <tr key={submission.id}>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: 600 }}>{submission.athlete_name}</span>
+                          <a
+                            href={submission.strava_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: '0.85rem', color: '#0ea5e9' }}
+                          >
+                            View on Strava →
+                          </a>
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: 500 }}>{submission.activity_name}</span>
+                      </td>
+                      <td>{new Date(submission.date).toLocaleDateString()}</td>
+                      <td>{submission.edited_distance?.toFixed(2)} km</td>
+                      <td>
+                        {submission.edited_time_seconds ? new Date(submission.edited_time_seconds * 1000).toISOString().substr(11, 8) : 'N/A'}
+                      </td>
+                      <td>
+                        {submission.event_name ? (
+                          <span style={{ fontWeight: 500 }}>{submission.event_name}</span>
+                        ) : (
+                          <span style={{ color: '#999', fontSize: '0.85rem' }}>No event</span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: '0.85rem', color: '#666' }}>
+                        {submission.processed_at ? new Date(submission.processed_at * 1000).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td>
+                        <button
+                          onClick={() => handleDeleteSubmission(submission.id, submission.activity_name)}
+                          className="button button-delete"
+                          style={{
+                            padding: '0.5rem 1rem',
+                            fontSize: '0.85rem',
+                          }}
+                          title="Delete this approved submission"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

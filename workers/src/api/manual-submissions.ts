@@ -6,6 +6,7 @@ interface ExtractedActivity {
   strava_activity_id: number;
   strava_url: string;
   athlete_name: string;
+  athlete_profile_photo: string | null;
   activity_name: string;
   activity_type: string;
   date: string;
@@ -152,6 +153,27 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
       }
     }
 
+    // Extract athlete profile photo
+    let athleteProfilePhoto: string | null = null;
+    const photoPatterns = [
+      /"profileImageUrl":"([^"]+)"/i,  // Primary pattern: profileImageUrl in JSON
+      /"athlete_profile":"([^"]+)"/i,
+      /<img[^>]*class="[^"]*avatar[^"]*"[^>]*src="([^"]+)"/i,
+      /<img[^>]*src="([^"]*avatar[^"]+)"/i,
+      /"avatar":"([^"]+)"/i,
+      /https?:\/\/dgalywyr863hv\.cloudfront\.net\/pictures\/athletes\/\d+\/\d+\/\d+\/large\.jpg/i  // Direct CloudFront URL pattern
+    ];
+    for (const pattern of photoPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        athleteProfilePhoto = match[1] || match[0];  // Use capture group if available, otherwise full match
+        // Ensure we got a valid URL
+        if (athleteProfilePhoto && athleteProfilePhoto.startsWith('http')) {
+          break;
+        }
+      }
+    }
+
     // Extract activity title - try various patterns
     let activityName = 'Untitled Activity';
     const titlePatterns = [
@@ -285,6 +307,7 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
       strava_activity_id: activityId,
       strava_url: canonicalUrl,
       athlete_name: athleteName,
+      athlete_profile_photo: athleteProfilePhoto,
       activity_name: activityName,
       activity_type: activityType,
       date,
@@ -393,6 +416,7 @@ export async function submitActivities(request: Request, env: Env): Promise<Resp
             strava_activity_id,
             strava_url,
             athlete_name,
+            athlete_profile_photo,
             activity_name,
             activity_type,
             date,
@@ -406,7 +430,7 @@ export async function submitActivities(request: Request, env: Env): Promise<Resp
             notes,
             status,
             submitted_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
           RETURNING id`
         )
           .bind(
@@ -414,6 +438,7 @@ export async function submitActivities(request: Request, env: Env): Promise<Resp
             activity.strava_activity_id,
             activity.strava_url,
             activity.athlete_name,
+            activity.athlete_profile_photo || null,
             activity.activity_name,
             activity.activity_type,
             activity.date,
@@ -584,7 +609,9 @@ export async function approveSubmission(request: Request, env: Env, submissionId
     }
 
     // Use edited values if available, otherwise use original values
-    const distance = submission.edited_distance ?? submission.original_distance;
+    // Convert distance from km to meters (races table expects meters)
+    const distanceKm = submission.edited_distance ?? submission.original_distance;
+    const distance = distanceKm ? distanceKm * 1000 : null;
     const timeSeconds = submission.edited_time_seconds ?? submission.original_time_seconds;
     const elevationGain = submission.edited_elevation_gain ?? submission.original_elevation_gain;
 
@@ -618,14 +645,15 @@ export async function approveSubmission(request: Request, env: Env, submissionId
           strava_id,
           firstname,
           lastname,
+          profile_photo,
           is_admin,
           is_hidden,
           is_blocked,
           created_at
-        ) VALUES (?, ?, ?, 0, 0, 0, strftime('%s', 'now'))
+        ) VALUES (?, ?, ?, ?, 0, 0, 0, strftime('%s', 'now'))
         RETURNING id`
       )
-        .bind(placeholderStravaId, firstname, lastname)
+        .bind(placeholderStravaId, firstname, lastname, submission.athlete_profile_photo || null)
         .first<{ id: number }>();
 
       athleteId = newAthlete?.id || null;
@@ -760,6 +788,88 @@ export async function rejectSubmission(request: Request, env: Env, submissionId:
     console.error('Error in rejectSubmission:', error);
     return new Response(
       JSON.stringify({ error: 'Failed to reject submission' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  }
+}
+
+/**
+ * DELETE /api/admin/manual-submissions/:id/delete
+ * Delete an approved manual submission and its associated race
+ */
+export async function deleteSubmission(request: Request, env: Env, submissionId: number): Promise<Response> {
+  try {
+    const body = await request.json() as { admin_strava_id: number };
+
+    // Verify admin
+    const admin = await env.DB.prepare(
+      'SELECT is_admin FROM athletes WHERE strava_id = ?'
+    )
+      .bind(body.admin_strava_id)
+      .first<{ is_admin: number }>();
+
+    if (!admin || admin.is_admin !== 1) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get submission to verify it exists and is approved
+    const submission = await env.DB.prepare(
+      'SELECT * FROM manual_submissions WHERE id = ?'
+    )
+      .bind(submissionId)
+      .first<any>();
+
+    if (!submission) {
+      return new Response(
+        JSON.stringify({ error: 'Submission not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (submission.status !== 'approved') {
+      return new Response(
+        JSON.stringify({ error: 'Can only delete approved submissions' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Delete the race entry (this will cascade to delete related data)
+    await env.DB.prepare(
+      'DELETE FROM races WHERE manual_submission_id = ?'
+    )
+      .bind(submissionId)
+      .run();
+
+    // Delete the submission record
+    await env.DB.prepare(
+      'DELETE FROM manual_submissions WHERE id = ?'
+    )
+      .bind(submissionId)
+      .run();
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error in deleteSubmission:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to delete submission' }),
       {
         status: 500,
         headers: {

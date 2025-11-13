@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+// @ts-ignore
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+// @ts-ignore
 import polyline from '@mapbox/polyline';
 import './Heatmap.css';
 
@@ -108,7 +110,7 @@ export default function Heatmap() {
 
           try {
             const coordinates = polyline.decode(race.polyline);
-            const latLngs: [number, number][] = coordinates.map(([lat, lng]) => [
+            const latLngs: [number, number][] = coordinates.map(([lat, lng]: [number, number]) => [
               lat,
               lng,
             ]);

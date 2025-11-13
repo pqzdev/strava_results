@@ -9,7 +9,7 @@ import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAt
 import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames } from './api/events';
 import { backfillPolylines } from './api/polyline-backfill';
-import { extractActivities, submitActivities, getManualSubmissions, approveSubmission, rejectSubmission } from './api/manual-submissions';
+import { extractActivities, submitActivities, getManualSubmissions, approveSubmission, rejectSubmission, deleteSubmission } from './api/manual-submissions';
 import {
   processNextQueuedJob,
   createSyncJob,
@@ -204,6 +204,11 @@ export default {
       const rejectMatch = path.match(/^\/api\/admin\/manual-submissions\/(\d+)\/reject$/);
       if (rejectMatch && request.method === 'POST') {
         return rejectSubmission(request, env, parseInt(rejectMatch[1]));
+      }
+
+      const deleteMatch = path.match(/^\/api\/admin\/manual-submissions\/(\d+)\/delete$/);
+      if (deleteMatch && request.method === 'DELETE') {
+        return deleteSubmission(request, env, parseInt(deleteMatch[1]));
       }
 
       // Queue management API routes
