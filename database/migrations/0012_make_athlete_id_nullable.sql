@@ -9,6 +9,7 @@ CREATE TABLE races_backup AS SELECT * FROM races;
 DROP TABLE races;
 
 -- Recreate races table with nullable athlete_id
+-- Note: Only include columns that exist at this point in migration history
 CREATE TABLE races (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     athlete_id INTEGER, -- Changed from NOT NULL to nullable
@@ -26,8 +27,6 @@ CREATE TABLE races (
     manual_distance INTEGER,
     event_name TEXT,
     polyline TEXT,
-    source TEXT DEFAULT 'oauth',
-    manual_submission_id INTEGER REFERENCES manual_submissions(id),
     FOREIGN KEY (athlete_id) REFERENCES athletes(id) ON DELETE CASCADE
 );
 
@@ -43,4 +42,3 @@ CREATE INDEX IF NOT EXISTS idx_races_date ON races(date DESC);
 CREATE INDEX IF NOT EXISTS idx_races_distance ON races(distance);
 CREATE INDEX IF NOT EXISTS idx_races_strava_activity_id ON races(strava_activity_id);
 CREATE INDEX IF NOT EXISTS idx_races_event_name ON races(event_name);
-CREATE INDEX IF NOT EXISTS idx_races_source ON races(source);
