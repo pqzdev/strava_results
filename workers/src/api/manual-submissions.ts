@@ -59,33 +59,6 @@ function buildStravaUrl(activityId: number): string {
 }
 
 /**
- * Parse time string to seconds
- */
-function parseTimeToSeconds(timeStr: string): number | null {
-  // Handle formats: "1:23:45" (HH:MM:SS), "23:45" (MM:SS), "1h 23m 45s"
-
-  // Try HH:MM:SS or MM:SS format
-  const colonMatch = timeStr.match(/^(?:(\d+):)?(\d+):(\d+)$/);
-  if (colonMatch) {
-    const hours = colonMatch[1] ? parseInt(colonMatch[1]) : 0;
-    const minutes = parseInt(colonMatch[2]);
-    const seconds = parseInt(colonMatch[3]);
-    return hours * 3600 + minutes * 60 + seconds;
-  }
-
-  // Try "1h 23m 45s" format
-  const textMatch = timeStr.match(/(?:(\d+)h\s*)?(?:(\d+)m\s*)?(?:(\d+)s)?/);
-  if (textMatch) {
-    const hours = textMatch[1] ? parseInt(textMatch[1]) : 0;
-    const minutes = textMatch[2] ? parseInt(textMatch[2]) : 0;
-    const seconds = textMatch[3] ? parseInt(textMatch[3]) : 0;
-    return hours * 3600 + minutes * 60 + seconds;
-  }
-
-  return null;
-}
-
-/**
  * Extract activity data from Strava page HTML
  */
 async function extractActivityFromPage(input: string, env: Env): Promise<ExtractedActivity | { error: string }> {
@@ -278,12 +251,12 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
     // Extract time
     let timeSeconds: number | null = null;
     const timePatterns = [
-      // Primary: Target the Stat_statValue class after "Time" label
-      /<span[^>]*class="[^"]*Stat_statLabel[^"]*"[^>]*>Time<\/span>[^<]*<div[^>]*class="[^"]*Stat_statValue[^"]*"[^>]*>([0-9]+)h\s*([0-9]+)m\s*([0-9]+)s/is,
-      // Alternative: Just look for time in statValue
-      /Stat_statValue[^>]*>([0-9]+)h\s*([0-9]+)m\s*([0-9]+)s/i,
+      // Primary: Target the Stat_statValue class after "Time" label - flexible format
+      /<span[^>]*class="[^"]*Stat_statLabel[^"]*"[^>]*>Time<\/span>[^<]*<div[^>]*class="[^"]*Stat_statValue[^"]*"[^>]*>([^<]+)<\/div>/is,
+      // Alternative: Just look for time in statValue with flexible format
+      /Stat_statValue[^>]*>(?:([0-9]+)h\s*)?(?:([0-9]+)m\s*)?([0-9]+)s/i,
       // Fallback patterns
-      /([0-9]+)h\s*([0-9]+)m\s*([0-9]+)s/i,  // Match "9h 37m 44s" anywhere
+      /(?:([0-9]+)h\s*)?(?:([0-9]+)m\s*)?([0-9]+)s/i,  // Match flexible time format anywhere
       /Time:<\/strong>\s*([0-9:hms\s]+)/i,
       /Moving Time:<\/strong>\s*([0-9:hms\s]+)/i,
       /Elapsed Time:<\/strong>\s*([0-9:hms\s]+)/i,
@@ -294,15 +267,28 @@ async function extractActivityFromPage(input: string, env: Env): Promise<Extract
     for (const pattern of timePatterns) {
       const match = html.match(pattern);
       if (match) {
-        if (match.length > 3 && match[1] && match[2] && match[3]) {
-          // Format: 9h 37m 44s
-          timeSeconds = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]);
-        } else if (match[1] && match[1].match(/^\d+$/)) {
-          // Already in seconds
-          timeSeconds = parseInt(match[1]);
-        } else if (match[1]) {
-          // Try to parse time string
-          timeSeconds = parseTimeToSeconds(match[1]);
+        // First pattern returns full text like "58m 35s" or "3h 14m 36s"
+        if (match[0].includes('Stat_statValue') && match[1] && !match[2]) {
+          // Parse the flexible time string from first capture group
+          const timeStr = match[1].trim();
+          const timeMatch = timeStr.match(/(?:([0-9]+)h\s*)?(?:([0-9]+)m\s*)?([0-9]+)s/);
+          if (timeMatch) {
+            const hours = timeMatch[1] ? parseInt(timeMatch[1]) : 0;
+            const minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+            const seconds = timeMatch[3] ? parseInt(timeMatch[3]) : 0;
+            timeSeconds = hours * 3600 + minutes * 60 + seconds;
+          }
+        } else if (match.length > 1) {
+          // Handle patterns with optional capture groups
+          const hours = match[1] ? parseInt(match[1]) : 0;
+          const minutes = match[2] ? parseInt(match[2]) : 0;
+          const seconds = match[3] ? parseInt(match[3]) : 0;
+          if (hours > 0 || minutes > 0 || seconds > 0) {
+            timeSeconds = hours * 3600 + minutes * 60 + seconds;
+          } else if (match[1] && match[1].match(/^\d+$/)) {
+            // Already in seconds (from data-elapsed-time or JSON)
+            timeSeconds = parseInt(match[1]);
+          }
         }
         if (timeSeconds && timeSeconds > 0) break;
       }
