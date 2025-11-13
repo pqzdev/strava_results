@@ -340,16 +340,21 @@ https://www.strava.com/activities/16440077552
                       {loadingEvents ? (
                         <span className="loading-text">Loading events...</span>
                       ) : (
-                        <select
-                          value={activity.event_name || ''}
-                          onChange={(e) => updateActivity(index, { event_name: e.target.value || null })}
-                          className="field-select"
-                        >
-                          <option value="">-- Select Event --</option>
-                          {eventNames.map((name) => (
-                            <option key={name} value={name}>{name}</option>
-                          ))}
-                        </select>
+                        <>
+                          <input
+                            type="text"
+                            value={activity.event_name || ''}
+                            onChange={(e) => updateActivity(index, { event_name: e.target.value || null })}
+                            list={`event-list-${index}`}
+                            className="field-input"
+                            placeholder="Type or select event name..."
+                          />
+                          <datalist id={`event-list-${index}`}>
+                            {eventNames.map((name) => (
+                              <option key={name} value={name} />
+                            ))}
+                          </datalist>
+                        </>
                       )}
                     </div>
 
