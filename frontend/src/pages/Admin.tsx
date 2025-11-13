@@ -1573,13 +1573,7 @@ export default function Admin() {
               </tr>
             </thead>
             <tbody>
-              {manualSubmissions.map((submission) => {
-                const hasEdits =
-                  submission.edited_distance !== submission.original_distance ||
-                  submission.edited_time_seconds !== submission.original_time_seconds ||
-                  submission.edited_elevation_gain !== submission.original_elevation_gain;
-
-                return (
+              {manualSubmissions.map((submission) => (
                   <tr key={submission.id}>
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1695,8 +1689,7 @@ export default function Admin() {
                       </div>
                     </td>
                   </tr>
-                );
-              })}
+              ))}
             </tbody>
           </table>
         </div>
