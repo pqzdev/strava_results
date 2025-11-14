@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { FaEye, FaEyeSlash, FaCommentDots } from 'react-icons/fa';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaRegCommentDots } from 'react-icons/fa6';
 import './RaceTable.css';
 
 interface VisibilityToggleProps {
@@ -63,7 +64,7 @@ function DescriptionTooltip({ description }: DescriptionTooltipProps) {
 
   return (
     <div className="description-tooltip-wrapper">
-      <FaCommentDots className="description-icon" />
+      <FaRegCommentDots className="description-icon" />
       <div className="description-tooltip">
         {description}
       </div>
