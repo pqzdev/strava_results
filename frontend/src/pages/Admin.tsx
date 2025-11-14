@@ -187,6 +187,7 @@ export default function Admin() {
   const [newEventName, setNewEventName] = useState('');
   const [eventSortField, setEventSortField] = useState<EventSortField>('event_name');
   const [eventSortDirection, setEventSortDirection] = useState<EventSortDirection>('asc');
+  const [eventSearch, setEventSearch] = useState('');
   const PARKRUN_PAGE_SIZE = 50;
 
   // Get admin strava ID from localStorage
@@ -590,6 +591,11 @@ export default function Admin() {
       return;
     }
 
+    if (!newEventName.trim()) {
+      alert('Event name cannot be empty');
+      return;
+    }
+
     try {
       const response = await fetch('/api/events/rename', {
         method: 'POST',
@@ -604,8 +610,16 @@ export default function Admin() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to rename event');
+        // Try to parse error JSON, but handle empty response
+        let errorMessage = 'Failed to rename event';
+        try {
+          const error = await response.json();
+          errorMessage = error.error || errorMessage;
+        } catch (parseError) {
+          // If JSON parsing fails, use status text
+          errorMessage = `Failed to rename event: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -923,8 +937,12 @@ export default function Admin() {
     (parkrunPage + 1) * PARKRUN_PAGE_SIZE
   );
 
-  // Sort events
-  const sortedEvents = [...events].sort((a, b) => {
+  // Filter and sort events
+  const filteredEvents = events.filter(event =>
+    event.event_name.toLowerCase().includes(eventSearch.toLowerCase())
+  );
+
+  const sortedEvents = [...filteredEvents].sort((a, b) => {
     let comparison = 0;
     switch (eventSortField) {
       case 'event_name':
@@ -1261,13 +1279,38 @@ export default function Admin() {
               <div className="spinner"></div>
               <p>Loading events...</p>
             </div>
-          ) : sortedEvents.length === 0 ? (
-            <div className="empty-state">
-              <p>No events found</p>
-            </div>
           ) : (
-            <div className="admin-table-container">
-              <table className="admin-table">
+            <>
+              {/* Search bar */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <input
+                  type="text"
+                  placeholder="Search events by name..."
+                  value={eventSearch}
+                  onChange={(e) => setEventSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    maxWidth: '400px',
+                    padding: '0.75rem',
+                    fontSize: '1rem',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                  }}
+                />
+                {eventSearch && (
+                  <span style={{ marginLeft: '1rem', color: '#666' }}>
+                    {filteredEvents.length} of {events.length} events
+                  </span>
+                )}
+              </div>
+
+              {sortedEvents.length === 0 ? (
+                <div className="empty-state">
+                  <p>{eventSearch ? 'No events match your search' : 'No events found'}</p>
+                </div>
+              ) : (
+                <div className="admin-table-container">
+                  <table className="admin-table">
                 <thead>
                   <tr>
                     <th
@@ -1433,6 +1476,8 @@ export default function Admin() {
                 </tbody>
               </table>
             </div>
+              )}
+            </>
           )}
         </div>
       )}
