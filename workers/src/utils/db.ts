@@ -3,6 +3,53 @@
 import { Env, Athlete, Race, StravaActivity } from '../types';
 
 /**
+ * Detect if an activity is a parkrun based on multiple criteria:
+ * 1. Name contains parkrun keywords
+ * 2. Distance is ~5km (4.5-5.5km)
+ * 3. Start time is 7 AM, 8 AM, or 9 AM (-2 to +7 minutes tolerance)
+ */
+function isParkrunActivity(activity: StravaActivity): boolean {
+  // Name-based detection
+  const nameLower = activity.name.toLowerCase();
+  const hasKeyword = nameLower.includes('parkrun') ||
+                     nameLower.includes('park run') ||
+                     nameLower.includes('parkie') ||
+                     nameLower.includes('parky');
+
+  // Distance-based detection: 4500m to 5500m (5km ± 500m)
+  const isCorrectDistance = activity.distance >= 4500 && activity.distance <= 5500;
+
+  // Time-based detection: 7 AM, 8 AM, or 9 AM (-2 to +7 minutes)
+  let isCorrectTime = false;
+  try {
+    const startDate = new Date(activity.start_date_local);
+    const hours = startDate.getHours();
+    const minutes = startDate.getMinutes();
+
+    // Convert to total minutes since midnight
+    const totalMinutes = hours * 60 + minutes;
+
+    // Check if within parkrun time windows
+    // 7 AM: 06:58 to 07:07 (418-427 minutes)
+    // 8 AM: 07:58 to 08:07 (478-487 minutes)
+    // 9 AM: 08:58 to 09:07 (538-547 minutes)
+    const isParkrunTime = (
+      (totalMinutes >= 418 && totalMinutes <= 427) || // 7 AM window
+      (totalMinutes >= 478 && totalMinutes <= 487) || // 8 AM window
+      (totalMinutes >= 538 && totalMinutes <= 547)    // 9 AM window
+    );
+
+    isCorrectTime = isParkrunTime;
+  } catch (error) {
+    // If date parsing fails, skip time-based detection
+    console.warn(`Failed to parse date for activity ${activity.id}: ${error}`);
+  }
+
+  // Activity is a parkrun if it matches name OR (distance AND time)
+  return hasKeyword || (isCorrectDistance && isCorrectTime);
+}
+
+/**
  * Get athlete by Strava ID
  */
 export async function getAthleteByStravaId(
@@ -178,30 +225,36 @@ export async function insertRace(
     }
   }
 
-  // Look up event name from persistent mapping table (survives full syncs)
+  // Look up event name and visibility from persistent mapping table (survives full syncs)
   const eventMapping = await env.DB.prepare(
-    `SELECT event_name FROM activity_event_mappings
+    `SELECT event_name, is_hidden FROM activity_event_mappings
      WHERE strava_activity_id = ? AND athlete_id = ?`
   )
     .bind(activity.id, athleteId)
-    .first<{ event_name: string }>();
+    .first<{ event_name: string | null; is_hidden: number | null }>();
 
-  const eventName = eventMapping?.event_name || null;
+  let eventName = eventMapping?.event_name || null;
+  let isHidden = 0;
 
   if (eventName) {
     console.log(`Restored event name "${eventName}" for activity ${activity.id}`);
   }
 
-  // Auto-hide parkrun races (parkrun, park run, parkie, or parky in name)
-  const nameLower = activity.name.toLowerCase();
-  const isParkrun = nameLower.includes('parkrun') ||
-                    nameLower.includes('park run') ||
-                    nameLower.includes('parkie') ||
-                    nameLower.includes('parky');
-  const isHidden = isParkrun ? 1 : 0;
+  // Check if visibility was manually set (persisted in mapping table)
+  if (eventMapping?.is_hidden !== null && eventMapping?.is_hidden !== undefined) {
+    // Use the persisted value (user manually set this)
+    isHidden = eventMapping.is_hidden;
+    console.log(`Restored manual visibility setting for activity ${activity.id}: is_hidden=${isHidden}`);
+  } else {
+    // No manual setting - apply auto-detection for parkruns
+    const isParkrun = isParkrunActivity(activity);
+    isHidden = isParkrun ? 1 : 0;
 
-  if (isParkrun) {
-    console.log(`Auto-hiding parkrun activity: "${activity.name}" (ID: ${activity.id})`);
+    // Override event name for parkruns
+    if (isParkrun) {
+      eventName = 'parkrun';
+      console.log(`Detected parkrun activity: "${activity.name}" (ID: ${activity.id})`);
+    }
   }
 
   await env.DB.prepare(
