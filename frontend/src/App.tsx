@@ -8,6 +8,7 @@ const Home = lazy(() => import('./pages/Home'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Parkrun = lazy(() => import('./pages/Parkrun'));
 const Admin = lazy(() => import('./pages/Admin'));
+const EventsAdmin = lazy(() => import('./pages/EventsAdmin'));
 const SyncMonitor = lazy(() => import('./pages/SyncMonitor'));
 const Heatmap = lazy(() => import('./pages/Heatmap'));
 const SubmitActivities = lazy(() => import('./pages/SubmitActivities'));
@@ -46,6 +47,14 @@ function App() {
           element={
             <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
               <Admin />
+            </Suspense>
+          }
+        />
+        <Route
+          path="events-admin"
+          element={
+            <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
+              <EventsAdmin />
             </Suspense>
           }
         />
