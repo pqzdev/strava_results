@@ -26,12 +26,22 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
   const dateFrom = url.searchParams.get('date_from');
   const dateTo = url.searchParams.get('date_to');
   const distanceCategories = url.searchParams.getAll('distance'); // Get all distance category parameters
+  const viewerAthleteId = url.searchParams.get('viewer_athlete_id'); // Current user's strava_id
 
   // Legacy support for min/max distance
   const minDistanceParam = url.searchParams.get('min_distance');
   const maxDistanceParam = url.searchParams.get('max_distance');
   const minDistance = minDistanceParam ? parseFloat(minDistanceParam) : null;
   const maxDistance = maxDistanceParam ? parseFloat(maxDistanceParam) : null;
+
+  // Check if viewer is admin
+  let isViewerAdmin = false;
+  if (viewerAthleteId) {
+    const adminCheck = await env.DB.prepare(
+      'SELECT is_admin FROM athletes WHERE strava_id = ?'
+    ).bind(parseInt(viewerAthleteId)).first<{ is_admin: number }>();
+    isViewerAdmin = adminCheck?.is_admin === 1;
+  }
 
   try {
     // Build query with filters - JOIN with race_edits to get manual overrides
@@ -61,10 +71,20 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
       LEFT JOIN athletes a ON r.athlete_id = a.id
       LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
       WHERE (a.is_hidden = 0 OR a.id IS NULL)
-        AND r.is_hidden = 0
     `;
 
     const bindings: any[] = [];
+
+    // Filter hidden races: only show if viewer is owner or admin
+    if (!isViewerAdmin && viewerAthleteId) {
+      // Not admin: show visible races + own hidden races
+      query += ` AND (r.is_hidden = 0 OR a.strava_id = ?)`;
+      bindings.push(parseInt(viewerAthleteId));
+    } else if (!viewerAthleteId) {
+      // Anonymous: only show visible races
+      query += ` AND r.is_hidden = 0`;
+    }
+    // If viewer is admin: show all races (no additional filter)
 
     // Handle multiple athlete filters - match against full name
     if (athleteNames.length > 0) {
