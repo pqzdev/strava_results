@@ -16,6 +16,7 @@ interface Race {
   date: string;
   firstname: string;
   lastname: string;
+  is_hidden: number;
 }
 
 // Sydney coordinates for initial map center
@@ -92,8 +93,8 @@ export default function Heatmap() {
 
       console.log(`Fetched ${races.length} races`);
 
-      // Filter races with polylines (all locations)
-      const racesWithPolylines = races.filter((race) => race.polyline);
+      // Filter out hidden races and keep only races with polylines
+      const racesWithPolylines = races.filter((race) => race.polyline && !race.is_hidden);
       console.log(`${racesWithPolylines.length} races have polylines`);
 
       // Log sample of races with polylines to see geographic distribution
