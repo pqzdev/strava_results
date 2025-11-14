@@ -67,12 +67,6 @@ export default function Layout() {
                   >
                     Admin
                   </Link>
-                  <Link
-                    to="/events-admin"
-                    className={`nav-link ${location.pathname === '/events-admin' ? 'active' : ''}`}
-                  >
-                    Events
-                  </Link>
                 </>
               )}
             </nav>

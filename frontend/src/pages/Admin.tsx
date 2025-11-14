@@ -40,6 +40,13 @@ interface EventSuggestion {
   reviewed_by?: number;
 }
 
+interface EventStats {
+  event_name: string;
+  dates: string[];
+  distances: number[];
+  activity_count: number;
+}
+
 interface QueueStats {
   pending: number;
   processing: number;
@@ -82,7 +89,10 @@ type SortDirection = 'asc' | 'desc';
 type ParkrunSortField = 'name' | 'runs' | 'events';
 type ParkrunSortDirection = 'asc' | 'desc';
 
-type AdminTab = 'athletes' | 'parkrun' | 'events' | 'submissions';
+type AdminTab = 'athletes' | 'parkrun' | 'event-suggestions' | 'events' | 'submissions';
+
+type EventSortField = 'event_name' | 'activity_count' | 'dates' | 'distances';
+type EventSortDirection = 'asc' | 'desc';
 
 /**
  * Format time in seconds to HH:MM:SS
@@ -110,6 +120,33 @@ function parseTime(timeStr: string): number | null {
   }
 
   return null;
+}
+
+/**
+ * Format distance to friendly names (5k, 10k, HM, Marathon) or meters
+ */
+function formatDistance(meters: number): string {
+  const km = meters / 1000;
+  const tolerance = 0.02;
+
+  if (Math.abs(km - 5) / 5 < tolerance) return '5k';
+  if (Math.abs(km - 10) / 10 < tolerance) return '10k';
+  if (Math.abs(km - 21.1) / 21.1 < tolerance) return 'HM';
+  if (Math.abs(km - 42.2) / 42.2 < tolerance) return 'Marathon';
+
+  return `${km.toFixed(1)}km`;
+}
+
+/**
+ * Format date string to readable format
+ */
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 export default function Admin() {
@@ -145,6 +182,11 @@ export default function Admin() {
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [loadingApproved, setLoadingApproved] = useState(false);
   const [submissionEventNames, setSubmissionEventNames] = useState<string[]>([]);
+  const [events, setEvents] = useState<EventStats[]>([]);
+  const [editingEvent, setEditingEvent] = useState<string | null>(null);
+  const [newEventName, setNewEventName] = useState('');
+  const [eventSortField, setEventSortField] = useState<EventSortField>('event_name');
+  const [eventSortDirection, setEventSortDirection] = useState<EventSortDirection>('asc');
   const PARKRUN_PAGE_SIZE = 50;
 
   // Get admin strava ID from localStorage
@@ -156,6 +198,7 @@ export default function Admin() {
     fetchAthletes();
     fetchParkrunAthletes();
     fetchEventSuggestions();
+    fetchEvents();
     fetchQueueStats();
     fetchManualSubmissions();
     fetchApprovedSubmissions();
@@ -240,6 +283,16 @@ export default function Admin() {
       setEventSuggestions(uniqueSuggestions);
     } catch (err) {
       console.error('Error fetching event suggestions:', err);
+    }
+  };
+
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch('/api/events/stats');
+      const data = await response.json();
+      setEvents(data.events || []);
+    } catch (error) {
+      console.error('Failed to fetch events:', error);
     }
   };
 
@@ -486,6 +539,88 @@ export default function Admin() {
       alert(err instanceof Error ? err.message : 'Failed to trigger event analysis');
       setAnalyzingEvents(false);
     }
+  };
+
+  const handleBulkHideEvent = async (eventName: string, activityCount: number) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to hide all ${activityCount} activities for "${eventName}"?\n\nThis action will hide all activities with this event name. You can unhide them individually later if needed.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch('/api/races/bulk-edit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          admin_strava_id: currentAthleteId,
+          filters: {
+            eventNames: [eventName],
+          },
+          updates: {
+            is_hidden: true,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to hide activities');
+      }
+
+      const result = await response.json();
+      alert(result.message);
+      fetchEvents(); // Refresh the list
+    } catch (error) {
+      console.error('Error hiding activities:', error);
+      alert(error instanceof Error ? error.message : 'Failed to hide activities');
+    }
+  };
+
+  const handleEditEventName = (eventName: string) => {
+    setEditingEvent(eventName);
+    setNewEventName(eventName);
+  };
+
+  const handleSaveEventName = async (oldEventName: string) => {
+    if (newEventName.trim() === oldEventName) {
+      setEditingEvent(null);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/events/rename', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          admin_strava_id: currentAthleteId,
+          old_name: oldEventName,
+          new_name: newEventName.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to rename event');
+      }
+
+      const result = await response.json();
+      alert(result.message);
+      setEditingEvent(null);
+      fetchEvents(); // Refresh the list
+    } catch (error) {
+      console.error('Error renaming event:', error);
+      alert(error instanceof Error ? error.message : 'Failed to rename event');
+    }
+  };
+
+  const handleCancelEventEdit = () => {
+    setEditingEvent(null);
+    setNewEventName('');
   };
 
   const updateAthleteField = async (
@@ -788,6 +923,34 @@ export default function Admin() {
     (parkrunPage + 1) * PARKRUN_PAGE_SIZE
   );
 
+  // Sort events
+  const sortedEvents = [...events].sort((a, b) => {
+    let comparison = 0;
+    switch (eventSortField) {
+      case 'event_name':
+        comparison = a.event_name.localeCompare(b.event_name);
+        break;
+      case 'activity_count':
+        comparison = a.activity_count - b.activity_count;
+        break;
+      case 'dates':
+        // Sort by most recent date (first date in array)
+        const aDate = a.dates.length > 0 ? new Date(a.dates[a.dates.length - 1]).getTime() : 0;
+        const bDate = b.dates.length > 0 ? new Date(b.dates[b.dates.length - 1]).getTime() : 0;
+        comparison = bDate - aDate;
+        break;
+      case 'distances':
+        // Sort by average distance
+        const aAvg = a.distances.length > 0 ? a.distances.reduce((sum, d) => sum + d, 0) / a.distances.length : 0;
+        const bAvg = b.distances.length > 0 ? b.distances.reduce((sum, d) => sum + d, 0) / b.distances.length : 0;
+        comparison = aAvg - bAvg;
+        break;
+      default:
+        comparison = 0;
+    }
+    return eventSortDirection === 'asc' ? comparison : -comparison;
+  });
+
   const parkrunTotalPages = Math.ceil(filteredParkrunAthletes.length / PARKRUN_PAGE_SIZE);
 
   if (loading) {
@@ -836,6 +999,12 @@ export default function Admin() {
         <button
           className={`admin-tab ${activeTab === 'events' ? 'active' : ''}`}
           onClick={() => setActiveTab('events')}
+        >
+          📅 Events
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'event-suggestions' ? 'active' : ''}`}
+          onClick={() => setActiveTab('event-suggestions')}
         >
           🤖 AI Events
         </button>
@@ -1079,8 +1248,197 @@ export default function Admin() {
         </div>
       )}
 
-      {/* AI Events Tab */}
+      {/* Events Management Tab */}
       {activeTab === 'events' && (
+        <div className="tab-content">
+          <div className="admin-header">
+            <h2>Events Management</h2>
+            <p className="subtitle">Manage event names, dates, distances, and bulk operations</p>
+          </div>
+
+          {loading ? (
+            <div className="loading">
+              <div className="spinner"></div>
+              <p>Loading events...</p>
+            </div>
+          ) : sortedEvents.length === 0 ? (
+            <div className="empty-state">
+              <p>No events found</p>
+            </div>
+          ) : (
+            <div className="admin-table-container">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th
+                      onClick={() => {
+                        if (eventSortField === 'event_name') {
+                          setEventSortDirection(eventSortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setEventSortField('event_name');
+                          setEventSortDirection('asc');
+                        }
+                      }}
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      Event Name {eventSortField === 'event_name' && (eventSortDirection === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th
+                      onClick={() => {
+                        if (eventSortField === 'activity_count') {
+                          setEventSortDirection(eventSortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setEventSortField('activity_count');
+                          setEventSortDirection('desc');
+                        }
+                      }}
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      Activities {eventSortField === 'activity_count' && (eventSortDirection === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th
+                      onClick={() => {
+                        if (eventSortField === 'dates') {
+                          setEventSortDirection(eventSortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setEventSortField('dates');
+                          setEventSortDirection('desc');
+                        }
+                      }}
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      Dates {eventSortField === 'dates' && (eventSortDirection === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th
+                      onClick={() => {
+                        if (eventSortField === 'distances') {
+                          setEventSortDirection(eventSortDirection === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setEventSortField('distances');
+                          setEventSortDirection('asc');
+                        }
+                      }}
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      Distances {eventSortField === 'distances' && (eventSortDirection === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedEvents.map((event) => (
+                    <tr key={event.event_name}>
+                      <td>
+                        {editingEvent === event.event_name ? (
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <input
+                              type="text"
+                              value={newEventName}
+                              onChange={(e) => setNewEventName(e.target.value)}
+                              style={{
+                                padding: '0.5rem',
+                                border: '1px solid #ccc',
+                                borderRadius: '4px',
+                                fontSize: '14px',
+                                flex: 1,
+                              }}
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleSaveEventName(event.event_name)}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                backgroundColor: '#fc4c02',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                              }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={handleCancelEventEdit}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                backgroundColor: '#6c757d',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <strong>{event.event_name}</strong>
+                        )}
+                      </td>
+                      <td className="number-cell">{event.activity_count}</td>
+                      <td>
+                        <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
+                          {event.dates.map((date, idx) => (
+                            <div key={idx}>{formatDate(date)}</div>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
+                          {event.distances.map((distance, idx) => (
+                            <div key={idx}>{formatDistance(distance)}</div>
+                          ))}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          {editingEvent !== event.event_name && (
+                            <>
+                              <button
+                                onClick={() => handleEditEventName(event.event_name)}
+                                style={{
+                                  padding: '0.5rem 1rem',
+                                  backgroundColor: '#007bff',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '14px',
+                                }}
+                              >
+                                Rename
+                              </button>
+                              <button
+                                onClick={() => handleBulkHideEvent(event.event_name, event.activity_count)}
+                                style={{
+                                  padding: '0.5rem 1rem',
+                                  backgroundColor: '#dc3545',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '14px',
+                                }}
+                              >
+                                Hide All
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* AI Event Suggestions Tab */}
+      {activeTab === 'event-suggestions' && (
         <div className="tab-content">
           <div className="admin-header">
             <h2>AI Event Classification</h2>
