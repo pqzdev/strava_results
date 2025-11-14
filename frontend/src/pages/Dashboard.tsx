@@ -166,6 +166,11 @@ export default function Dashboard() {
       params.set('limit', pagination.limit.toString());
       params.set('offset', pagination.offset.toString());
 
+      // Pass current viewer's athlete_id to show their hidden races
+      if (currentAthleteId) {
+        params.set('viewer_athlete_id', currentAthleteId.toString());
+      }
+
       // Handle multi-select athletes filter
       filters.athletes.forEach(athlete => params.append('athlete', athlete));
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import './RaceTable.css';
 
 interface VisibilityToggleProps {
@@ -37,14 +38,16 @@ function VisibilityToggle({ race, isOwner, onToggle }: VisibilityToggleProps) {
         border: '1px solid #ddd',
         borderRadius: '4px',
         cursor: isToggling ? 'wait' : 'pointer',
-        fontSize: '0.75rem',
+        fontSize: '1rem',
         padding: '0.25rem 0.5rem',
         opacity: isToggling ? 0.5 : 1,
         color: isHidden ? '#999' : '#333',
-        fontWeight: 500,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
-      {isHidden ? 'Hidden' : 'Visible'}
+      {isHidden ? <FaEyeSlash /> : <FaEye />}
     </button>
   );
 }
