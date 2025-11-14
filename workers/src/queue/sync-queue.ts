@@ -14,18 +14,31 @@ import {
 import { logSyncProgress } from '../utils/sync-logger';
 
 /**
- * Optimized insert race function for full syncs - skips polyline fetching to avoid API rate limits
+ * Optimized insert race function - batches event name lookups but still fetches detailed polylines
  */
 async function insertRaceOptimized(
   athleteId: number,
   activity: StravaActivity,
   env: Env,
-  eventName: string | null
+  eventName: string | null,
+  accessToken?: string
 ): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
 
-  // Use summary polyline from activity list (don't fetch detailed polyline to save API calls)
-  const polyline = activity.map?.summary_polyline || null;
+  // Try to get detailed polyline for races (we want high quality for race maps)
+  let polyline = activity.map?.summary_polyline || null;
+
+  // If no summary polyline and we have access token, fetch detailed activity
+  if (!polyline && accessToken) {
+    const { fetchDetailedPolyline } = await import('../utils/strava');
+    console.log(
+      `No summary polyline for activity ${activity.id}, fetching detailed polyline...`
+    );
+    polyline = await fetchDetailedPolyline(activity.id, accessToken);
+    if (polyline) {
+      console.log(`Successfully fetched detailed polyline for activity ${activity.id}`);
+    }
+  }
 
   // Auto-hide parkrun races
   const nameLower = activity.name.toLowerCase();
@@ -34,6 +47,10 @@ async function insertRaceOptimized(
                     nameLower.includes('parkie') ||
                     nameLower.includes('parky');
   const isHidden = isParkrun ? 1 : 0;
+
+  if (isParkrun) {
+    console.log(`Auto-hiding parkrun activity: "${activity.name}" (ID: ${activity.id})`);
+  }
 
   await env.DB.prepare(
     `INSERT INTO races (
@@ -372,11 +389,11 @@ async function syncAthleteInternal(
         }
       }
 
-      // OPTIMIZED: Insert races without fetching polylines (too many API calls)
-      // Polylines are available in the summary data from activities list
+      // OPTIMIZED: Insert races with batch event name lookups
+      // Still fetches detailed polylines for races that need them
       for (const race of races) {
         try {
-          await insertRaceOptimized(athlete.id, race, env, eventMappings.get(race.id) || null);
+          await insertRaceOptimized(athlete.id, race, env, eventMappings.get(race.id) || null, accessToken);
           newRacesAdded++;
           console.log(`Inserted race: ${race.name} (ID: ${race.id})`);
         } catch (error) {
@@ -451,7 +468,7 @@ async function syncAthleteInternal(
         // Insert only the races that don't exist (using optimized insert)
         for (const race of races) {
           if (!existingIdsSet.has(race.id)) {
-            await insertRaceOptimized(athlete.id, race, env, eventMappings.get(race.id) || null);
+            await insertRaceOptimized(athlete.id, race, env, eventMappings.get(race.id) || null, accessToken);
             newRacesAdded++;
           }
         }
