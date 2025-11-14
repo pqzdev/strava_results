@@ -88,7 +88,6 @@ interface Race {
   max_heartrate?: number;
   athlete_id: number;
   is_hidden?: number;
-  description?: string;
   firstname: string;
   lastname: string;
   profile_photo?: string;
