@@ -52,6 +52,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
         r.max_heartrate,
         r.polyline,
         r.athlete_id,
+        r.is_hidden,
         a.firstname,
         a.lastname,
         a.profile_photo,
@@ -60,6 +61,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
       LEFT JOIN athletes a ON r.athlete_id = a.id
       LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
       WHERE (a.is_hidden = 0 OR a.id IS NULL)
+        AND r.is_hidden = 0
     `;
 
     const bindings: any[] = [];
@@ -614,6 +616,84 @@ export async function updateRaceEvent(
     console.error('Error updating race event:', error);
     return new Response(
       JSON.stringify({ error: 'Failed to update race event' }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+}
+
+/**
+ * PATCH /api/races/:id/visibility - Toggle race visibility (hide/show)
+ */
+export async function updateRaceVisibility(
+  request: Request,
+  env: Env,
+  raceId: number
+): Promise<Response> {
+  try {
+    const body = await request.json() as { is_hidden: boolean; athlete_strava_id: number };
+
+    // Verify the athlete owns this race
+    const race = await env.DB.prepare(
+      `SELECT r.athlete_id, r.strava_activity_id, a.strava_id
+       FROM races r
+       JOIN athletes a ON r.athlete_id = a.id
+       WHERE r.id = ?`
+    )
+      .bind(raceId)
+      .first<{ athlete_id: number; strava_activity_id: number; strava_id: number }>();
+
+    if (!race) {
+      return new Response(
+        JSON.stringify({ error: 'Race not found' }),
+        {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Check if the user is an admin
+    const requestingAthlete = await env.DB.prepare(
+      'SELECT is_admin FROM athletes WHERE strava_id = ?'
+    ).bind(body.athlete_strava_id).first<{ is_admin: number }>();
+
+    const isAdmin = requestingAthlete?.is_admin === 1;
+
+    // Verify athlete owns this race OR is an admin
+    if (!isAdmin && race.strava_id !== body.athlete_strava_id) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: You can only hide your own races' }),
+        {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Update visibility in races table
+    await env.DB.prepare(
+      `UPDATE races SET is_hidden = ? WHERE id = ?`
+    )
+      .bind(body.is_hidden ? 1 : 0, raceId)
+      .run();
+
+    return new Response(
+      JSON.stringify({ success: true, is_hidden: body.is_hidden }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error updating race visibility:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to update race visibility' }),
       {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
