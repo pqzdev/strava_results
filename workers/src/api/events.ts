@@ -67,12 +67,22 @@ export async function getEventStats(request: Request, env: Env): Promise<Respons
       ORDER BY r.event_name ASC
     `).all();
 
-    const events = result.results.map((row: any) => ({
-      event_name: row.event_name,
-      dates: row.dates ? row.dates.split(',').filter((d: string) => d) : [],
-      distances: row.distances ? row.distances.split(',').map((d: string) => parseInt(d)).filter((d: number) => !isNaN(d)) : [],
-      activity_count: row.activity_count || 0,
-    }));
+    const events = result.results.map((row: any) => {
+      // Parse and deduplicate dates
+      const datesArray = row.dates ? row.dates.split(',').filter((d: string) => d) : [];
+      const uniqueDates = [...new Set(datesArray)];
+
+      // Parse and deduplicate distances
+      const distancesArray = row.distances ? row.distances.split(',').map((d: string) => parseInt(d)).filter((d: number) => !isNaN(d)) : [];
+      const uniqueDistances = [...new Set(distancesArray)];
+
+      return {
+        event_name: row.event_name,
+        dates: uniqueDates,
+        distances: uniqueDistances,
+        activity_count: row.activity_count || 0,
+      };
+    });
 
     return new Response(JSON.stringify({ events }), {
       status: 200,
