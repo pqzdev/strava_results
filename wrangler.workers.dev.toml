@@ -5,7 +5,7 @@ compatibility_date = "2024-11-10"
 [dev]
 port = 8787
 
-# D1 Database binding (using same database for now - consider creating a dev database)
+# D1 Database binding (using same database for now)
 [[d1_databases]]
 binding = "DB"
 database_name = "strava-club-db"
@@ -16,15 +16,11 @@ migrations_dir = "database/migrations"
 [ai]
 binding = "AI"
 
-# No cron triggers for dev environment to avoid conflicts with production
-
-# Environment variables (secrets set via wrangler secret put --env dev)
-# STRAVA_CLIENT_ID - set via: wrangler secret put STRAVA_CLIENT_ID --env dev
-# STRAVA_CLIENT_SECRET - set via: wrangler secret put STRAVA_CLIENT_SECRET --env dev
+# No cron triggers for dev environment
 
 [vars]
 STRAVA_REDIRECT_URI = "https://strava-club-workers-dev.pedroqueiroz.workers.dev/auth/callback"
-STRAVA_CLUB_ID = "4497" # Woodstock Runners club ID
+STRAVA_CLUB_ID = "4497"
 
 [observability]
 [observability.logs]

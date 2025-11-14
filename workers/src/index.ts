@@ -172,6 +172,18 @@ export default {
         );
       }
 
+      // Manual queue processor trigger (for testing in dev)
+      if (path === '/api/queue/process' && request.method === 'POST') {
+        await processNextQueuedJob(env, ctx);
+        return new Response(
+          JSON.stringify({ message: 'Queue processor triggered' }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
       // Parkrun API routes
       if (path === '/api/parkrun' && request.method === 'GET') {
         return getParkrunResults(request, env);
