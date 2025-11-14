@@ -99,7 +99,7 @@ export async function raceExists(
 /**
  * Fetch detailed activity from Strava to get full polyline and description
  */
-async function fetchDetailedActivity(
+export async function fetchDetailedActivity(
   activityId: number,
   accessToken: string
 ): Promise<{ polyline: string | null; description: string | null }> {

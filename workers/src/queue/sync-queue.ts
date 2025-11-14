@@ -4,6 +4,7 @@ import { Env } from '../types';
 import {
   getAthleteByStravaId,
   insertRace,
+  fetchDetailedActivity,
 } from '../utils/db';
 import {
   ensureValidToken,
@@ -14,7 +15,8 @@ import {
 import { logSyncProgress } from '../utils/sync-logger';
 
 /**
- * Optimized insert race function - batches event name lookups but still fetches detailed polylines
+ * Optimized insert race function - batches event name lookups
+ * For races (activities without polylines), fetches detailed info including description
  */
 async function insertRaceOptimized(
   athleteId: number,
@@ -25,18 +27,26 @@ async function insertRaceOptimized(
 ): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
 
-  // Try to get detailed polyline for races (we want high quality for race maps)
+  // Fetch detailed activity info (polyline and description) from Strava
   let polyline = activity.map?.summary_polyline || null;
+  let description = null;
 
   // If no summary polyline and we have access token, fetch detailed activity
+  // This gets both the full polyline and description for race activities
   if (!polyline && accessToken) {
-    const { fetchDetailedPolyline } = await import('../utils/strava');
     console.log(
-      `No summary polyline for activity ${activity.id}, fetching detailed polyline...`
+      `No summary polyline for activity ${activity.id}, fetching detailed activity...`
     );
-    polyline = await fetchDetailedPolyline(activity.id, accessToken);
-    if (polyline) {
+    const detailed = await fetchDetailedActivity(activity.id, accessToken);
+
+    if (detailed.polyline) {
+      polyline = detailed.polyline;
       console.log(`Successfully fetched detailed polyline for activity ${activity.id}`);
+    }
+
+    if (detailed.description) {
+      description = detailed.description;
+      console.log(`Successfully fetched description for activity ${activity.id}`);
     }
   }
 
@@ -72,7 +82,7 @@ async function insertRaceOptimized(
       polyline,
       eventName,
       isHidden,
-      activity.description || null,
+      description,
       now
     )
     .run();
