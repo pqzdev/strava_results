@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './Admin.css';
+import { ApiCommandCard } from '../components/ApiCommandCard';
+import { API_COMMANDS, API_CATEGORIES } from '../config/apiCommands';
 
 interface AdminAthlete {
   id: number;
@@ -90,7 +92,7 @@ type SortDirection = 'asc' | 'desc';
 type ParkrunSortField = 'name' | 'runs' | 'events';
 type ParkrunSortDirection = 'asc' | 'desc';
 
-type AdminTab = 'athletes' | 'parkrun' | 'event-suggestions' | 'events' | 'submissions';
+type AdminTab = 'athletes' | 'parkrun' | 'event-suggestions' | 'events' | 'submissions' | 'api-control';
 
 type EventSortField = 'event_name' | 'activity_count' | 'dates' | 'distances';
 type EventSortDirection = 'asc' | 'desc';
@@ -190,6 +192,10 @@ export default function Admin() {
   const [eventSortDirection, setEventSortDirection] = useState<EventSortDirection>('asc');
   const [eventSearch, setEventSearch] = useState('');
   const PARKRUN_PAGE_SIZE = 50;
+
+  // API Control tab state
+  const [apiSearch, setApiSearch] = useState('');
+  const [apiCategory, setApiCategory] = useState<string>('all');
 
   // Get admin strava ID from localStorage
   const currentAthleteId = parseInt(
@@ -1032,6 +1038,12 @@ export default function Admin() {
           onClick={() => setActiveTab('submissions')}
         >
           📝 Manual Submissions {manualSubmissions.length > 0 && `(${manualSubmissions.length})`}
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'api-control' ? 'active' : ''}`}
+          onClick={() => setActiveTab('api-control')}
+        >
+          ⚙️ API Control
         </button>
       </div>
 
@@ -2340,6 +2352,136 @@ export default function Admin() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* API Control Tab */}
+      {activeTab === 'api-control' && (
+        <div className="tab-content">
+          <div className="admin-header">
+            <h2>⚙️ API Control Panel</h2>
+            <p className="subtitle">Execute API commands directly from the admin panel</p>
+          </div>
+
+          {/* Filters */}
+          <div style={{ marginBottom: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1', minWidth: '250px' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+                Search Commands
+              </label>
+              <input
+                type="text"
+                placeholder="Search by name or description..."
+                value={apiSearch}
+                onChange={(e) => setApiSearch(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  fontSize: '1rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                }}
+              />
+            </div>
+            <div style={{ minWidth: '200px' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+                Category
+              </label>
+              <select
+                value={apiCategory}
+                onChange={(e) => setApiCategory(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  fontSize: '1rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                }}
+              >
+                <option value="all">All Categories</option>
+                {API_CATEGORIES.map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Commands Grid */}
+          {(() => {
+            // Filter commands by search and category
+            const filteredCommands = API_COMMANDS.filter(cmd => {
+              const matchesSearch = apiSearch === '' ||
+                cmd.name.toLowerCase().includes(apiSearch.toLowerCase()) ||
+                cmd.description.toLowerCase().includes(apiSearch.toLowerCase());
+              const matchesCategory = apiCategory === 'all' || cmd.category === apiCategory;
+              return matchesSearch && matchesCategory;
+            });
+
+            // Group by category
+            const commandsByCategory = filteredCommands.reduce((acc, cmd) => {
+              if (!acc[cmd.category]) {
+                acc[cmd.category] = [];
+              }
+              acc[cmd.category].push(cmd);
+              return acc;
+            }, {} as Record<string, typeof API_COMMANDS>);
+
+            const apiUrl = window.location.origin;
+
+            if (filteredCommands.length === 0) {
+              return (
+                <div style={{
+                  padding: '2rem',
+                  textAlign: 'center',
+                  backgroundColor: '#f9fafb',
+                  borderRadius: '8px',
+                  color: '#6b7280',
+                }}>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}>
+                    No commands match your search criteria
+                  </p>
+                </div>
+              );
+            }
+
+            return Object.entries(commandsByCategory).map(([categoryId, commands]) => {
+              const category = API_CATEGORIES.find(c => c.id === categoryId);
+              return (
+                <div key={categoryId} style={{ marginBottom: '2rem' }}>
+                  <h3 style={{
+                    fontSize: '1.2rem',
+                    fontWeight: 600,
+                    marginBottom: '0.5rem',
+                    color: '#1f2937',
+                  }}>
+                    {category?.label || categoryId}
+                  </h3>
+                  <p style={{
+                    fontSize: '0.9rem',
+                    color: '#6b7280',
+                    marginBottom: '1rem',
+                  }}>
+                    {category?.description}
+                  </p>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))',
+                    gap: '1rem',
+                  }}>
+                    {commands.map(cmd => (
+                      <ApiCommandCard
+                        key={cmd.id}
+                        command={cmd}
+                        apiUrl={apiUrl}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
     </div>
