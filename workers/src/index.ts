@@ -10,6 +10,7 @@ import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames } from './api/events';
 import { backfillPolylines } from './api/polyline-backfill';
 import { extractActivities, submitActivities, getManualSubmissions, updateSubmission, approveSubmission, rejectSubmission, deleteSubmission } from './api/manual-submissions';
+import { googleLogin, googleCallback, logout, getCurrentAdmin } from './api/google-auth';
 import {
   processNextQueuedJob,
   createSyncJob,
@@ -39,7 +40,7 @@ export default {
 
     // Route handlers
     try {
-      // OAuth routes
+      // Strava OAuth routes
       if (path === '/auth/authorize' && request.method === 'GET') {
         return handleAuthorize(env);
       }
@@ -50,6 +51,23 @@ export default {
 
       if (path === '/auth/disconnect' && request.method === 'DELETE') {
         return handleDisconnect(request, env);
+      }
+
+      // Google OAuth routes (Admin login)
+      if (path === '/auth/google/login' && request.method === 'GET') {
+        return googleLogin(request, env);
+      }
+
+      if (path === '/auth/google/callback' && request.method === 'GET') {
+        return googleCallback(request, env);
+      }
+
+      if (path === '/auth/logout' && request.method === 'POST') {
+        return logout(request);
+      }
+
+      if (path === '/auth/me' && request.method === 'GET') {
+        return getCurrentAdmin(request, env);
       }
 
       // API routes

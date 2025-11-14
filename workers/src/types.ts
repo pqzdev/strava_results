@@ -7,6 +7,8 @@ export interface Env {
   STRAVA_CLIENT_SECRET: string;
   STRAVA_REDIRECT_URI: string;
   STRAVA_CLUB_ID: string;
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
 }
 
 export interface Athlete {
