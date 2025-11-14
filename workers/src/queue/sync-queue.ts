@@ -62,7 +62,7 @@ async function insertRaceOptimized(
   }
 
   await env.DB.prepare(
-    `INSERT INTO races (
+    `INSERT OR REPLACE INTO races (
       athlete_id, strava_activity_id, name, distance, elapsed_time,
       moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, event_name, is_hidden, description, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
