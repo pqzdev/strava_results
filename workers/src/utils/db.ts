@@ -169,11 +169,22 @@ export async function insertRace(
     console.log(`Restored event name "${eventName}" for activity ${activity.id}`);
   }
 
+  // Auto-hide parkrun races (parkrun, park run, or parkie in name)
+  const nameLower = activity.name.toLowerCase();
+  const isParkrun = nameLower.includes('parkrun') ||
+                    nameLower.includes('park run') ||
+                    nameLower.includes('parkie');
+  const isHidden = isParkrun ? 1 : 0;
+
+  if (isParkrun) {
+    console.log(`Auto-hiding parkrun activity: "${activity.name}" (ID: ${activity.id})`);
+  }
+
   await env.DB.prepare(
     `INSERT INTO races (
       athlete_id, strava_activity_id, name, distance, elapsed_time,
-      moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, event_name, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, event_name, is_hidden, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       athleteId,
@@ -188,6 +199,7 @@ export async function insertRace(
       activity.max_heartrate || null,
       polyline,
       eventName,
+      isHidden,
       now
     )
     .run();
