@@ -83,11 +83,11 @@ export default function Home() {
             {stats ? (
               <>
                 <div className="stat-card">
-                  <div className="stat-value">{stats.athletes}</div>
+                  <div className="stat-value">{stats.athletes.toLocaleString()}</div>
                   <div className="stat-label">woodies</div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-value">{stats.total_races}</div>
+                  <div className="stat-value">{stats.total_races.toLocaleString()}</div>
                   <div className="stat-label">races</div>
                 </div>
                 <div className="stat-card stat-card-km">
@@ -124,15 +124,15 @@ export default function Home() {
             {stats ? (
               <>
                 <div className="stat-card">
-                  <div className="stat-value">{stats.parkrun_athletes}</div>
+                  <div className="stat-value">{stats.parkrun_athletes.toLocaleString()}</div>
                   <div className="stat-label">parkrunners</div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-value">{stats.parkrun_results}</div>
+                  <div className="stat-value">{stats.parkrun_results.toLocaleString()}</div>
                   <div className="stat-label">parkruns</div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-value">{stats.parkrun_events}</div>
+                  <div className="stat-value">{stats.parkrun_events.toLocaleString()}</div>
                   <div className="stat-label">distinct events</div>
                 </div>
               </>

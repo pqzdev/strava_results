@@ -9,6 +9,7 @@ interface Race {
   id: number;
   strava_activity_id: number;
   name: string;
+  description?: string;
   distance: number;
   elapsed_time: number;
   moving_time: number;
@@ -20,6 +21,7 @@ interface Race {
   average_heartrate?: number;
   max_heartrate?: number;
   athlete_id: number;
+  is_hidden?: number;
   firstname: string;
   lastname: string;
   profile_photo?: string;
@@ -375,18 +377,38 @@ export default function Dashboard() {
               <span className="results-count">
                 Showing {pagination.offset + 1}-{Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} race{pagination.total !== 1 ? 's' : ''}
               </span>
-              <div className="per-page-selector">
-                <label htmlFor="racesPerPage">Per page:</label>
-                <select
-                  id="racesPerPage"
-                  value={pagination.limit}
-                  onChange={(e) => handleLimitChange(Number(e.target.value))}
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                {isAdmin && pagination.total > 0 && (
+                  <button
+                    onClick={() => setShowBulkEditModal(true)}
+                    className="button button-secondary"
+                    style={{
+                      padding: '0.5rem 1rem',
+                      fontSize: '14px',
+                      backgroundColor: '#fc4c02',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                    }}
+                  >
+                    Bulk Edit
+                  </button>
+                )}
+                <div className="per-page-selector">
+                  <label htmlFor="racesPerPage">Per page:</label>
+                  <select
+                    id="racesPerPage"
+                    value={pagination.limit}
+                    onChange={(e) => handleLimitChange(Number(e.target.value))}
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
               </div>
             </div>
             <RaceTable

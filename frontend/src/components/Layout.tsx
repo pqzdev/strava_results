@@ -53,6 +53,12 @@ export default function Layout() {
               >
                 Parkrun
               </Link>
+              <Link
+                to="/heatmap"
+                className={`nav-link ${location.pathname === '/heatmap' ? 'active' : ''}`}
+              >
+                Heatmap
+              </Link>
               {isAdmin && (
                 <Link
                   to="/admin"

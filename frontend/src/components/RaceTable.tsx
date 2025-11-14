@@ -56,6 +56,7 @@ interface Race {
   id: number;
   strava_activity_id: number;
   name: string;
+  description?: string;
   distance: number;
   elapsed_time: number;
   moving_time: number;
@@ -785,14 +786,30 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                 />
               </td>
               <td>
-                <a
-                  href={`https://www.strava.com/activities/${race.strava_activity_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="activity-link"
-                >
-                  {race.name}
-                </a>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <a
+                    href={`https://www.strava.com/activities/${race.strava_activity_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="activity-link"
+                  >
+                    {race.name}
+                  </a>
+                  {race.description && (
+                    <span
+                      className="description-icon"
+                      title={race.description}
+                      style={{
+                        cursor: 'help',
+                        fontSize: '14px',
+                        color: '#666',
+                        flexShrink: 0,
+                      }}
+                    >
+                      ℹ️
+                    </span>
+                  )}
+                </div>
               </td>
               <td>
                 <EditableDistance
