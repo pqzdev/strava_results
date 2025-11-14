@@ -57,7 +57,7 @@ export default function Layout() {
                 to="/submit-activities"
                 className={`nav-link nav-link-button ${location.pathname.startsWith('/submit-activities') ? 'active' : ''}`}
               >
-                Submit Activities
+                Submit Results
               </Link>
               {isAdmin && (
                 <Link
@@ -79,9 +79,14 @@ export default function Layout() {
       <footer className="footer">
         <div className="container">
           <p>
-            Powered by <a href="https://www.strava.com" target="_blank" rel="noopener noreferrer">Strava API</a>
+            Powered by{' '}
+            <a href="https://www.strava.com" target="_blank" rel="noopener noreferrer">Strava</a>
             {' • '}
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer">Open Source</a>
+            <a href="https://www.parkrun.com.au" target="_blank" rel="noopener noreferrer">Parkrun</a>
+            {' • '}
+            <a href="https://github.com" target="_blank" rel="noopener noreferrer">Github</a>
+            {' • '}
+            <a href="https://www.cloudflare.com" target="_blank" rel="noopener noreferrer">Cloudflare</a>
           </p>
         </div>
       </footer>

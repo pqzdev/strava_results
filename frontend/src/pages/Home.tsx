@@ -49,7 +49,7 @@ export default function Home() {
 
           <div className="hero-buttons">
             <Link to="/submit-activities" className="button button-primary">
-              Submit Activities
+              Submit Results
             </Link>
             <Link to="/dashboard" className="button button-secondary">
               View Races
