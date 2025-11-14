@@ -773,3 +773,242 @@ export async function getAthletes(env: Env): Promise<Response> {
     );
   }
 }
+
+/**
+ * POST /api/races/bulk-edit - Bulk edit races based on filters
+ */
+export async function bulkEditRaces(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      admin_strava_id: number;
+      filters: {
+        athleteNames?: string[];
+        eventNames?: string[];
+        activityName?: string;
+        dateFrom?: string;
+        dateTo?: string;
+        distanceCategories?: string[];
+        viewerAthleteId?: number;
+      };
+      updates: {
+        event_name?: string | null;
+        manual_distance?: number | null;
+        is_hidden?: boolean;
+      };
+    };
+
+    // Verify the user is an admin
+    const requestingAthlete = await env.DB.prepare(
+      'SELECT is_admin FROM athletes WHERE strava_id = ?'
+    ).bind(body.admin_strava_id).first<{ is_admin: number }>();
+
+    const isAdmin = requestingAthlete?.is_admin === 1;
+
+    if (!isAdmin) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Only admins can perform bulk edits' }),
+        {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Build query to find matching races (same logic as getRaces)
+    let query = `
+      SELECT
+        r.id,
+        r.strava_activity_id,
+        r.athlete_id
+      FROM races r
+      LEFT JOIN athletes a ON r.athlete_id = a.id
+      WHERE (a.is_hidden = 0 OR a.id IS NULL)
+    `;
+
+    const bindings: any[] = [];
+    const filters = body.filters;
+
+    // Handle multiple athlete filters
+    if (filters.athleteNames && filters.athleteNames.length > 0) {
+      const athleteConditions = filters.athleteNames.map(() => `(a.firstname || ' ' || a.lastname) = ?`).join(' OR ');
+      query += ` AND (${athleteConditions})`;
+      filters.athleteNames.forEach(name => bindings.push(name));
+    }
+
+    // Handle multiple event filters
+    if (filters.eventNames && filters.eventNames.length > 0) {
+      const eventConditions = filters.eventNames.map(() => `r.event_name = ?`).join(' OR ');
+      query += ` AND (${eventConditions})`;
+      filters.eventNames.forEach(name => bindings.push(name));
+    }
+
+    if (filters.activityName) {
+      query += ` AND r.name LIKE ?`;
+      bindings.push(`%${filters.activityName}%`);
+    }
+
+    if (filters.dateFrom) {
+      query += ` AND r.date >= ?`;
+      bindings.push(filters.dateFrom);
+    }
+
+    if (filters.dateTo) {
+      query += ` AND r.date <= ?`;
+      bindings.push(filters.dateTo);
+    }
+
+    // Handle distance category filtering
+    if (filters.distanceCategories && filters.distanceCategories.length > 0) {
+      const hasOther = filters.distanceCategories.includes('Other');
+      const selectedCategories = filters.distanceCategories.filter(c => c !== 'Other');
+
+      const distanceConditions: string[] = [];
+
+      selectedCategories.forEach(category => {
+        const range = DISTANCE_CATEGORIES[category];
+        if (range) {
+          distanceConditions.push(
+            `(r.distance >= ? AND r.distance <= ?)`
+          );
+          bindings.push(range.minMeters, range.maxMeters);
+        }
+      });
+
+      if (hasOther) {
+        const allRanges = Object.values(DISTANCE_CATEGORIES);
+        const otherConditions = allRanges.map(() =>
+          `(r.distance < ? OR r.distance > ?)`
+        );
+        const otherCondition = otherConditions.join(' AND ');
+        distanceConditions.push(`(${otherCondition})`);
+
+        allRanges.forEach(range => {
+          bindings.push(range.minMeters, range.maxMeters);
+        });
+      }
+
+      if (distanceConditions.length > 0) {
+        query += ` AND (${distanceConditions.join(' OR ')})`;
+      }
+    }
+
+    const result = await env.DB.prepare(query).bind(...bindings).all();
+    const matchingRaces = result.results as { id: number; strava_activity_id: number; athlete_id: number }[];
+
+    if (matchingRaces.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, updated: 0, message: 'No races match the current filters' }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+
+    // Apply updates
+    const updates = body.updates;
+    let updatedCount = 0;
+
+    for (const race of matchingRaces) {
+      // Update event name if provided (including explicit null to clear)
+      if (updates.event_name !== undefined) {
+        await env.DB.prepare(
+          `UPDATE races SET event_name = ? WHERE id = ?`
+        )
+          .bind(updates.event_name, race.id)
+          .run();
+
+        // Update persistent mapping
+        if (updates.event_name) {
+          await env.DB.prepare(
+            `INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, updated_at)
+             VALUES (?, ?, ?, strftime('%s', 'now'))
+             ON CONFLICT(strava_activity_id, athlete_id)
+             DO UPDATE SET event_name = excluded.event_name, updated_at = excluded.updated_at`
+          )
+            .bind(race.strava_activity_id, race.athlete_id, updates.event_name)
+            .run();
+        } else if (updates.event_name === null) {
+          // Clear from mapping table
+          await env.DB.prepare(
+            `DELETE FROM activity_event_mappings WHERE strava_activity_id = ? AND athlete_id = ?`
+          )
+            .bind(race.strava_activity_id, race.athlete_id)
+            .run();
+        }
+      }
+
+      // Update distance if provided (including null to clear)
+      if (updates.manual_distance !== undefined) {
+        if (updates.manual_distance === null) {
+          // Remove the edit
+          await env.DB.prepare(
+            `DELETE FROM race_edits WHERE strava_activity_id = ? AND athlete_id = ?`
+          )
+            .bind(race.strava_activity_id, race.athlete_id)
+            .run();
+
+          await env.DB.prepare(
+            `UPDATE races SET manual_distance = NULL WHERE strava_activity_id = ? AND athlete_id = ?`
+          )
+            .bind(race.strava_activity_id, race.athlete_id)
+            .run();
+        } else {
+          // Upsert the manual distance
+          await env.DB.prepare(
+            `INSERT INTO race_edits (strava_activity_id, athlete_id, manual_distance, edited_at)
+             VALUES (?, ?, ?, strftime('%s', 'now'))
+             ON CONFLICT(strava_activity_id, athlete_id)
+             DO UPDATE SET manual_distance = excluded.manual_distance, edited_at = excluded.edited_at`
+          )
+            .bind(race.strava_activity_id, race.athlete_id, updates.manual_distance)
+            .run();
+        }
+      }
+
+      // Update visibility if provided
+      if (updates.is_hidden !== undefined) {
+        await env.DB.prepare(
+          `UPDATE races SET is_hidden = ? WHERE id = ?`
+        )
+          .bind(updates.is_hidden ? 1 : 0, race.id)
+          .run();
+      }
+
+      updatedCount++;
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        updated: updatedCount,
+        message: `Successfully updated ${updatedCount} race${updatedCount !== 1 ? 's' : ''}`,
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error performing bulk edit:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to perform bulk edit',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+}
