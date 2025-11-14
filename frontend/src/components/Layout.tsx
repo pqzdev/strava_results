@@ -60,12 +60,20 @@ export default function Layout() {
                 Heatmap
               </Link>
               {isAdmin && (
-                <Link
-                  to="/admin"
-                  className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}
-                >
-                  Admin
-                </Link>
+                <>
+                  <Link
+                    to="/admin"
+                    className={`nav-link ${location.pathname === '/admin' ? 'active' : ''}`}
+                  >
+                    Admin
+                  </Link>
+                  <Link
+                    to="/events-admin"
+                    className={`nav-link ${location.pathname === '/events-admin' ? 'active' : ''}`}
+                  >
+                    Events
+                  </Link>
+                </>
               )}
             </nav>
           </div>
