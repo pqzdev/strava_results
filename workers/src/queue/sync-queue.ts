@@ -3,8 +3,6 @@
 import { Env } from '../types';
 import {
   getAthleteByStravaId,
-  updateLastSyncedAt,
-  raceExists,
   insertRace,
 } from '../utils/db';
 import {
@@ -324,35 +322,56 @@ async function syncAthleteInternal(
       // Get all activity IDs from fetched activities
       const fetchedActivityIds = new Set(activities.map(a => a.id));
 
-      // Get all existing races from database
-      const existingRaces = await env.DB.prepare(
-        `SELECT strava_activity_id FROM races WHERE athlete_id = ?`
-      )
-        .bind(athlete.id)
-        .all<{ strava_activity_id: number }>();
+      // OPTIMIZED: Only query for existing races within the current batch window
+      // This prevents "Too many subrequests" errors for athletes with thousands of activities
+      if (fetchedActivityIds.size > 0) {
+        const activityIdsList = Array.from(fetchedActivityIds);
+        const placeholders = activityIdsList.map(() => '?').join(',');
 
-      // Check each existing race to see if it should be removed
-      for (const existingRace of existingRaces.results || []) {
-        const activityId = existingRace.strava_activity_id;
+        const existingRaces = await env.DB.prepare(
+          `SELECT strava_activity_id FROM races
+           WHERE athlete_id = ? AND strava_activity_id IN (${placeholders})`
+        )
+          .bind(athlete.id, ...activityIdsList)
+          .all<{ strava_activity_id: number }>();
 
-        // If this activity was in the sync window but is no longer a race, remove it
-        if (fetchedActivityIds.has(activityId) && !raceActivityIds.has(activityId)) {
-          await env.DB.prepare(
-            `DELETE FROM races WHERE strava_activity_id = ? AND athlete_id = ?`
-          )
-            .bind(activityId, athlete.id)
-            .run();
-          racesRemoved++;
-          console.log(`Removed activity ${activityId} - no longer marked as race`);
+        // Check each existing race to see if it should be removed
+        for (const existingRace of existingRaces.results || []) {
+          const activityId = existingRace.strava_activity_id;
+
+          // If this activity was in the sync window but is no longer a race, remove it
+          if (fetchedActivityIds.has(activityId) && !raceActivityIds.has(activityId)) {
+            await env.DB.prepare(
+              `DELETE FROM races WHERE strava_activity_id = ? AND athlete_id = ?`
+            )
+              .bind(activityId, athlete.id)
+              .run();
+            racesRemoved++;
+            console.log(`Removed activity ${activityId} - no longer marked as race`);
+          }
         }
       }
 
-      // Insert new races
-      for (const race of races) {
-        const exists = await raceExists(race.id, env);
-        if (!exists) {
-          await insertRace(athlete.id, race, env, accessToken);
-          newRacesAdded++;
+      // OPTIMIZED: Batch check for existing races to reduce DB queries
+      // Build a single query with all race IDs
+      if (races.length > 0) {
+        const raceIdsList = races.map(r => r.id);
+        const placeholders = raceIdsList.map(() => '?').join(',');
+
+        const existingRaceIds = await env.DB.prepare(
+          `SELECT strava_activity_id FROM races WHERE strava_activity_id IN (${placeholders})`
+        )
+          .bind(...raceIdsList)
+          .all<{ strava_activity_id: number }>();
+
+        const existingIdsSet = new Set(existingRaceIds.results?.map(r => r.strava_activity_id) || []);
+
+        // Insert only the races that don't exist
+        for (const race of races) {
+          if (!existingIdsSet.has(race.id)) {
+            await insertRace(athlete.id, race, env, accessToken);
+            newRacesAdded++;
+          }
         }
       }
 
