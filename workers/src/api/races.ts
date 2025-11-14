@@ -293,52 +293,59 @@ export async function getStats(env: Env): Promise<Response> {
   console.log('[STATS API] Fetching statistics...');
   try {
     // Get various statistics (exclude hidden races and hidden athletes)
+
+    // General race stats - exclude hidden athletes AND hidden races
     const athleteCount = await env.DB.prepare(
       'SELECT COUNT(*) as count FROM athletes WHERE is_hidden = 0'
     ).first<{ count: number }>();
     console.log('[STATS API] Athletes query result:', JSON.stringify(athleteCount));
 
     const raceCount = await env.DB.prepare(
-      'SELECT COUNT(*) as count FROM races WHERE is_hidden = 0'
+      `SELECT COUNT(*) as count FROM races r
+       LEFT JOIN athletes a ON r.athlete_id = a.id
+       WHERE (a.is_hidden = 0 OR a.id IS NULL) AND r.is_hidden = 0`
     ).first<{ count: number }>();
     console.log('[STATS API] Races query result:', JSON.stringify(raceCount));
 
     const totalDistance = await env.DB.prepare(
-      'SELECT SUM(distance) as total FROM races WHERE is_hidden = 0'
+      `SELECT SUM(r.distance) as total FROM races r
+       LEFT JOIN athletes a ON r.athlete_id = a.id
+       WHERE (a.is_hidden = 0 OR a.id IS NULL) AND r.is_hidden = 0`
     ).first<{ total: number }>();
     console.log('[STATS API] Total distance query result:', JSON.stringify(totalDistance));
 
-    // Calculate 30 days ago timestamp (dates in races table are stored as ISO strings)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0]; // YYYY-MM-DD format
+    // Parkrun stats - exclude hidden athletes
+    const parkrunAthletes = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT pr.athlete_name) as count
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+       WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0)`
+    ).first<{ count: number }>();
+    console.log('[STATS API] Parkrun athletes query result:', JSON.stringify(parkrunAthletes));
 
-    const recentRaces = await env.DB.prepare(
-      `SELECT COUNT(*) as count FROM races
-       WHERE date >= ? AND is_hidden = 0`
-    ).bind(thirtyDaysAgoStr).first<{ count: number }>();
-    console.log('[STATS API] Recent races query result:', JSON.stringify(recentRaces));
+    const parkrunResults = await env.DB.prepare(
+      `SELECT COUNT(*) as count
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+       WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0)`
+    ).first<{ count: number }>();
+    console.log('[STATS API] Parkrun results query result:', JSON.stringify(parkrunResults));
 
-    const lastSync = await env.DB.prepare(
-      `SELECT sync_completed_at, new_races_added
-       FROM sync_logs
-       WHERE status = 'completed'
-       ORDER BY sync_completed_at DESC
-       LIMIT 1`
-    ).first<{ sync_completed_at: number; new_races_added: number }>();
-    console.log('[STATS API] Last sync query result:', JSON.stringify(lastSync));
+    const parkrunEvents = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT pr.event_name) as count
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+       WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0)`
+    ).first<{ count: number }>();
+    console.log('[STATS API] Parkrun events query result:', JSON.stringify(parkrunEvents));
 
     const responseData = {
       athletes: athleteCount?.count || 0,
       total_races: raceCount?.count || 0,
       total_distance_km: Math.round((totalDistance?.total || 0) / 1000),
-      races_last_30_days: recentRaces?.count || 0,
-      last_sync: lastSync
-        ? {
-            timestamp: lastSync.sync_completed_at,
-            new_races: lastSync.new_races_added,
-          }
-        : null,
+      parkrun_athletes: parkrunAthletes?.count || 0,
+      parkrun_results: parkrunResults?.count || 0,
+      parkrun_events: parkrunEvents?.count || 0,
     };
 
     console.log('[STATS API] Returning response:', JSON.stringify(responseData));
