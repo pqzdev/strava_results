@@ -290,24 +290,29 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
  * GET /api/stats - Get aggregate statistics
  */
 export async function getStats(env: Env): Promise<Response> {
+  console.log('[STATS API] Fetching statistics...');
   try {
     // Get various statistics (exclude hidden races)
     const athleteCount = await env.DB.prepare(
       'SELECT COUNT(*) as count FROM athletes'
     ).first<{ count: number }>();
+    console.log('[STATS API] Athletes query result:', JSON.stringify(athleteCount));
 
     const raceCount = await env.DB.prepare(
       'SELECT COUNT(*) as count FROM races'
     ).first<{ count: number }>();
+    console.log('[STATS API] Races query result:', JSON.stringify(raceCount));
 
     const totalDistance = await env.DB.prepare(
       'SELECT SUM(distance) as total FROM races'
     ).first<{ total: number }>();
+    console.log('[STATS API] Total distance query result:', JSON.stringify(totalDistance));
 
     const recentRaces = await env.DB.prepare(
       `SELECT COUNT(*) as count FROM races
        WHERE date >= date('now', '-30 days')`
     ).first<{ count: number }>();
+    console.log('[STATS API] Recent races query result:', JSON.stringify(recentRaces));
 
     const lastSync = await env.DB.prepare(
       `SELECT sync_completed_at, new_races_added
@@ -316,20 +321,25 @@ export async function getStats(env: Env): Promise<Response> {
        ORDER BY sync_completed_at DESC
        LIMIT 1`
     ).first<{ sync_completed_at: number; new_races_added: number }>();
+    console.log('[STATS API] Last sync query result:', JSON.stringify(lastSync));
+
+    const responseData = {
+      athletes: athleteCount?.count || 0,
+      total_races: raceCount?.count || 0,
+      total_distance_km: Math.round((totalDistance?.total || 0) / 1000),
+      races_last_30_days: recentRaces?.count || 0,
+      last_sync: lastSync
+        ? {
+            timestamp: lastSync.sync_completed_at,
+            new_races: lastSync.new_races_added,
+          }
+        : null,
+    };
+
+    console.log('[STATS API] Returning response:', JSON.stringify(responseData));
 
     return new Response(
-      JSON.stringify({
-        athletes: athleteCount?.count || 0,
-        total_races: raceCount?.count || 0,
-        total_distance_km: Math.round((totalDistance?.total || 0) / 1000),
-        races_last_30_days: recentRaces?.count || 0,
-        last_sync: lastSync
-          ? {
-              timestamp: lastSync.sync_completed_at,
-              new_races: lastSync.new_races_added,
-            }
-          : null,
-      }),
+      JSON.stringify(responseData),
       {
         status: 200,
         headers: {
@@ -339,7 +349,7 @@ export async function getStats(env: Env): Promise<Response> {
       }
     );
   } catch (error) {
-    console.error('Error fetching stats:', error);
+    console.error('[STATS API] Error fetching stats:', error);
     return new Response(
       JSON.stringify({ error: 'Failed to fetch statistics' }),
       {

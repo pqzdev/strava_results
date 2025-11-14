@@ -3,7 +3,7 @@
 import { Env } from '../types';
 import { buildAuthorizationUrl, exchangeCodeForToken, getAthleteClubs } from '../utils/strava';
 import { upsertAthlete } from '../utils/db';
-import { syncAthlete } from '../queue/sync-queue';
+import { createSyncJob } from '../queue/queue-processor';
 
 /**
  * Handle GET /auth/authorize - redirect to Strava OAuth
@@ -150,10 +150,13 @@ export async function handleCallback(
 
     console.log(`Successfully connected Woodstock Runners member: ${tokenData.athlete.id}`);
 
-    // Trigger sync in background (don't await to avoid timeout)
-    syncAthlete(tokenData.athlete.id, env, true).catch(error => {
-      console.error(`Failed to sync athlete ${tokenData.athlete.id}:`, error);
-    });
+    // Queue athlete for data sync (high priority for new members)
+    try {
+      const jobId = await createSyncJob(env, tokenData.athlete.id, 'full_sync', 100, 3);
+      console.log(`Queued sync job ${jobId} for new athlete ${tokenData.athlete.id}`);
+    } catch (error) {
+      console.error(`Failed to queue sync for athlete ${tokenData.athlete.id}:`, error);
+    }
 
     // Return success HTML page that closes the popup or redirects
     return new Response(
