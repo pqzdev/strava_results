@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import './Admin.css';
 
 interface AdminAthlete {
@@ -1417,7 +1418,18 @@ export default function Admin() {
                             </button>
                           </div>
                         ) : (
-                          <strong>{event.event_name}</strong>
+                          <Link
+                            to={`/dashboard?events=${encodeURIComponent(event.event_name)}`}
+                            style={{
+                              color: '#fc4c02',
+                              fontWeight: 'bold',
+                              textDecoration: 'none',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                            onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                          >
+                            {event.event_name}
+                          </Link>
                         )}
                       </td>
                       <td className="number-cell">{event.activity_count}</td>
