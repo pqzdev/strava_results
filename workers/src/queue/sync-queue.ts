@@ -9,8 +9,57 @@ import {
   ensureValidToken,
   fetchAthleteActivities,
   filterRaceActivities,
+  type StravaActivity,
 } from '../utils/strava';
 import { logSyncProgress } from '../utils/sync-logger';
+
+/**
+ * Optimized insert race function for full syncs - skips polyline fetching to avoid API rate limits
+ */
+async function insertRaceOptimized(
+  athleteId: number,
+  activity: StravaActivity,
+  env: Env,
+  eventName: string | null
+): Promise<void> {
+  const now = Math.floor(Date.now() / 1000);
+
+  // Use summary polyline from activity list (don't fetch detailed polyline to save API calls)
+  const polyline = activity.map?.summary_polyline || null;
+
+  // Auto-hide parkrun races
+  const nameLower = activity.name.toLowerCase();
+  const isParkrun = nameLower.includes('parkrun') ||
+                    nameLower.includes('park run') ||
+                    nameLower.includes('parkie') ||
+                    nameLower.includes('parky');
+  const isHidden = isParkrun ? 1 : 0;
+
+  await env.DB.prepare(
+    `INSERT INTO races (
+      athlete_id, strava_activity_id, name, distance, elapsed_time,
+      moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, event_name, is_hidden, description, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+    .bind(
+      athleteId,
+      activity.id,
+      activity.name,
+      activity.distance,
+      activity.elapsed_time,
+      activity.moving_time,
+      activity.start_date_local,
+      activity.total_elevation_gain,
+      activity.average_heartrate || null,
+      activity.max_heartrate || null,
+      polyline,
+      eventName,
+      isHidden,
+      activity.description || null,
+      now
+    )
+    .run();
+}
 
 interface SyncMessage {
   athleteStravaId: number;
@@ -302,12 +351,32 @@ async function syncAthleteInternal(
     let newRacesAdded = 0;
 
     // For full syncs, we already deleted all races, so just insert everything
-    // Event names are automatically restored from the persistent mapping table in insertRace()
+    // Event names are automatically restored from the persistent mapping table
     if (fullSync) {
       console.log(`Full sync - attempting to insert ${races.length} races`);
+
+      // OPTIMIZED: Batch fetch event names for all races at once
+      let eventMappings = new Map<number, string>();
+      if (races.length > 0) {
+        const raceIds = races.map(r => r.id);
+        const placeholders = raceIds.map(() => '?').join(',');
+        const mappings = await env.DB.prepare(
+          `SELECT strava_activity_id, event_name FROM activity_event_mappings
+           WHERE strava_activity_id IN (${placeholders}) AND athlete_id = ?`
+        )
+          .bind(...raceIds, athlete.id)
+          .all<{ strava_activity_id: number; event_name: string }>();
+
+        for (const mapping of mappings.results || []) {
+          eventMappings.set(mapping.strava_activity_id, mapping.event_name);
+        }
+      }
+
+      // OPTIMIZED: Insert races without fetching polylines (too many API calls)
+      // Polylines are available in the summary data from activities list
       for (const race of races) {
         try {
-          await insertRace(athlete.id, race, env, accessToken);
+          await insertRaceOptimized(athlete.id, race, env, eventMappings.get(race.id) || null);
           newRacesAdded++;
           console.log(`Inserted race: ${race.name} (ID: ${race.id})`);
         } catch (error) {
@@ -352,12 +421,12 @@ async function syncAthleteInternal(
         }
       }
 
-      // OPTIMIZED: Batch check for existing races to reduce DB queries
-      // Build a single query with all race IDs
+      // OPTIMIZED: Batch check for existing races and event mappings to reduce DB queries
       if (races.length > 0) {
         const raceIdsList = races.map(r => r.id);
         const placeholders = raceIdsList.map(() => '?').join(',');
 
+        // Batch fetch existing races
         const existingRaceIds = await env.DB.prepare(
           `SELECT strava_activity_id FROM races WHERE strava_activity_id IN (${placeholders})`
         )
@@ -366,10 +435,23 @@ async function syncAthleteInternal(
 
         const existingIdsSet = new Set(existingRaceIds.results?.map(r => r.strava_activity_id) || []);
 
-        // Insert only the races that don't exist
+        // Batch fetch event names
+        const eventMappings = new Map<number, string>();
+        const mappings = await env.DB.prepare(
+          `SELECT strava_activity_id, event_name FROM activity_event_mappings
+           WHERE strava_activity_id IN (${placeholders}) AND athlete_id = ?`
+        )
+          .bind(...raceIdsList, athlete.id)
+          .all<{ strava_activity_id: number; event_name: string }>();
+
+        for (const mapping of mappings.results || []) {
+          eventMappings.set(mapping.strava_activity_id, mapping.event_name);
+        }
+
+        // Insert only the races that don't exist (using optimized insert)
         for (const race of races) {
           if (!existingIdsSet.has(race.id)) {
-            await insertRace(athlete.id, race, env, accessToken);
+            await insertRaceOptimized(athlete.id, race, env, eventMappings.get(race.id) || null);
             newRacesAdded++;
           }
         }
