@@ -271,8 +271,10 @@
   border-top-color: #333;
 }
 
-.description-tooltip-wrapper:hover .description-tooltip {
+.description-tooltip-wrapper:hover .description-tooltip,
+.description-tooltip.visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .description-text {

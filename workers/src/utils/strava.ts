@@ -206,12 +206,12 @@ export async function fetchAthleteActivities(
 /**
  * Filter activities to only include races
  * Only includes activities explicitly marked as race (workout_type === 1) in Strava
+ * Must be a Run AND have workout_type === 1
  * Excludes private activities to respect privacy
  */
 export function filterRaceActivities(activities: StravaActivity[]): StravaActivity[] {
   return activities.filter((activity) => {
-    // Must be a running activity with workout_type === 1 (race)
-    // And must not be marked as private
+    // Must be a Run AND have workout_type === 1 (race) AND not be private
     return activity.type === 'Run' && activity.workout_type === 1 && !activity.private;
   });
 }

@@ -1,6 +1,6 @@
 // Admin API endpoints
 import { Env } from '../types';
-import { syncAthlete } from '../queue/sync-queue';
+import { syncAthlete, getSyncQueueStatus, stopSync } from '../queue/sync-queue';
 import { getSyncLogs } from '../utils/sync-logger';
 
 /**
@@ -490,6 +490,118 @@ export async function checkAdmin(request: Request, env: Env): Promise<Response> 
     return new Response(
       JSON.stringify({ is_admin: false }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
+/**
+ * GET /api/admin/sync-status - Get sync queue status
+ */
+export async function getAdminSyncStatus(request: Request, env: Env): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const adminStravaId = parseInt(url.searchParams.get('admin_strava_id') || '0');
+
+    if (!adminStravaId || !(await isAdmin(adminStravaId, env))) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        {
+          status: 401,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+
+    const status = await getSyncQueueStatus(env);
+
+    return new Response(
+      JSON.stringify(status),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error getting sync status:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to get sync status' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  }
+}
+
+/**
+ * POST /api/admin/sync/stop - Stop a stalled sync
+ */
+export async function stopSyncJob(request: Request, env: Env): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const adminStravaId = parseInt(url.searchParams.get('admin_strava_id') || '0');
+
+    if (!adminStravaId || !(await isAdmin(adminStravaId, env))) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        {
+          status: 401,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+
+    const body = await request.json() as { sync_id: number };
+
+    if (!body.sync_id) {
+      return new Response(
+        JSON.stringify({ error: 'sync_id is required' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+
+    const stopped = await stopSync(body.sync_id, env);
+
+    if (!stopped) {
+      return new Response(
+        JSON.stringify({ error: 'Sync not found or already completed' }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ message: 'Sync stopped successfully', sync_id: body.sync_id }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error stopping sync:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to stop sync' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
     );
   }
 }

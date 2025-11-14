@@ -8,8 +8,9 @@
     "build": "tsc && vite build && cp -r functions dist/",
     "build:skip-check": "vite build && cp -r functions dist/",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler pages deploy dist",
-    "deploy:skip-check": "npm run build:skip-check && wrangler pages deploy dist"
+    "deploy": "npm run build && wrangler pages deploy dist --project-name=woodstock-results",
+    "deploy:skip-check": "npm run build:skip-check && wrangler pages deploy dist --project-name=woodstock-results",
+    "deploy:dev": "cp public/_redirects.dev public/_redirects && npm run build && wrangler pages deploy dist --project-name=woodstock-results-dev --branch=dev && git restore public/_redirects"
   },
   "dependencies": {
     "@mapbox/polyline": "^1.2.1",

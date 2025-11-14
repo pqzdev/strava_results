@@ -61,6 +61,7 @@ interface DescriptionTooltipProps {
 
 function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTooltipProps) {
   const [isFetching, setIsFetching] = useState(false);
+  const [isTooltipVisible, setIsTooltipVisible] = useState(false);
 
   // Only show to owner or admin
   if (!isOwner) {
@@ -80,10 +81,19 @@ function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTo
     }
   };
 
+  const handleIconClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsTooltipVisible(!isTooltipVisible);
+  };
+
   return (
     <div className="description-tooltip-wrapper">
-      <FaRegCommentDots className="description-icon" />
-      <div className="description-tooltip">
+      <FaRegCommentDots
+        className="description-icon"
+        onClick={handleIconClick}
+      />
+      <div className={`description-tooltip ${isTooltipVisible ? 'visible' : ''}`}>
         {race.description ? (
           <>
             <div className="description-text">{race.description}</div>

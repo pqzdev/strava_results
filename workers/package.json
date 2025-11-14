@@ -6,7 +6,9 @@
     "dev": "wrangler dev --config ../wrangler.workers.toml",
     "build": "tsc --noEmit",
     "deploy": "wrangler deploy --config ../wrangler.workers.toml",
+    "deploy:dev": "wrangler deploy --config ../wrangler.workers.dev.toml",
     "tail": "wrangler tail --config ../wrangler.workers.toml",
+    "tail:dev": "wrangler tail --config ../wrangler.workers.dev.toml",
     "migrate": "wrangler d1 migrations apply strava-club-db --local",
     "migrate:remote": "wrangler d1 migrations apply strava-club-db --remote"
   },

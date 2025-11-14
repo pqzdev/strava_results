@@ -366,7 +366,7 @@ async function syncAthleteInternal(
       maxPagesPerBatch      // maxPages per batch (always limited to avoid timeout)
     );
 
-    console.log(`Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
+    console.log(`[v2-run-filter] Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
 
     // Filter to only Run activities before processing
     const runActivities = activities.filter(a => a.type === 'Run');
@@ -414,8 +414,8 @@ async function syncAthleteInternal(
     }
 
     // Debug logging to understand what's being found
-    if (activities.length > 0 && races.length === 0) {
-      console.log(`No races found. Sample activities:`, JSON.stringify(activities.slice(0, 3).map(a => ({
+    if (runActivities.length > 0 && races.length === 0) {
+      console.log(`No races found. Sample activities:`, JSON.stringify(runActivities.slice(0, 3).map(a => ({
         name: a.name,
         type: a.type,
         workout_type: a.workout_type,
@@ -653,4 +653,74 @@ export async function handleSyncQueue(
       message.retry();
     }
   }
+}
+
+/**
+ * Get sync queue status - both active/processing and recent completed/failed
+ */
+export async function getSyncQueueStatus(env: Env) {
+  // Get active/processing syncs
+  const activeResult = await env.DB.prepare(`
+    SELECT
+      sq.id,
+      sq.athlete_id,
+      sq.job_type,
+      sq.status,
+      sq.created_at,
+      sq.started_at,
+      sq.completed_at,
+      sq.error_message,
+      sq.activities_synced,
+      sq.total_activities_expected,
+      a.strava_id,
+      a.first_name,
+      a.last_name
+    FROM sync_queue sq
+    LEFT JOIN athletes a ON sq.athlete_id = a.id
+    WHERE sq.status IN ('pending', 'processing')
+    ORDER BY sq.created_at DESC
+  `).all();
+
+  // Get last 10 completed/failed syncs
+  const recentResult = await env.DB.prepare(`
+    SELECT
+      sq.id,
+      sq.athlete_id,
+      sq.job_type,
+      sq.status,
+      sq.created_at,
+      sq.started_at,
+      sq.completed_at,
+      sq.error_message,
+      sq.activities_synced,
+      sq.total_activities_expected,
+      a.strava_id,
+      a.first_name,
+      a.last_name
+    FROM sync_queue sq
+    LEFT JOIN athletes a ON sq.athlete_id = a.id
+    WHERE sq.status IN ('completed', 'failed')
+    ORDER BY sq.completed_at DESC
+    LIMIT 10
+  `).all();
+
+  return {
+    active: activeResult.results || [],
+    recent: recentResult.results || []
+  };
+}
+
+/**
+ * Stop a stalled sync by marking it as failed
+ */
+export async function stopSync(syncId: number, env: Env) {
+  const result = await env.DB.prepare(`
+    UPDATE sync_queue
+    SET status = 'failed',
+        error_message = 'Manually stopped by admin',
+        completed_at = ?
+    WHERE id = ? AND status IN ('pending', 'processing')
+  `).bind(Date.now(), syncId).run();
+
+  return result.meta.changes > 0;
 }
