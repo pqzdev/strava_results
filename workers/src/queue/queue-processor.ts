@@ -206,7 +206,7 @@ export async function createSyncJob(
   athleteId: number,
   jobType: 'full_sync' | 'incremental_sync' = 'full_sync',
   priority: number = 0,
-  maxRetries: number = 3
+  maxRetries: number = 0
 ): Promise<number> {
   const now = Date.now();
 

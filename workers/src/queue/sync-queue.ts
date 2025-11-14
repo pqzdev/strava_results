@@ -27,25 +27,25 @@ async function insertRaceOptimized(
 ): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
 
-  // Fetch detailed activity info (polyline and description) from Strava
-  // Always fetch detailed activity to get description (not available in list API)
+  // Use summary polyline from activity list (avoid excessive API calls during sync)
+  // Descriptions and detailed polylines can be backfilled later via separate process
   let polyline = activity.map?.summary_polyline || null;
-  let description = null;
+  let description = activity.description || null; // Use description from list API if available
 
-  if (accessToken) {
+  // Only fetch detailed activity if absolutely no polyline available
+  // This avoids hitting subrequest limits during large syncs
+  if (!polyline && accessToken) {
     const { fetchDetailedActivity } = await import('../utils/strava');
     const detailed = await fetchDetailedActivity(activity.id, accessToken);
 
-    // Use detailed polyline if summary not available
-    if (!polyline && detailed.polyline) {
+    if (detailed.polyline) {
       polyline = detailed.polyline;
       console.log(`Fetched detailed polyline for activity ${activity.id}`);
     }
 
-    // Always get description from detailed activity
+    // Get description if we had to fetch detailed activity anyway
     if (detailed.description) {
       description = detailed.description;
-      console.log(`Fetched description for activity ${activity.id}: "${detailed.description.substring(0, 50)}..."`);
     }
   }
 
