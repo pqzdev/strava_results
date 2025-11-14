@@ -1419,7 +1419,20 @@ export default function Admin() {
                           </div>
                         ) : (
                           <Link
-                            to={`/dashboard?events=${encodeURIComponent(event.event_name)}`}
+                            to={(() => {
+                              // Build URL with event name and date range
+                              const params = new URLSearchParams();
+                              params.set('events', event.event_name);
+
+                              // Add date range from event dates
+                              if (event.dates.length > 0) {
+                                const sortedDates = [...event.dates].sort();
+                                params.set('dateFrom', sortedDates[0]);
+                                params.set('dateTo', sortedDates[sortedDates.length - 1]);
+                              }
+
+                              return `/dashboard?${params.toString()}`;
+                            })()}
                             style={{
                               color: '#fc4c02',
                               fontWeight: 'bold',
