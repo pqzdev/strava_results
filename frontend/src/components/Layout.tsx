@@ -88,6 +88,11 @@ export default function Layout() {
             {' • '}
             <a href="https://www.cloudflare.com" target="_blank" rel="noopener noreferrer">Cloudflare</a>
           </p>
+          <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', opacity: 0.6 }}>
+            <a href="https://strava-club-workers.pedroqueiroz.workers.dev/auth/google/login" style={{ color: 'inherit', textDecoration: 'none' }}>
+              Admin Login
+            </a>
+          </p>
         </div>
       </footer>
     </div>
