@@ -1,6 +1,6 @@
 // Queue consumer for athlete sync requests
 
-import { Env } from '../types';
+import { Env, StravaActivity } from '../types';
 import {
   getAthleteByStravaId,
   insertRace,
@@ -10,7 +10,6 @@ import {
   ensureValidToken,
   fetchAthleteActivities,
   filterRaceActivities,
-  type StravaActivity,
 } from '../utils/strava';
 import { logSyncProgress } from '../utils/sync-logger';
 
@@ -35,7 +34,6 @@ async function insertRaceOptimized(
   // Only fetch detailed activity if absolutely no polyline available
   // This avoids hitting subrequest limits during large syncs
   if (!polyline && accessToken) {
-    const { fetchDetailedActivity } = await import('../utils/strava');
     const detailed = await fetchDetailedActivity(activity.id, accessToken);
 
     if (detailed.polyline) {

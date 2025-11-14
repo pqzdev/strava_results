@@ -795,7 +795,7 @@ export async function fetchRaceDescription(
     }
 
     // Fetch detailed activity from Strava
-    const { fetchDetailedActivity } = await import('../utils/strava');
+    const { fetchDetailedActivity } = await import('../utils/db');
     const detailed = await fetchDetailedActivity(race.strava_activity_id, race.access_token);
 
     // Update the race with the fetched description
