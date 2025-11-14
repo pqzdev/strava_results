@@ -54,7 +54,7 @@ export const API_COMMANDS: ApiCommand[] = [
     method: 'POST',
     parameters: [
       {
-        name: 'job_type',
+        name: 'jobType',
         type: 'select',
         label: 'Job Type',
         required: true,
@@ -177,7 +177,7 @@ export const API_COMMANDS: ApiCommand[] = [
     category: 'events',
     name: 'Analyze Event Names',
     description: 'Use AI to analyze and standardize race event names',
-    endpoint: '/api/events/analyze',
+    endpoint: '/api/event-suggestions/analyze',
     method: 'POST',
     confirmMessage: 'This will analyze all race names using AI. This may take time and use AI credits. Continue?',
     successMessage: 'Event analysis started successfully',
@@ -228,7 +228,7 @@ export const API_COMMANDS: ApiCommand[] = [
     category: 'races',
     name: 'Backfill Polylines',
     description: 'Download detailed polylines for races that are missing them',
-    endpoint: '/api/races/backfill-polylines',
+    endpoint: '/api/polyline/backfill',
     method: 'POST',
     parameters: [
       {
@@ -281,7 +281,7 @@ export const API_COMMANDS: ApiCommand[] = [
     category: 'races',
     name: 'Bulk Hide Parkruns',
     description: 'Hide all races with event name "parkrun"',
-    endpoint: '/api/races/bulk/edit',
+    endpoint: '/api/races/bulk-edit',
     method: 'POST',
     parameters: [
       {
@@ -308,45 +308,21 @@ export const API_COMMANDS: ApiCommand[] = [
   // ========================================
   // PARKRUN SPECIFIC
   // ========================================
-  {
-    id: 'detect-parkruns',
-    category: 'parkrun',
-    name: 'Detect Parkruns',
-    description: 'Re-run parkrun detection on all activities and update event names',
-    endpoint: '/api/parkrun/detect',
-    method: 'POST',
-    confirmMessage: 'This will re-analyze all activities for parkrun detection. Continue?',
-    successMessage: 'Parkrun detection completed successfully',
-  },
+  // Note: No parkrun-specific admin commands yet
+  // The /api/parkrun/detect endpoint does not exist
 
   // ========================================
   // ADMIN OPERATIONS
   // ========================================
-  {
-    id: 'get-athlete-details',
-    category: 'admin',
-    name: 'Get Athlete Details',
-    description: 'View detailed information about a specific athlete',
-    endpoint: '/api/athletes/:stravaId',
-    method: 'GET',
-    parameters: [
-      {
-        name: 'stravaId',
-        type: 'number',
-        label: 'Strava ID',
-        required: true,
-        placeholder: '151622',
-        description: 'The athlete\'s Strava ID',
-      },
-    ],
-    successMessage: 'Athlete details retrieved successfully',
-  },
+  // Note: Removed non-existent endpoints:
+  // - GET /api/athletes/:stravaId (doesn't exist - use /api/admin/athletes instead)
+  // - GET /api/admin/stats (doesn't exist)
   {
     id: 'update-athlete-status',
     category: 'admin',
     name: 'Update Athlete Status',
     description: 'Change athlete admin, hidden, or blocked status',
-    endpoint: '/api/athletes/:athleteId',
+    endpoint: '/api/admin/athletes/:athleteId',
     method: 'PATCH',
     parameters: [
       {
@@ -378,15 +354,6 @@ export const API_COMMANDS: ApiCommand[] = [
     ],
     confirmMessage: 'This will update athlete status. Continue?',
     successMessage: 'Athlete status updated successfully',
-  },
-  {
-    id: 'database-stats',
-    category: 'admin',
-    name: 'Database Statistics',
-    description: 'View database size and record counts',
-    endpoint: '/api/admin/stats',
-    method: 'GET',
-    successMessage: 'Database statistics retrieved successfully',
   },
 ];
 
