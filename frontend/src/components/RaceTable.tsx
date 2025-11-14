@@ -33,15 +33,18 @@ function VisibilityToggle({ race, isOwner, onToggle }: VisibilityToggleProps) {
       className="visibility-toggle"
       title={isHidden ? 'Hidden - Click to show' : 'Visible - Click to hide'}
       style={{
-        background: 'transparent',
-        border: 'none',
+        background: isHidden ? '#f3f4f6' : 'transparent',
+        border: '1px solid #ddd',
+        borderRadius: '4px',
         cursor: isToggling ? 'wait' : 'pointer',
-        fontSize: '1.2rem',
-        padding: '0.25rem',
+        fontSize: '0.75rem',
+        padding: '0.25rem 0.5rem',
         opacity: isToggling ? 0.5 : 1,
+        color: isHidden ? '#999' : '#333',
+        fontWeight: 500,
       }}
     >
-      {isHidden ? '👁️‍🗨️' : '👁️'}
+      {isHidden ? 'Hidden' : 'Visible'}
     </button>
   );
 }

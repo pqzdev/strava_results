@@ -52,7 +52,6 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
         r.max_heartrate,
         r.polyline,
         r.athlete_id,
-        r.is_hidden,
         a.firstname,
         a.lastname,
         a.profile_photo,
@@ -61,7 +60,6 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
       LEFT JOIN athletes a ON r.athlete_id = a.id
       LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
       WHERE (a.is_hidden = 0 OR a.id IS NULL)
-        AND r.is_hidden = 0
     `;
 
     const bindings: any[] = [];
