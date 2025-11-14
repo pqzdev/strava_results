@@ -11,6 +11,6 @@ CREATE TABLE IF NOT EXISTS admin_users (
 -- Create index on email for faster lookups
 CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
 
--- Add initial admins
-INSERT INTO admin_users (email, name) VALUES ('pedroqueiroz@gmail.com', 'Pedro Queiroz');
-INSERT INTO admin_users (email, name) VALUES ('woodstockresults@gmail.com', 'Woodstock Results');
+-- Add initial admins (using INSERT OR IGNORE to prevent errors if already exists)
+INSERT OR IGNORE INTO admin_users (email, name) VALUES ('pedroqueiroz@gmail.com', 'Pedro Queiroz');
+INSERT OR IGNORE INTO admin_users (email, name) VALUES ('woodstockresults@gmail.com', 'Woodstock Results');
