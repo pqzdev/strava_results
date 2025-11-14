@@ -71,7 +71,7 @@ async function claimNextJob(env: Env): Promise<QueueJob | null> {
     WHERE id = (
       SELECT id FROM sync_queue
       WHERE status = 'pending'
-      AND retry_count < max_retries
+      AND retry_count <= max_retries
       ORDER BY priority DESC, created_at ASC
       LIMIT 1
     )
@@ -179,7 +179,7 @@ async function markJobCompleted(env: Env, jobId: number): Promise<void> {
  */
 async function handleJobFailure(env: Env, job: QueueJob, errorMessage: string): Promise<void> {
   const newRetryCount = job.retry_count + 1;
-  const shouldRetry = newRetryCount < job.max_retries;
+  const shouldRetry = newRetryCount <= job.max_retries;
   const newStatus = shouldRetry ? 'pending' : 'failed';
 
   await env.DB.prepare(`
@@ -206,7 +206,7 @@ export async function createSyncJob(
   athleteId: number,
   jobType: 'full_sync' | 'incremental_sync' = 'full_sync',
   priority: number = 0,
-  maxRetries: number = 0
+  maxRetries: number = 3
 ): Promise<number> {
   const now = Date.now();
 
