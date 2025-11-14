@@ -280,6 +280,11 @@ export default function Dashboard() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleLimitChange = (newLimit: number) => {
+    setPagination({ total: pagination.total, limit: newLimit, offset: 0 });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const totalPages = Math.ceil(pagination.total / pagination.limit);
   const currentPage = Math.floor(pagination.offset / pagination.limit) + 1;
 
@@ -321,8 +326,23 @@ export default function Dashboard() {
           <>
             <AthleteSummary races={allFilteredRaces} />
 
-            <div className="results-count">
-              Showing {pagination.offset + 1}-{Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} race{pagination.total !== 1 ? 's' : ''}
+            <div className="results-header">
+              <span className="results-count">
+                Showing {pagination.offset + 1}-{Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} race{pagination.total !== 1 ? 's' : ''}
+              </span>
+              <div className="per-page-selector">
+                <label htmlFor="racesPerPage">Per page:</label>
+                <select
+                  id="racesPerPage"
+                  value={pagination.limit}
+                  onChange={(e) => handleLimitChange(Number(e.target.value))}
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
             </div>
             <RaceTable
               races={races}
