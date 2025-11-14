@@ -372,10 +372,6 @@ async function syncAthleteInternal(
     const runActivities = activities.filter(a => a.type === 'Run');
     console.log(`${runActivities.length} out of ${activities.length} activities are runs`);
 
-    // Filter to only Run activities before processing
-    const runActivities = activities.filter(a => a.type === 'Run');
-    console.log(`${runActivities.length} out of ${activities.length} activities are runs`);
-
     if (sessionId) {
       await logSyncProgress(env, athlete.id, sessionId, 'info',
         `Fetched ${runActivities.length} running activities from Strava API (${activities.length} total)`,
