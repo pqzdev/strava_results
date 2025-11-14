@@ -3,16 +3,80 @@
 import { Env } from '../types';
 import {
   getAthleteByStravaId,
-  updateLastSyncedAt,
-  raceExists,
   insertRace,
 } from '../utils/db';
 import {
   ensureValidToken,
   fetchAthleteActivities,
   filterRaceActivities,
+  type StravaActivity,
 } from '../utils/strava';
 import { logSyncProgress } from '../utils/sync-logger';
+
+/**
+ * Optimized insert race function - batches event name lookups but still fetches detailed polylines
+ */
+async function insertRaceOptimized(
+  athleteId: number,
+  activity: StravaActivity,
+  env: Env,
+  eventName: string | null,
+  accessToken?: string
+): Promise<void> {
+  const now = Math.floor(Date.now() / 1000);
+
+  // Try to get detailed polyline for races (we want high quality for race maps)
+  let polyline = activity.map?.summary_polyline || null;
+
+  // If no summary polyline and we have access token, fetch detailed activity
+  if (!polyline && accessToken) {
+    const { fetchDetailedPolyline } = await import('../utils/strava');
+    console.log(
+      `No summary polyline for activity ${activity.id}, fetching detailed polyline...`
+    );
+    polyline = await fetchDetailedPolyline(activity.id, accessToken);
+    if (polyline) {
+      console.log(`Successfully fetched detailed polyline for activity ${activity.id}`);
+    }
+  }
+
+  // Auto-hide parkrun races
+  const nameLower = activity.name.toLowerCase();
+  const isParkrun = nameLower.includes('parkrun') ||
+                    nameLower.includes('park run') ||
+                    nameLower.includes('parkie') ||
+                    nameLower.includes('parky');
+  const isHidden = isParkrun ? 1 : 0;
+
+  if (isParkrun) {
+    console.log(`Auto-hiding parkrun activity: "${activity.name}" (ID: ${activity.id})`);
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO races (
+      athlete_id, strava_activity_id, name, distance, elapsed_time,
+      moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, event_name, is_hidden, description, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+    .bind(
+      athleteId,
+      activity.id,
+      activity.name,
+      activity.distance,
+      activity.elapsed_time,
+      activity.moving_time,
+      activity.start_date_local,
+      activity.total_elevation_gain,
+      activity.average_heartrate || null,
+      activity.max_heartrate || null,
+      polyline,
+      eventName,
+      isHidden,
+      activity.description || null,
+      now
+    )
+    .run();
+}
 
 interface SyncMessage {
   athleteStravaId: number;
@@ -304,12 +368,32 @@ async function syncAthleteInternal(
     let newRacesAdded = 0;
 
     // For full syncs, we already deleted all races, so just insert everything
-    // Event names are automatically restored from the persistent mapping table in insertRace()
+    // Event names are automatically restored from the persistent mapping table
     if (fullSync) {
       console.log(`Full sync - attempting to insert ${races.length} races`);
+
+      // OPTIMIZED: Batch fetch event names for all races at once
+      let eventMappings = new Map<number, string>();
+      if (races.length > 0) {
+        const raceIds = races.map(r => r.id);
+        const placeholders = raceIds.map(() => '?').join(',');
+        const mappings = await env.DB.prepare(
+          `SELECT strava_activity_id, event_name FROM activity_event_mappings
+           WHERE strava_activity_id IN (${placeholders}) AND athlete_id = ?`
+        )
+          .bind(...raceIds, athlete.id)
+          .all<{ strava_activity_id: number; event_name: string }>();
+
+        for (const mapping of mappings.results || []) {
+          eventMappings.set(mapping.strava_activity_id, mapping.event_name);
+        }
+      }
+
+      // OPTIMIZED: Insert races with batch event name lookups
+      // Still fetches detailed polylines for races that need them
       for (const race of races) {
         try {
-          await insertRace(athlete.id, race, env, accessToken);
+          await insertRaceOptimized(athlete.id, race, env, eventMappings.get(race.id) || null, accessToken);
           newRacesAdded++;
           console.log(`Inserted race: ${race.name} (ID: ${race.id})`);
         } catch (error) {
@@ -324,35 +408,69 @@ async function syncAthleteInternal(
       // Get all activity IDs from fetched activities
       const fetchedActivityIds = new Set(activities.map(a => a.id));
 
-      // Get all existing races from database
-      const existingRaces = await env.DB.prepare(
-        `SELECT strava_activity_id FROM races WHERE athlete_id = ?`
-      )
-        .bind(athlete.id)
-        .all<{ strava_activity_id: number }>();
+      // OPTIMIZED: Only query for existing races within the current batch window
+      // This prevents "Too many subrequests" errors for athletes with thousands of activities
+      if (fetchedActivityIds.size > 0) {
+        const activityIdsList = Array.from(fetchedActivityIds);
+        const placeholders = activityIdsList.map(() => '?').join(',');
 
-      // Check each existing race to see if it should be removed
-      for (const existingRace of existingRaces.results || []) {
-        const activityId = existingRace.strava_activity_id;
+        const existingRaces = await env.DB.prepare(
+          `SELECT strava_activity_id FROM races
+           WHERE athlete_id = ? AND strava_activity_id IN (${placeholders})`
+        )
+          .bind(athlete.id, ...activityIdsList)
+          .all<{ strava_activity_id: number }>();
 
-        // If this activity was in the sync window but is no longer a race, remove it
-        if (fetchedActivityIds.has(activityId) && !raceActivityIds.has(activityId)) {
-          await env.DB.prepare(
-            `DELETE FROM races WHERE strava_activity_id = ? AND athlete_id = ?`
-          )
-            .bind(activityId, athlete.id)
-            .run();
-          racesRemoved++;
-          console.log(`Removed activity ${activityId} - no longer marked as race`);
+        // Check each existing race to see if it should be removed
+        for (const existingRace of existingRaces.results || []) {
+          const activityId = existingRace.strava_activity_id;
+
+          // If this activity was in the sync window but is no longer a race, remove it
+          if (fetchedActivityIds.has(activityId) && !raceActivityIds.has(activityId)) {
+            await env.DB.prepare(
+              `DELETE FROM races WHERE strava_activity_id = ? AND athlete_id = ?`
+            )
+              .bind(activityId, athlete.id)
+              .run();
+            racesRemoved++;
+            console.log(`Removed activity ${activityId} - no longer marked as race`);
+          }
         }
       }
 
-      // Insert new races
-      for (const race of races) {
-        const exists = await raceExists(race.id, env);
-        if (!exists) {
-          await insertRace(athlete.id, race, env, accessToken);
-          newRacesAdded++;
+      // OPTIMIZED: Batch check for existing races and event mappings to reduce DB queries
+      if (races.length > 0) {
+        const raceIdsList = races.map(r => r.id);
+        const placeholders = raceIdsList.map(() => '?').join(',');
+
+        // Batch fetch existing races
+        const existingRaceIds = await env.DB.prepare(
+          `SELECT strava_activity_id FROM races WHERE strava_activity_id IN (${placeholders})`
+        )
+          .bind(...raceIdsList)
+          .all<{ strava_activity_id: number }>();
+
+        const existingIdsSet = new Set(existingRaceIds.results?.map(r => r.strava_activity_id) || []);
+
+        // Batch fetch event names
+        const eventMappings = new Map<number, string>();
+        const mappings = await env.DB.prepare(
+          `SELECT strava_activity_id, event_name FROM activity_event_mappings
+           WHERE strava_activity_id IN (${placeholders}) AND athlete_id = ?`
+        )
+          .bind(...raceIdsList, athlete.id)
+          .all<{ strava_activity_id: number; event_name: string }>();
+
+        for (const mapping of mappings.results || []) {
+          eventMappings.set(mapping.strava_activity_id, mapping.event_name);
+        }
+
+        // Insert only the races that don't exist (using optimized insert)
+        for (const race of races) {
+          if (!existingIdsSet.has(race.id)) {
+            await insertRaceOptimized(athlete.id, race, env, eventMappings.get(race.id) || null, accessToken);
+            newRacesAdded++;
+          }
         }
       }
 

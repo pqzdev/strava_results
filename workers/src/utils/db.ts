@@ -97,12 +97,12 @@ export async function raceExists(
 }
 
 /**
- * Fetch detailed activity from Strava to get full polyline
+ * Fetch detailed activity from Strava to get full polyline and description
  */
-async function fetchDetailedPolyline(
+async function fetchDetailedActivity(
   activityId: number,
   accessToken: string
-): Promise<string | null> {
+): Promise<{ polyline: string | null; description: string | null }> {
   try {
     const response = await fetch(
       `https://www.strava.com/api/v3/activities/${activityId}`,
@@ -117,16 +117,30 @@ async function fetchDetailedPolyline(
       console.error(
         `Failed to fetch detailed activity ${activityId}: ${response.status}`
       );
-      return null;
+      return { polyline: null, description: null };
     }
 
     const activity: any = await response.json();
-    // Prefer full polyline over summary polyline
-    return activity.map?.polyline || activity.map?.summary_polyline || null;
+    return {
+      // Prefer full polyline over summary polyline
+      polyline: activity.map?.polyline || activity.map?.summary_polyline || null,
+      description: activity.description || null,
+    };
   } catch (error) {
     console.error(`Error fetching detailed activity ${activityId}:`, error);
-    return null;
+    return { polyline: null, description: null };
   }
+}
+
+/**
+ * @deprecated Use fetchDetailedActivity instead
+ */
+async function fetchDetailedPolyline(
+  activityId: number,
+  accessToken: string
+): Promise<string | null> {
+  const { polyline } = await fetchDetailedActivity(activityId, accessToken);
+  return polyline;
 }
 
 /**
@@ -141,17 +155,26 @@ export async function insertRace(
 ): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
 
-  // Try to get full polyline if we have an access token and no summary polyline
+  // Fetch detailed activity info (polyline and description) from Strava
   let polyline = activity.map?.summary_polyline || null;
+  let description = null;
 
   // If no summary polyline and we have access token, fetch detailed activity
+  // This gets both the full polyline and description for race activities
   if (!polyline && accessToken) {
     console.log(
-      `No summary polyline for activity ${activity.id}, fetching detailed polyline...`
+      `No summary polyline for activity ${activity.id}, fetching detailed activity...`
     );
-    polyline = await fetchDetailedPolyline(activity.id, accessToken);
-    if (polyline) {
+    const detailed = await fetchDetailedActivity(activity.id, accessToken);
+
+    if (detailed.polyline) {
+      polyline = detailed.polyline;
       console.log(`Successfully fetched detailed polyline for activity ${activity.id}`);
+    }
+
+    if (detailed.description) {
+      description = detailed.description;
+      console.log(`Successfully fetched description for activity ${activity.id}`);
     }
   }
 
@@ -201,7 +224,7 @@ export async function insertRace(
       polyline,
       eventName,
       isHidden,
-      activity.description || null,
+      description,
       now
     )
     .run();
