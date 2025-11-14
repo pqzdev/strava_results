@@ -291,22 +291,22 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
  */
 export async function getStats(env: Env): Promise<Response> {
   try {
-    // Get various statistics
+    // Get various statistics (exclude hidden races)
     const athleteCount = await env.DB.prepare(
       'SELECT COUNT(*) as count FROM athletes'
     ).first<{ count: number }>();
 
     const raceCount = await env.DB.prepare(
-      'SELECT COUNT(*) as count FROM races'
+      'SELECT COUNT(*) as count FROM races WHERE is_hidden = 0'
     ).first<{ count: number }>();
 
     const totalDistance = await env.DB.prepare(
-      'SELECT SUM(distance) as total FROM races'
+      'SELECT SUM(distance) as total FROM races WHERE is_hidden = 0'
     ).first<{ total: number }>();
 
     const recentRaces = await env.DB.prepare(
       `SELECT COUNT(*) as count FROM races
-       WHERE date >= date('now', '-30 days')`
+       WHERE date >= date('now', '-30 days') AND is_hidden = 0`
     ).first<{ count: number }>();
 
     const lastSync = await env.DB.prepare(

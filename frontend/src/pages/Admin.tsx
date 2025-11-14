@@ -122,7 +122,11 @@ export default function Admin() {
   const [syncing, setSyncing] = useState<Set<number>>(new Set());
   const [analyzingEvents, setAnalyzingEvents] = useState(false);
   const [editingEventName, setEditingEventName] = useState<{ [key: number]: string }>({});
-  const [parkrunStartDate, setParkrunStartDate] = useState('2024-01-01');
+  const [parkrunStartDate, setParkrunStartDate] = useState(() => {
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    return twoWeeksAgo.toISOString().split('T')[0];
+  });
   const [parkrunEndDate, setParkrunEndDate] = useState(
     new Date().toISOString().split('T')[0]
   );
