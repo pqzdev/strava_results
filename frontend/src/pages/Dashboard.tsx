@@ -69,6 +69,7 @@ export default function Dashboard() {
   const [earliestDate, setEarliestDate] = useState<string>();
   const [availableAthletes, setAvailableAthletes] = useState<string[]>([]);
   const [availableEvents, setAvailableEvents] = useState<string[]>([]);
+  const [showBulkEditModal, setShowBulkEditModal] = useState(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -283,6 +284,50 @@ export default function Dashboard() {
   const totalPages = Math.ceil(pagination.total / pagination.limit);
   const currentPage = Math.floor(pagination.offset / pagination.limit) + 1;
 
+  const handleBulkEdit = async (updates: {
+    event_name?: string | null;
+    manual_distance?: number | null;
+    is_hidden?: boolean;
+  }) => {
+    try {
+      const response = await fetch('/api/races/bulk-edit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          admin_strava_id: currentAthleteId,
+          filters: {
+            athleteNames: filters.athletes,
+            eventNames: filters.events,
+            activityName: filters.activityName,
+            dateFrom: filters.dateFrom,
+            dateTo: filters.dateTo,
+            distanceCategories: filters.distances,
+            viewerAthleteId: currentAthleteId,
+          },
+          updates,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to perform bulk edit');
+      }
+
+      const result = await response.json();
+      alert(result.message);
+
+      // Refresh the data
+      fetchRaces();
+      fetchAvailableEvents();
+      setShowBulkEditModal(false);
+    } catch (error) {
+      console.error('Error performing bulk edit:', error);
+      alert(error instanceof Error ? error.message : 'Failed to perform bulk edit');
+    }
+  };
+
   return (
     <div className="dashboard">
       <div className="container">
@@ -323,6 +368,25 @@ export default function Dashboard() {
 
             <div className="results-count">
               Showing {pagination.offset + 1}-{Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} race{pagination.total !== 1 ? 's' : ''}
+              {isAdmin && (
+                <button
+                  onClick={() => setShowBulkEditModal(true)}
+                  className="bulk-edit-button"
+                  style={{
+                    marginLeft: '1rem',
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#fc4c02',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                  }}
+                >
+                  Bulk Edit
+                </button>
+              )}
             </div>
             <RaceTable
               races={races}
@@ -359,6 +423,352 @@ export default function Dashboard() {
             )}
           </>
         )}
+
+        {showBulkEditModal && (
+          <BulkEditModal
+            onClose={() => setShowBulkEditModal(false)}
+            onSave={handleBulkEdit}
+            availableEvents={availableEvents}
+            affectedCount={pagination.total}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface BulkEditModalProps {
+  onClose: () => void;
+  onSave: (updates: {
+    event_name?: string | null;
+    manual_distance?: number | null;
+    is_hidden?: boolean;
+  }) => Promise<void>;
+  availableEvents: string[];
+  affectedCount: number;
+}
+
+function BulkEditModal({ onClose, onSave, availableEvents, affectedCount }: BulkEditModalProps) {
+  const [eventName, setEventName] = useState<string>('');
+  const [shouldUpdateEvent, setShouldUpdateEvent] = useState(false);
+  const [shouldClearEvent, setShouldClearEvent] = useState(false);
+  const [distance, setDistance] = useState<string>('');
+  const [shouldUpdateDistance, setShouldUpdateDistance] = useState(false);
+  const [visibility, setVisibility] = useState<'show' | 'hide' | ''>('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  const filteredEvents = availableEvents.filter(event =>
+    event.toLowerCase().includes(eventName.toLowerCase())
+  );
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const updates: {
+        event_name?: string | null;
+        manual_distance?: number | null;
+        is_hidden?: boolean;
+      } = {};
+
+      if (shouldUpdateEvent) {
+        if (shouldClearEvent) {
+          updates.event_name = null;
+        } else if (eventName.trim()) {
+          updates.event_name = eventName.trim();
+        }
+      }
+
+      if (shouldUpdateDistance && distance.trim()) {
+        const km = parseFloat(distance);
+        if (!isNaN(km) && km > 0) {
+          updates.manual_distance = Math.round(km * 1000);
+        }
+      }
+
+      if (visibility === 'show') {
+        updates.is_hidden = false;
+      } else if (visibility === 'hide') {
+        updates.is_hidden = true;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        alert('Please select at least one field to update');
+        return;
+      }
+
+      await onSave(updates);
+    } catch (error) {
+      console.error('Error saving bulk edit:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        if (!isDropdownOpen) setIsDropdownOpen(true);
+        setHighlightedIndex(prev =>
+          prev < filteredEvents.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (!isDropdownOpen) setIsDropdownOpen(true);
+        setHighlightedIndex(prev => (prev > 0 ? prev - 1 : 0));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (isDropdownOpen && filteredEvents[highlightedIndex]) {
+          setEventName(filteredEvents[highlightedIndex]);
+          setIsDropdownOpen(false);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        if (isDropdownOpen) {
+          setIsDropdownOpen(false);
+        }
+        break;
+    }
+  };
+
+  return (
+    <div
+      className="modal-overlay"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="modal-content"
+        style={{
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          padding: '2rem',
+          maxWidth: '500px',
+          width: '90%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ marginTop: 0 }}>Bulk Edit Activities</h2>
+        <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+          This will update {affectedCount} activit{affectedCount !== 1 ? 'ies' : 'y'} matching the current filters.
+        </p>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <input
+              type="checkbox"
+              checked={shouldUpdateEvent}
+              onChange={(e) => {
+                setShouldUpdateEvent(e.target.checked);
+                if (!e.target.checked) {
+                  setShouldClearEvent(false);
+                }
+              }}
+              style={{ marginRight: '0.5rem' }}
+            />
+            <strong>Update Event Name</strong>
+          </label>
+          {shouldUpdateEvent && (
+            <div style={{ marginLeft: '1.5rem', position: 'relative' }}>
+              <label style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  checked={shouldClearEvent}
+                  onChange={(e) => {
+                    setShouldClearEvent(e.target.checked);
+                    if (e.target.checked) {
+                      setEventName('');
+                      setIsDropdownOpen(false);
+                    }
+                  }}
+                  style={{ marginRight: '0.5rem' }}
+                />
+                Clear event name (set to blank)
+              </label>
+              {!shouldClearEvent && (
+                <>
+                  <input
+                    type="text"
+                    value={eventName}
+                    onChange={(e) => {
+                      setEventName(e.target.value);
+                      setIsDropdownOpen(true);
+                      setHighlightedIndex(0);
+                    }}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => setIsDropdownOpen(true)}
+                    placeholder="Enter event name..."
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                    }}
+                  />
+                  {isDropdownOpen && filteredEvents.length > 0 && (
+                    <ul
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        zIndex: 1000,
+                        background: 'white',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        listStyle: 'none',
+                        margin: '4px 0',
+                        padding: 0,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      }}
+                    >
+                      {filteredEvents.slice(0, 50).map((event, index) => (
+                        <li
+                          key={event}
+                          onClick={() => {
+                            setEventName(event);
+                            setIsDropdownOpen(false);
+                          }}
+                          onMouseEnter={() => setHighlightedIndex(index)}
+                          style={{
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            backgroundColor: index === highlightedIndex ? '#f0f0f0' : 'white',
+                          }}
+                        >
+                          {event}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <input
+              type="checkbox"
+              checked={shouldUpdateDistance}
+              onChange={(e) => setShouldUpdateDistance(e.target.checked)}
+              style={{ marginRight: '0.5rem' }}
+            />
+            <strong>Update Distance</strong>
+          </label>
+          {shouldUpdateDistance && (
+            <div style={{ marginLeft: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="text"
+                value={distance}
+                onChange={(e) => setDistance(e.target.value)}
+                placeholder="5.00"
+                style={{
+                  width: '100px',
+                  padding: '0.5rem',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                }}
+              />
+              <span>km</span>
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <strong style={{ display: 'block', marginBottom: '0.5rem' }}>Visibility</strong>
+          <div style={{ marginLeft: '1.5rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <input
+                type="radio"
+                name="visibility"
+                value=""
+                checked={visibility === ''}
+                onChange={(e) => setVisibility(e.target.value as '')}
+                style={{ marginRight: '0.5rem' }}
+              />
+              No change
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <input
+                type="radio"
+                name="visibility"
+                value="show"
+                checked={visibility === 'show'}
+                onChange={(e) => setVisibility(e.target.value as 'show')}
+                style={{ marginRight: '0.5rem' }}
+              />
+              Show all
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center' }}>
+              <input
+                type="radio"
+                name="visibility"
+                value="hide"
+                checked={visibility === 'hide'}
+                onChange={(e) => setVisibility(e.target.value as 'hide')}
+                style={{ marginRight: '0.5rem' }}
+              />
+              Hide all
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            disabled={isSaving}
+            style={{
+              padding: '0.5rem 1rem',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              backgroundColor: 'white',
+              cursor: isSaving ? 'wait' : 'pointer',
+              fontSize: '14px',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#fc4c02',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: isSaving ? 'wait' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '600',
+            }}
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
       </div>
     </div>
   );
