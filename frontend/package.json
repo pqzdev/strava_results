@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "build:skip-check": "vite build",
+    "build": "tsc && vite build && cp -r functions dist/",
+    "build:skip-check": "vite build && cp -r functions dist/",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler pages deploy dist",
     "deploy:skip-check": "npm run build:skip-check && wrangler pages deploy dist"
