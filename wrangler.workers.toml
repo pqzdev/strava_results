@@ -16,9 +16,11 @@ migrations_dir = "database/migrations"
 [ai]
 binding = "AI"
 
-# Scheduled cron trigger for weekly activity sync
+# Scheduled cron triggers
+# 1. Weekly activity sync: Queue all athletes for full sync
+# 2. Queue processor: Process next pending sync job every 2 minutes
 [triggers]
-crons = ["0 2 * * 1"] # Run at 2 AM UTC every Monday
+crons = ["0 2 * * 1", "*/2 * * * *"]
 
 # Environment variables (secrets set via wrangler secret put)
 # STRAVA_CLIENT_ID - set via: wrangler secret put STRAVA_CLIENT_ID
