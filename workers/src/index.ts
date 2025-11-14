@@ -17,6 +17,7 @@ import {
   queueAllAthletes,
   getQueueStats,
   cleanupOldJobs,
+  cancelPendingJobs,
 } from './queue/queue-processor';
 
 export default {
@@ -307,6 +308,21 @@ export default {
         const deleted = await cleanupOldJobs(env);
         return new Response(JSON.stringify({
           message: `Cleaned up ${deleted} old jobs`,
+          deleted,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+
+      // Cancel pending jobs
+      if (path === '/api/queue/cancel' && request.method === 'POST') {
+        const body = await request.json() as { jobIds?: number[] };
+        const deleted = await cancelPendingJobs(env, body.jobIds);
+        return new Response(JSON.stringify({
+          message: body.jobIds
+            ? `Cancelled ${deleted} specific pending job(s)`
+            : `Cancelled ${deleted} pending job(s)`,
           deleted,
         }), {
           status: 200,

@@ -325,3 +325,27 @@ export async function cleanupOldJobs(env: Env): Promise<number> {
   console.log(`Cleaned up ${deleted} old queue jobs`);
   return deleted;
 }
+
+/**
+ * Cancel pending jobs (delete jobs with status 'pending')
+ * @param jobIds - Optional array of specific job IDs to cancel. If omitted, cancels ALL pending jobs.
+ */
+export async function cancelPendingJobs(
+  env: Env,
+  jobIds?: number[]
+): Promise<number> {
+  let query = `DELETE FROM sync_queue WHERE status = 'pending'`;
+  const params: any[] = [];
+
+  if (jobIds && jobIds.length > 0) {
+    const placeholders = jobIds.map(() => '?').join(',');
+    query += ` AND id IN (${placeholders})`;
+    params.push(...jobIds);
+  }
+
+  const result = await env.DB.prepare(query).bind(...params).run();
+  const deleted = result.meta.changes || 0;
+
+  console.log(`Cancelled ${deleted} pending job(s)${jobIds ? ` (IDs: ${jobIds.join(', ')})` : ''}`);
+  return deleted;
+}
