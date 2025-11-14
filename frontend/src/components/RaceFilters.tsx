@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import MultiSelectAutocomplete from './MultiSelectAutocomplete';
 import './RaceFilters.css';
 
@@ -39,6 +40,7 @@ export default function RaceFilters({
   availableAthletes = [],
   availableEvents = [],
 }: RaceFiltersProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const getDefaultDateTo = () => new Date().toISOString().split('T')[0];
 
@@ -75,106 +77,115 @@ export default function RaceFilters({
 
   return (
     <div className="race-filters">
-      <div className="filters-grid">
-        {/* First row: Athletes */}
-        <div className="filter-group filter-group-wide">
-          <MultiSelectAutocomplete
-            options={availableAthletes}
-            selected={filters.athletes}
-            onChange={athletes => onFilterChange({ athletes })}
-            placeholder="Select athletes..."
-            label="Filter by Athletes"
-          />
-        </div>
+      <div className="filters-header" onClick={() => setIsExpanded(!isExpanded)}>
+        <h3 className="filters-title">Filters</h3>
+        <button className="filters-toggle" type="button" aria-label={isExpanded ? 'Collapse filters' : 'Expand filters'}>
+          {isExpanded ? '▼' : '▶'}
+        </button>
+      </div>
 
-        {/* Second row: Events and Activity Name */}
-        <div className="filter-group">
-          <MultiSelectAutocomplete
-            options={availableEvents}
-            selected={filters.events}
-            onChange={events => onFilterChange({ events })}
-            placeholder="Select events..."
-            label="Filter by Event"
-          />
-        </div>
+      {isExpanded && (
+        <div className="filters-grid">
+          {/* First row: Athletes */}
+          <div className="filter-group filter-group-wide">
+            <MultiSelectAutocomplete
+              options={availableAthletes}
+              selected={filters.athletes}
+              onChange={athletes => onFilterChange({ athletes })}
+              placeholder="Select athletes..."
+              label="Filter by Athletes"
+            />
+          </div>
 
-        <div className="filter-group">
-          <label htmlFor="activityName">Activity Name</label>
-          <input
-            id="activityName"
-            type="text"
-            placeholder="Search by activity..."
-            value={filters.activityName}
-            onChange={(e) => onFilterChange({ activityName: e.target.value })}
-          />
-        </div>
-
-        {/* Third row: Date Range and Distance */}
-        {earliestDate && (
+          {/* Second row: Events and Activity Name */}
           <div className="filter-group">
-            <label>Date Range</label>
-            <div className="date-range-inputs">
-              <div className="date-input-wrapper">
-                <input
-                  type="date"
-                  min={earliestDate}
-                  max={filters.dateTo || getDefaultDateTo()}
-                  value={filters.dateFrom || earliestDate}
-                  onChange={(e) => handleDateFromChange(e.target.value)}
-                  className="date-input"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleDateFromChange(earliestDate)}
-                  className="date-shortcut-link"
-                  title="Set to earliest date"
-                >
-                  min
-                </button>
-              </div>
-              <span className="date-separator">to</span>
-              <div className="date-input-wrapper">
-                <input
-                  type="date"
-                  min={filters.dateFrom || earliestDate}
-                  max={getDefaultDateTo()}
-                  value={filters.dateTo || getDefaultDateTo()}
-                  onChange={(e) => handleDateToChange(e.target.value)}
-                  className="date-input"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleDateToChange(getDefaultDateTo())}
-                  className="date-shortcut-link"
-                  title="Set to today"
-                >
-                  today
-                </button>
+            <MultiSelectAutocomplete
+              options={availableEvents}
+              selected={filters.events}
+              onChange={events => onFilterChange({ events })}
+              placeholder="Select events..."
+              label="Filter by Event"
+            />
+          </div>
+
+          <div className="filter-group">
+            <label htmlFor="activityName">Activity Name</label>
+            <input
+              id="activityName"
+              type="text"
+              placeholder="Search by activity..."
+              value={filters.activityName}
+              onChange={(e) => onFilterChange({ activityName: e.target.value })}
+            />
+          </div>
+
+          {/* Third row: Date Range and Distance */}
+          {earliestDate && (
+            <div className="filter-group">
+              <label>Date Range</label>
+              <div className="date-range-inputs">
+                <div className="date-input-wrapper">
+                  <input
+                    type="date"
+                    min={earliestDate}
+                    max={filters.dateTo || getDefaultDateTo()}
+                    value={filters.dateFrom || earliestDate}
+                    onChange={(e) => handleDateFromChange(e.target.value)}
+                    className="date-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleDateFromChange(earliestDate)}
+                    className="date-shortcut-link"
+                    title="Set to earliest date"
+                  >
+                    min
+                  </button>
+                </div>
+                <span className="date-separator">to</span>
+                <div className="date-input-wrapper">
+                  <input
+                    type="date"
+                    min={filters.dateFrom || earliestDate}
+                    max={getDefaultDateTo()}
+                    value={filters.dateTo || getDefaultDateTo()}
+                    onChange={(e) => handleDateToChange(e.target.value)}
+                    className="date-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleDateToChange(getDefaultDateTo())}
+                    className="date-shortcut-link"
+                    title="Set to today"
+                  >
+                    today
+                  </button>
+                </div>
               </div>
             </div>
+          )}
+
+          <div className="filter-group">
+            <MultiSelectAutocomplete
+              options={DISTANCE_OPTIONS}
+              selected={filters.distances}
+              onChange={distances => onFilterChange({ distances })}
+              placeholder="Select distances..."
+              label="Filter by Distance"
+            />
           </div>
-        )}
 
-        <div className="filter-group">
-          <MultiSelectAutocomplete
-            options={DISTANCE_OPTIONS}
-            selected={filters.distances}
-            onChange={distances => onFilterChange({ distances })}
-            placeholder="Select distances..."
-            label="Filter by Distance"
-          />
+          {/* Clear Filters Button */}
+          <div className="filter-group filter-actions">
+            <button
+              className="clear-filters-btn"
+              onClick={handleClear}
+            >
+              Clear Filters
+            </button>
+          </div>
         </div>
-
-        {/* Clear Filters Button */}
-        <div className="filter-group filter-actions">
-          <button
-            className="clear-filters-btn"
-            onClick={handleClear}
-          >
-            Clear Filters
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
