@@ -1,6 +1,51 @@
 import { useState } from 'react';
 import './RaceTable.css';
 
+interface VisibilityToggleProps {
+  race: Race;
+  isOwner: boolean;
+  onToggle: (raceId: number, isHidden: boolean) => Promise<void>;
+}
+
+function VisibilityToggle({ race, isOwner, onToggle }: VisibilityToggleProps) {
+  const [isToggling, setIsToggling] = useState(false);
+  const isHidden = race.is_hidden === 1;
+
+  if (!isOwner) {
+    return null; // Don't show toggle to non-owners
+  }
+
+  const handleToggle = async () => {
+    setIsToggling(true);
+    try {
+      await onToggle(race.id, !isHidden);
+    } catch (error) {
+      alert('Failed to update visibility');
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleToggle}
+      disabled={isToggling}
+      className="visibility-toggle"
+      title={isHidden ? 'Hidden - Click to show' : 'Visible - Click to hide'}
+      style={{
+        background: 'transparent',
+        border: 'none',
+        cursor: isToggling ? 'wait' : 'pointer',
+        fontSize: '1.2rem',
+        padding: '0.25rem',
+        opacity: isToggling ? 0.5 : 1,
+      }}
+    >
+      {isHidden ? '👁️‍🗨️' : '👁️'}
+    </button>
+  );
+}
+
 interface Race {
   id: number;
   strava_activity_id: number;
@@ -16,6 +61,7 @@ interface Race {
   average_heartrate?: number;
   max_heartrate?: number;
   athlete_id: number;
+  is_hidden?: number;
   firstname: string;
   lastname: string;
   profile_photo?: string;
@@ -658,6 +704,34 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
     }
   };
 
+  const handleVisibilityToggle = async (raceId: number, isHidden: boolean) => {
+    try {
+      const response = await fetch(`/api/races/${raceId}/visibility`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          is_hidden: isHidden,
+          athlete_strava_id: currentAthleteId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update visibility');
+      }
+
+      // Refresh the races list
+      if (onTimeUpdate) {
+        onTimeUpdate();
+      }
+    } catch (error) {
+      console.error('Error updating visibility:', error);
+      throw error;
+    }
+  };
+
   return (
     <div className="race-table-container">
       <table className="race-table">
@@ -681,6 +755,7 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
             <th onClick={() => handleSort('elapsed_time')} style={{ cursor: 'pointer' }}>
               Time{getSortIndicator('elapsed_time')}
             </th>
+            <th style={{ width: '50px' }}></th>
           </tr>
         </thead>
         <tbody>
@@ -725,6 +800,13 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                   race={race}
                   isOwner={isAdmin || race.strava_id === currentAthleteId}
                   onSave={handleTimeUpdate}
+                />
+              </td>
+              <td>
+                <VisibilityToggle
+                  race={race}
+                  isOwner={isAdmin || race.strava_id === currentAthleteId}
+                  onToggle={handleVisibilityToggle}
                 />
               </td>
             </tr>

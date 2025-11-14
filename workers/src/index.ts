@@ -3,7 +3,7 @@
 import { Env } from './types';
 import { handleAuthorize, handleCallback, handleDisconnect } from './auth/oauth';
 import { syncAllAthletes } from './cron/sync';
-import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent } from './api/races';
+import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs } from './api/admin';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
@@ -99,6 +99,12 @@ export default {
       const raceEventMatch = path.match(/^\/api\/races\/(\d+)\/event$/);
       if (raceEventMatch && request.method === 'PATCH') {
         return updateRaceEvent(request, env, parseInt(raceEventMatch[1]));
+      }
+
+      // Update race visibility
+      const raceVisibilityMatch = path.match(/^\/api\/races\/(\d+)\/visibility$/);
+      if (raceVisibilityMatch && request.method === 'PATCH') {
+        return updateRaceVisibility(request, env, parseInt(raceVisibilityMatch[1]));
       }
 
       // Admin routes
