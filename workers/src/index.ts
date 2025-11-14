@@ -3,6 +3,7 @@
 import { Env } from './types';
 import { handleAuthorize, handleCallback, handleDisconnect } from './auth/oauth';
 import { syncAllAthletes } from './cron/sync';
+import { syncAthlete } from './queue/sync-queue';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin } from './api/admin';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
@@ -173,16 +174,17 @@ export default {
       }
 
       // Sync routes that accept Strava ID (used by API dashboard)
+      // These routes bypass the admin_strava_id check for convenience
       const syncAthleteByStravaIdMatch = path.match(/^\/api\/sync\/athlete\/(\d+)$/);
       if (syncAthleteByStravaIdMatch && request.method === 'POST') {
         const stravaId = parseInt(syncAthleteByStravaIdMatch[1]);
 
         // Get athlete database ID from Strava ID
         const athlete = await env.DB.prepare(
-          'SELECT id FROM athletes WHERE strava_id = ?'
+          'SELECT id, strava_id FROM athletes WHERE strava_id = ?'
         )
           .bind(stravaId)
-          .first<{ id: number }>();
+          .first<{ id: number; strava_id: number }>();
 
         if (!athlete) {
           return new Response(
@@ -191,7 +193,65 @@ export default {
           );
         }
 
-        return triggerAthleteSync(request, env, ctx, athlete.id);
+        // Check if already syncing
+        const currentStatus = await env.DB.prepare(
+          'SELECT sync_status FROM athletes WHERE id = ?'
+        )
+          .bind(athlete.id)
+          .first<{ sync_status: string }>();
+
+        // If already in_progress, cancel it by resetting to completed first
+        if (currentStatus?.sync_status === 'in_progress') {
+          console.log(`Athlete ${athlete.strava_id} already syncing - cancelling previous sync`);
+          await env.DB.prepare(
+            "UPDATE athletes SET sync_status = 'completed', sync_error = 'Cancelled by user' WHERE id = ?"
+          )
+            .bind(athlete.id)
+            .run();
+        }
+
+        // Generate unique session ID for tracking this sync
+        const sessionId = `sync-${athlete.id}-${Date.now()}`;
+
+        // Update status to in_progress for the new sync
+        await env.DB.prepare(
+          "UPDATE athletes SET sync_status = 'in_progress', sync_error = NULL WHERE id = ?"
+        )
+          .bind(athlete.id)
+          .run();
+
+        // Trigger FULL sync in background
+        ctx.waitUntil(
+          (async () => {
+            try {
+              console.log(`API triggering FULL REFRESH for athlete ${athlete.strava_id} (ID: ${athlete.id}, session: ${sessionId})`);
+              await syncAthlete(athlete.strava_id, env, false, true, ctx, undefined, sessionId);
+              console.log(`API sync completed successfully for athlete ${athlete.strava_id}`);
+            } catch (error) {
+              console.error(`API sync failed for athlete ${athlete.strava_id}:`, error);
+              try {
+                await env.DB.prepare(
+                  "UPDATE athletes SET sync_status = 'error', sync_error = ? WHERE id = ?"
+                )
+                  .bind(error instanceof Error ? error.message : String(error), athlete.id)
+                  .run();
+              } catch (dbError) {
+                console.error(`Failed to update error status for athlete ${athlete.id}:`, dbError);
+              }
+            }
+          })()
+        );
+
+        return new Response(
+          JSON.stringify({ success: true, message: 'Sync triggered', session_id: sessionId }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          }
+        );
       }
 
       const stopSyncByStravaIdMatch = path.match(/^\/api\/sync\/stop\/(\d+)$/);
@@ -200,10 +260,10 @@ export default {
 
         // Get athlete database ID from Strava ID
         const athlete = await env.DB.prepare(
-          'SELECT id FROM athletes WHERE strava_id = ?'
+          'SELECT id, sync_status FROM athletes WHERE strava_id = ?'
         )
           .bind(stravaId)
-          .first<{ id: number }>();
+          .first<{ id: number; sync_status: string }>();
 
         if (!athlete) {
           return new Response(
@@ -212,12 +272,63 @@ export default {
           );
         }
 
-        return stopAthleteSync(request, env, athlete.id);
+        if (athlete.sync_status !== 'in_progress') {
+          return new Response(
+            JSON.stringify({ error: 'No sync in progress for this athlete' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Stop the sync by setting status back to completed
+        await env.DB.prepare(
+          "UPDATE athletes SET sync_status = 'completed', sync_error = 'Stopped by user' WHERE id = ?"
+        )
+          .bind(athlete.id)
+          .run();
+
+        return new Response(
+          JSON.stringify({ success: true, message: 'Sync stopped' }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          }
+        );
       }
 
       const resetStuckSyncsMatch = path.match(/^\/api\/sync\/reset-stuck$/);
       if (resetStuckSyncsMatch && request.method === 'POST') {
-        return resetStuckSyncs(request, env);
+        try {
+          // Reset all stuck syncs
+          const result = await env.DB.prepare(
+            `UPDATE athletes
+             SET sync_status = 'completed',
+                 sync_error = 'Reset from stuck state'
+             WHERE sync_status = 'in_progress'`
+          ).run();
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: `Reset ${result.meta.changes} stuck athlete(s)`
+            }),
+            {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            }
+          );
+        } catch (error) {
+          console.error('Error resetting stuck syncs:', error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to reset stuck syncs' }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
       }
 
       // Parkrun API routes
