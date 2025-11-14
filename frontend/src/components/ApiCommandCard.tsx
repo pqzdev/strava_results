@@ -4,13 +4,14 @@ import { ApiCommand, ApiParameter } from '../config/apiCommands';
 interface ApiCommandCardProps {
   command: ApiCommand;
   apiUrl: string;
+  adminStravaId?: number;
 }
 
 interface FormValues {
   [key: string]: any;
 }
 
-export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl }) => {
+export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl, adminStravaId }) => {
   const [formValues, setFormValues] = useState<FormValues>(() => {
     const initial: FormValues = {};
     command.parameters?.forEach(param => {
@@ -48,6 +49,17 @@ export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl 
     if (command.method === 'GET') return null;
 
     const body: any = {};
+
+    // Automatically inject admin_strava_id if provided
+    // This is used for admin-only endpoints that require authentication
+    if (adminStravaId) {
+      body.admin_strava_id = adminStravaId;
+      // Also add athlete_strava_id for race visibility endpoints
+      if (command.endpoint.includes('/races/')) {
+        body.athlete_strava_id = adminStravaId;
+      }
+    }
+
     command.parameters?.forEach(param => {
       // Skip path parameters (they're in the URL)
       if (command.endpoint.includes(`:${param.name}`)) return;

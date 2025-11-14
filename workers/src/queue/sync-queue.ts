@@ -372,9 +372,13 @@ async function syncAthleteInternal(
     const runActivities = activities.filter(a => a.type === 'Run');
     console.log(`${runActivities.length} out of ${activities.length} activities are runs`);
 
+    // Filter to only Run activities before processing
+    const runActivities = activities.filter(a => a.type === 'Run');
+    console.log(`${runActivities.length} out of ${activities.length} activities are runs`);
+
     if (sessionId) {
       await logSyncProgress(env, athlete.id, sessionId, 'info',
-        `[v2] Fetched ${runActivities.length} running activities from Strava API (${activities.length} total)`,
+        `Fetched ${runActivities.length} running activities from Strava API (${activities.length} total)`,
         { runActivitiesCount: runActivities.length, totalActivitiesCount: activities.length }
       );
     }
@@ -408,7 +412,7 @@ async function syncAthleteInternal(
 
     if (sessionId) {
       await logSyncProgress(env, athlete.id, sessionId, 'info',
-        `[v2] Found ${races.length} race activities out of ${runActivities.length} runs`,
+        `Found ${races.length} race activities out of ${runActivities.length} runs`,
         { racesCount: races.length, runActivitiesCount: runActivities.length }
       );
     }

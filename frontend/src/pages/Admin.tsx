@@ -2578,6 +2578,7 @@ export default function Admin() {
                         key={cmd.id}
                         command={cmd}
                         apiUrl={apiUrl}
+                        adminStravaId={currentAthleteId}
                       />
                     ))}
                   </div>
