@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaCommentDots } from 'react-icons/fa';
 import './RaceTable.css';
 
 interface VisibilityToggleProps {
@@ -49,6 +49,25 @@ function VisibilityToggle({ race, isOwner, onToggle }: VisibilityToggleProps) {
     >
       {isHidden ? <FaEyeSlash /> : <FaEye />}
     </button>
+  );
+}
+
+interface DescriptionTooltipProps {
+  description?: string;
+}
+
+function DescriptionTooltip({ description }: DescriptionTooltipProps) {
+  if (!description) {
+    return null; // Don't show icon if no description
+  }
+
+  return (
+    <div className="description-tooltip-wrapper">
+      <FaCommentDots className="description-icon" />
+      <div className="description-tooltip">
+        {description}
+      </div>
+    </div>
   );
 }
 
@@ -786,7 +805,7 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                 />
               </td>
               <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div className="activity-name-cell">
                   <a
                     href={`https://www.strava.com/activities/${race.strava_activity_id}`}
                     target="_blank"
@@ -795,20 +814,7 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                   >
                     {race.name}
                   </a>
-                  {race.description && (
-                    <span
-                      className="description-icon"
-                      title={race.description}
-                      style={{
-                        cursor: 'help',
-                        fontSize: '14px',
-                        color: '#666',
-                        flexShrink: 0,
-                      }}
-                    >
-                      ℹ️
-                    </span>
-                  )}
+                  <DescriptionTooltip description={race.description} />
                 </div>
               </td>
               <td>
