@@ -182,23 +182,37 @@ export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl 
       case 'text':
       case 'number':
         return (
-          <div key={param.name} className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          <div key={param.name}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#374151', marginBottom: '0.25rem' }}>
               {param.label}
-              {param.required && <span className="text-red-500 ml-1">*</span>}
+              {param.required && <span style={{ color: '#dc2626', marginLeft: '0.25rem' }}>*</span>}
             </label>
             <input
               type={param.type}
               value={value || ''}
               onChange={(e) => handleInputChange(param.name, e.target.value)}
               placeholder={param.placeholder}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={isExecuting}
               min={param.validation?.min}
               max={param.validation?.max}
+              style={{
+                width: '100%',
+                padding: '0.5rem 0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '0.9rem',
+                backgroundColor: isExecuting ? '#f9fafb' : 'white',
+                color: '#111827',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
             />
             {param.description && (
-              <p className="text-xs text-gray-500 mt-1">{param.description}</p>
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                {param.description}
+              </p>
             )}
           </div>
         );
@@ -206,37 +220,66 @@ export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl 
       case 'textarea':
       case 'json':
         return (
-          <div key={param.name} className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          <div key={param.name}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#374151', marginBottom: '0.25rem' }}>
               {param.label}
-              {param.required && <span className="text-red-500 ml-1">*</span>}
+              {param.required && <span style={{ color: '#dc2626', marginLeft: '0.25rem' }}>*</span>}
             </label>
             <textarea
               value={value || ''}
               onChange={(e) => handleInputChange(param.name, e.target.value)}
               placeholder={param.placeholder}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
               rows={4}
               disabled={isExecuting}
+              style={{
+                width: '100%',
+                padding: '0.5rem 0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '0.85rem',
+                fontFamily: 'monospace',
+                backgroundColor: isExecuting ? '#f9fafb' : 'white',
+                color: '#111827',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+                resize: 'vertical',
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
             />
             {param.description && (
-              <p className="text-xs text-gray-500 mt-1">{param.description}</p>
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                {param.description}
+              </p>
             )}
           </div>
         );
 
       case 'select':
         return (
-          <div key={param.name} className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          <div key={param.name}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#374151', marginBottom: '0.25rem' }}>
               {param.label}
-              {param.required && <span className="text-red-500 ml-1">*</span>}
+              {param.required && <span style={{ color: '#dc2626', marginLeft: '0.25rem' }}>*</span>}
             </label>
             <select
               value={value || ''}
               onChange={(e) => handleInputChange(param.name, e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={isExecuting}
+              style={{
+                width: '100%',
+                padding: '0.5rem 0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '0.9rem',
+                backgroundColor: isExecuting ? '#f9fafb' : 'white',
+                color: '#111827',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+                cursor: isExecuting ? 'not-allowed' : 'pointer',
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
             >
               {!param.required && <option value="">-- Select --</option>}
               {param.options?.map(opt => (
@@ -246,46 +289,71 @@ export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl 
               ))}
             </select>
             {param.description && (
-              <p className="text-xs text-gray-500 mt-1">{param.description}</p>
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                {param.description}
+              </p>
             )}
           </div>
         );
 
       case 'checkbox':
         return (
-          <div key={param.name} className="mb-3">
-            <label className="flex items-center">
+          <div key={param.name}>
+            <label style={{ display: 'flex', alignItems: 'center', cursor: isExecuting ? 'not-allowed' : 'pointer' }}>
               <input
                 type="checkbox"
                 checked={Boolean(value)}
                 onChange={(e) => handleInputChange(param.name, e.target.checked)}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 disabled={isExecuting}
+                style={{
+                  marginRight: '0.5rem',
+                  width: '1rem',
+                  height: '1rem',
+                  cursor: isExecuting ? 'not-allowed' : 'pointer',
+                }}
               />
-              <span className="text-sm font-medium text-gray-700">{param.label}</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#374151' }}>
+                {param.label}
+              </span>
             </label>
             {param.description && (
-              <p className="text-xs text-gray-500 mt-1 ml-6">{param.description}</p>
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem', marginLeft: '1.5rem' }}>
+                {param.description}
+              </p>
             )}
           </div>
         );
 
       case 'date':
         return (
-          <div key={param.name} className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+          <div key={param.name}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: '#374151', marginBottom: '0.25rem' }}>
               {param.label}
-              {param.required && <span className="text-red-500 ml-1">*</span>}
+              {param.required && <span style={{ color: '#dc2626', marginLeft: '0.25rem' }}>*</span>}
             </label>
             <input
               type="date"
               value={value || ''}
               onChange={(e) => handleInputChange(param.name, e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={isExecuting}
+              style={{
+                width: '100%',
+                padding: '0.5rem 0.75rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '0.9rem',
+                backgroundColor: isExecuting ? '#f9fafb' : 'white',
+                color: '#111827',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
             />
             {param.description && (
-              <p className="text-xs text-gray-500 mt-1">{param.description}</p>
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                {param.description}
+              </p>
             )}
           </div>
         );
@@ -296,66 +364,158 @@ export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl 
   };
 
   return (
-    <div className={`border rounded-lg p-4 ${command.dangerous ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white'}`}>
-      <div className="mb-4">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              {command.name}
-              {command.dangerous && (
-                <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">DANGER</span>
-              )}
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">{command.description}</p>
-            <div className="flex gap-2 mt-2">
-              <span className={`text-xs font-mono px-2 py-1 rounded ${
-                command.method === 'GET' ? 'bg-green-100 text-green-800' :
-                command.method === 'POST' ? 'bg-blue-100 text-blue-800' :
-                command.method === 'PATCH' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-red-100 text-red-800'
-              }`}>
-                {command.method}
+    <div style={{
+      border: command.dangerous ? '2px solid #fca5a5' : '1px solid #e5e7eb',
+      borderRadius: '8px',
+      padding: '1.5rem',
+      backgroundColor: command.dangerous ? '#fef2f2' : 'white',
+      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
+      <div style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#111827', margin: 0 }}>
+            {command.name}
+            {command.dangerous && (
+              <span style={{
+                fontSize: '0.7rem',
+                backgroundColor: '#fee2e2',
+                color: '#991b1b',
+                padding: '0.25rem 0.5rem',
+                borderRadius: '4px',
+                marginLeft: '0.5rem',
+                fontWeight: 700,
+              }}>
+                ⚠️ DANGER
               </span>
-              <span className="text-xs font-mono px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                {command.endpoint}
-              </span>
-            </div>
-          </div>
+            )}
+          </h3>
+        </div>
+        <p style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: '0.75rem' }}>
+          {command.description}
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: '0.75rem',
+            fontFamily: 'monospace',
+            padding: '0.25rem 0.5rem',
+            borderRadius: '4px',
+            fontWeight: 600,
+            backgroundColor: command.method === 'GET' ? '#d1fae5' :
+                          command.method === 'POST' ? '#dbeafe' :
+                          command.method === 'PATCH' ? '#fef3c7' :
+                          '#fee2e2',
+            color: command.method === 'GET' ? '#065f46' :
+                   command.method === 'POST' ? '#1e40af' :
+                   command.method === 'PATCH' ? '#92400e' :
+                   '#991b1b',
+          }}>
+            {command.method}
+          </span>
+          <span style={{
+            fontSize: '0.75rem',
+            fontFamily: 'monospace',
+            padding: '0.25rem 0.5rem',
+            backgroundColor: '#f3f4f6',
+            color: '#374151',
+            borderRadius: '4px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '300px',
+          }}>
+            {command.endpoint}
+          </span>
         </div>
       </div>
 
       {command.parameters && command.parameters.length > 0 && (
-        <div className="mb-4">
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Parameters</h4>
-          {command.parameters.map(param => renderParameter(param))}
+        <div style={{ marginBottom: '1rem', flex: 1 }}>
+          <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#374151', marginBottom: '0.75rem' }}>
+            Parameters
+          </h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {command.parameters.map(param => renderParameter(param))}
+          </div>
         </div>
       )}
 
-      <div className="mb-4">
+      <div style={{ marginTop: 'auto' }}>
         <button
           onClick={executeCommand}
           disabled={isExecuting}
-          className={`w-full px-4 py-2 rounded-md font-medium transition-colors ${
-            command.dangerous
-              ? 'bg-red-600 hover:bg-red-700 text-white disabled:bg-red-300'
-              : 'bg-blue-600 hover:bg-blue-700 text-white disabled:bg-blue-300'
-          } disabled:cursor-not-allowed`}
+          style={{
+            width: '100%',
+            padding: '0.75rem 1rem',
+            borderRadius: '6px',
+            fontWeight: 600,
+            fontSize: '0.95rem',
+            border: 'none',
+            cursor: isExecuting ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s',
+            backgroundColor: command.dangerous
+              ? (isExecuting ? '#fca5a5' : '#dc2626')
+              : (isExecuting ? '#93c5fd' : '#2563eb'),
+            color: 'white',
+            opacity: isExecuting ? 0.6 : 1,
+          }}
+          onMouseEnter={(e) => {
+            if (!isExecuting) {
+              e.currentTarget.style.backgroundColor = command.dangerous ? '#b91c1c' : '#1d4ed8';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isExecuting) {
+              e.currentTarget.style.backgroundColor = command.dangerous ? '#dc2626' : '#2563eb';
+            }
+          }}
         >
-          {isExecuting ? 'Executing...' : 'Execute Command'}
+          {isExecuting ? '⏳ Executing...' : '▶️ Execute Command'}
         </button>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-800 font-medium">Error</p>
-          <p className="text-sm text-red-700 mt-1">{error}</p>
+        <div style={{
+          marginTop: '1rem',
+          padding: '0.75rem',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: '6px',
+        }}>
+          <p style={{ fontSize: '0.85rem', color: '#991b1b', fontWeight: 600, margin: '0 0 0.25rem 0' }}>
+            ❌ Error
+          </p>
+          <p style={{ fontSize: '0.85rem', color: '#7f1d1d', margin: 0 }}>
+            {error}
+          </p>
         </div>
       )}
 
       {response && (
-        <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
-          <p className="text-sm text-gray-800 font-medium mb-2">Response</p>
-          <pre className="text-xs text-gray-700 overflow-auto max-h-64 bg-white p-2 rounded border border-gray-200">
+        <div style={{
+          marginTop: '1rem',
+          padding: '0.75rem',
+          backgroundColor: '#f0fdf4',
+          border: '1px solid #bbf7d0',
+          borderRadius: '6px',
+        }}>
+          <p style={{ fontSize: '0.85rem', color: '#166534', fontWeight: 600, margin: '0 0 0.5rem 0' }}>
+            ✅ Response
+          </p>
+          <pre style={{
+            fontSize: '0.75rem',
+            fontFamily: 'monospace',
+            color: '#1e293b',
+            overflow: 'auto',
+            maxHeight: '200px',
+            backgroundColor: 'white',
+            padding: '0.75rem',
+            borderRadius: '4px',
+            border: '1px solid #e2e8f0',
+            margin: 0,
+          }}>
             {JSON.stringify(response, null, 2)}
           </pre>
         </div>
