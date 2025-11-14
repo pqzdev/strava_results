@@ -75,6 +75,7 @@ interface Race {
   id: number;
   strava_activity_id: number;
   name: string;
+  description?: string;
   distance: number;
   elapsed_time: number;
   moving_time: number;

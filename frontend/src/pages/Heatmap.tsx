@@ -41,7 +41,15 @@ export default function Heatmap() {
       setError(null);
 
       // Fetch all races with a high limit to get as much data as possible
-      const response = await fetch('/api/races?limit=10000');
+      // Include viewer_athlete_id to properly filter hidden activities
+      const athleteId = localStorage.getItem('strava_athlete_id');
+      const params = new URLSearchParams();
+      params.set('limit', '10000');
+      if (athleteId) {
+        params.set('viewer_athlete_id', athleteId);
+      }
+
+      const response = await fetch(`/api/races?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch races');

@@ -9,7 +9,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Parkrun = lazy(() => import('./pages/Parkrun'));
 const Admin = lazy(() => import('./pages/Admin'));
 const SyncMonitor = lazy(() => import('./pages/SyncMonitor'));
-// const Heatmap = lazy(() => import('./pages/Heatmap')); // Temporarily disabled - requires Strava API
+const Heatmap = lazy(() => import('./pages/Heatmap'));
 const SubmitActivities = lazy(() => import('./pages/SubmitActivities'));
 const SubmitActivitiesReview = lazy(() => import('./pages/SubmitActivitiesReview'));
 
@@ -57,15 +57,14 @@ function App() {
             </Suspense>
           }
         />
-        {/* Heatmap temporarily disabled - requires Strava API */}
-        {/* <Route
+        <Route
           path="heatmap"
           element={
             <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
               <Heatmap />
             </Suspense>
           }
-        /> */}
+        />
         <Route
           path="submit-activities"
           element={
