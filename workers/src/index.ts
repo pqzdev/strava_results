@@ -4,7 +4,7 @@ import { Env } from './types';
 import { handleAuthorize, handleCallback, handleDisconnect } from './auth/oauth';
 import { syncAllAthletes } from './cron/sync';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
-import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin } from './api/admin';
+import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin, getAdminSyncStatus, stopSyncJob } from './api/admin';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames, getEventStats, renameEvent } from './api/events';
@@ -182,6 +182,16 @@ export default {
             headers: { 'Content-Type': 'application/json' },
           }
         );
+      }
+
+      // Get sync queue status (admin only)
+      if (path === '/api/admin/sync-status' && request.method === 'GET') {
+        return getAdminSyncStatus(request, env);
+      }
+
+      // Stop a stalled sync (admin only)
+      if (path === '/api/admin/sync/stop' && request.method === 'POST') {
+        return stopSyncJob(request, env);
       }
 
       // Parkrun API routes

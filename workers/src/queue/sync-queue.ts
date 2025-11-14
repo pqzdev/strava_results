@@ -654,3 +654,73 @@ export async function handleSyncQueue(
     }
   }
 }
+
+/**
+ * Get sync queue status - both active/processing and recent completed/failed
+ */
+export async function getSyncQueueStatus(env: Env) {
+  // Get active/processing syncs
+  const activeResult = await env.DB.prepare(`
+    SELECT
+      sq.id,
+      sq.athlete_id,
+      sq.job_type,
+      sq.status,
+      sq.created_at,
+      sq.started_at,
+      sq.completed_at,
+      sq.error_message,
+      sq.activities_synced,
+      sq.total_activities_expected,
+      a.strava_id,
+      a.first_name,
+      a.last_name
+    FROM sync_queue sq
+    LEFT JOIN athletes a ON sq.athlete_id = a.id
+    WHERE sq.status IN ('pending', 'processing')
+    ORDER BY sq.created_at DESC
+  `).all();
+
+  // Get last 10 completed/failed syncs
+  const recentResult = await env.DB.prepare(`
+    SELECT
+      sq.id,
+      sq.athlete_id,
+      sq.job_type,
+      sq.status,
+      sq.created_at,
+      sq.started_at,
+      sq.completed_at,
+      sq.error_message,
+      sq.activities_synced,
+      sq.total_activities_expected,
+      a.strava_id,
+      a.first_name,
+      a.last_name
+    FROM sync_queue sq
+    LEFT JOIN athletes a ON sq.athlete_id = a.id
+    WHERE sq.status IN ('completed', 'failed')
+    ORDER BY sq.completed_at DESC
+    LIMIT 10
+  `).all();
+
+  return {
+    active: activeResult.results || [],
+    recent: recentResult.results || []
+  };
+}
+
+/**
+ * Stop a stalled sync by marking it as failed
+ */
+export async function stopSync(syncId: number, env: Env) {
+  const result = await env.DB.prepare(`
+    UPDATE sync_queue
+    SET status = 'failed',
+        error_message = 'Manually stopped by admin',
+        completed_at = ?
+    WHERE id = ? AND status IN ('pending', 'processing')
+  `).bind(Date.now(), syncId).run();
+
+  return result.meta.changes > 0;
+}

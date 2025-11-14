@@ -86,13 +86,34 @@ interface EditableSubmission extends ManualSubmission {
   edit_event_name?: string | null;
 }
 
+interface SyncQueueJob {
+  id: number;
+  athlete_id: number;
+  job_type: string;
+  status: string;
+  created_at: number;
+  started_at: number | null;
+  completed_at: number | null;
+  error_message: string | null;
+  activities_synced: number;
+  total_activities_expected: number | null;
+  strava_id: number;
+  first_name: string;
+  last_name: string;
+}
+
+interface SyncQueueStatus {
+  active: SyncQueueJob[];
+  recent: SyncQueueJob[];
+}
+
 type SortField = 'name' | 'activities' | 'races' | 'runs';
 type SortDirection = 'asc' | 'desc';
 
 type ParkrunSortField = 'name' | 'runs' | 'events';
 type ParkrunSortDirection = 'asc' | 'desc';
 
-type AdminTab = 'athletes' | 'parkrun' | 'event-suggestions' | 'events' | 'submissions' | 'api-control';
+type AdminTab = 'athletes' | 'parkrun' | 'event-suggestions' | 'events' | 'submissions' | 'api-control' | 'sync-dashboard';
 
 type EventSortField = 'event_name' | 'activity_count' | 'dates' | 'distances';
 type EventSortDirection = 'asc' | 'desc';
@@ -197,6 +218,10 @@ export default function Admin() {
   const [apiSearch, setApiSearch] = useState('');
   const [apiCategory, setApiCategory] = useState<string>('all');
 
+  // Sync Dashboard tab state
+  const [syncQueueStatus, setSyncQueueStatus] = useState<SyncQueueStatus | null>(null);
+  const [loadingSyncStatus, setLoadingSyncStatus] = useState(false);
+
   // Get admin strava ID from localStorage
   const currentAthleteId = parseInt(
     localStorage.getItem('strava_athlete_id') || '0'
@@ -210,11 +235,21 @@ export default function Admin() {
     fetchQueueStats();
     fetchManualSubmissions();
     fetchApprovedSubmissions();
+    fetchSyncStatus();
 
     // Poll queue stats every 30 seconds
     const interval = setInterval(fetchQueueStats, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-refresh sync status when on sync-dashboard tab
+  useEffect(() => {
+    if (activeTab === 'sync-dashboard') {
+      fetchSyncStatus();
+      const interval = setInterval(fetchSyncStatus, 10000); // Refresh every 10 seconds
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
 
   const fetchAthletes = async () => {
     try {
@@ -314,6 +349,43 @@ export default function Admin() {
       setQueueStats(data);
     } catch (err) {
       console.error('Error fetching queue stats:', err);
+    }
+  };
+
+  const fetchSyncStatus = async () => {
+    try {
+      setLoadingSyncStatus(true);
+      const response = await fetch(`/api/admin/sync-status?admin_strava_id=${currentAthleteId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch sync status');
+      }
+      const data = await response.json();
+      setSyncQueueStatus(data);
+    } catch (err) {
+      console.error('Error fetching sync status:', err);
+    } finally {
+      setLoadingSyncStatus(false);
+    }
+  };
+
+  const stopSyncJob = async (syncId: number) => {
+    try {
+      const response = await fetch(`/api/admin/sync/stop?admin_strava_id=${currentAthleteId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sync_id: syncId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to stop sync');
+      }
+
+      // Refresh sync status
+      await fetchSyncStatus();
+      alert('Sync stopped successfully');
+    } catch (err) {
+      console.error('Error stopping sync:', err);
+      alert('Failed to stop sync');
     }
   };
 
@@ -1044,6 +1116,12 @@ export default function Admin() {
           onClick={() => setActiveTab('api-control')}
         >
           ⚙️ API Control
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'sync-dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('sync-dashboard')}
+        >
+          🔄 Sync Dashboard
         </button>
       </div>
 
@@ -2507,6 +2585,196 @@ export default function Admin() {
               );
             });
           })()}
+        </div>
+      )}
+
+      {/* Sync Dashboard Tab */}
+      {activeTab === 'sync-dashboard' && (
+        <div className="tab-content">
+          <div className="admin-header">
+            <h2>🔄 Sync Queue Dashboard</h2>
+            <p className="subtitle">Monitor and manage athlete sync jobs</p>
+          </div>
+
+          {loadingSyncStatus ? (
+            <div className="loading-container">
+              <div className="spinner"></div>
+              <p>Loading sync status...</p>
+            </div>
+          ) : !syncQueueStatus ? (
+            <p>No sync data available</p>
+          ) : (
+            <div>
+              {/* Active/Processing Syncs */}
+              <div style={{ marginBottom: '3rem' }}>
+                <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem', fontWeight: 600 }}>
+                  🔄 Active Syncs ({syncQueueStatus.active.length})
+                </h3>
+                {syncQueueStatus.active.length === 0 ? (
+                  <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No active syncs</p>
+                ) : (
+                  <div className="athletes-table-container">
+                    <table className="athletes-table">
+                      <thead>
+                        <tr>
+                          <th>Sync ID</th>
+                          <th>Athlete</th>
+                          <th>Strava ID</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>Started</th>
+                          <th>Duration</th>
+                          <th>Progress</th>
+                          <th>Error</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {syncQueueStatus.active.map((job) => {
+                          const startTime = job.started_at ? new Date(job.started_at) : null;
+                          const duration = startTime
+                            ? Math.floor((Date.now() - startTime.getTime()) / 1000)
+                            : null;
+                          const durationText = duration
+                            ? `${Math.floor(duration / 60)}m ${duration % 60}s`
+                            : '-';
+
+                          return (
+                            <tr key={job.id}>
+                              <td>{job.id}</td>
+                              <td>
+                                {job.first_name} {job.last_name}
+                              </td>
+                              <td>{job.strava_id}</td>
+                              <td>{job.job_type}</td>
+                              <td>
+                                <span
+                                  className={`status-badge ${job.status === 'processing' ? 'syncing' : 'pending'}`}
+                                >
+                                  {job.status}
+                                </span>
+                              </td>
+                              <td>
+                                {startTime
+                                  ? startTime.toLocaleString()
+                                  : '-'}
+                              </td>
+                              <td>{durationText}</td>
+                              <td>
+                                {job.total_activities_expected
+                                  ? `${job.activities_synced} / ${job.total_activities_expected}`
+                                  : `${job.activities_synced} activities`}
+                              </td>
+                              <td>
+                                {job.error_message && (
+                                  <span style={{ color: '#dc2626', fontSize: '0.85rem' }}>
+                                    {job.error_message}
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                <button
+                                  className="action-button delete"
+                                  onClick={() => {
+                                    if (confirm(`Stop sync #${job.id} for ${job.first_name} ${job.last_name}?`)) {
+                                      stopSyncJob(job.id);
+                                    }
+                                  }}
+                                  title="Stop this sync"
+                                >
+                                  ⏹️ Stop
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Completed/Failed Syncs */}
+              <div>
+                <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem', fontWeight: 600 }}>
+                  📊 Recent Syncs (Last 10)
+                </h3>
+                {syncQueueStatus.recent.length === 0 ? (
+                  <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No recent syncs</p>
+                ) : (
+                  <div className="athletes-table-container">
+                    <table className="athletes-table">
+                      <thead>
+                        <tr>
+                          <th>Sync ID</th>
+                          <th>Athlete</th>
+                          <th>Strava ID</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>Started</th>
+                          <th>Completed</th>
+                          <th>Duration</th>
+                          <th>Activities</th>
+                          <th>Races</th>
+                          <th>Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {syncQueueStatus.recent.map((job) => {
+                          const startTime = job.started_at ? new Date(job.started_at) : null;
+                          const endTime = job.completed_at ? new Date(job.completed_at) : null;
+                          const duration = startTime && endTime
+                            ? Math.floor((endTime.getTime() - startTime.getTime()) / 1000)
+                            : null;
+                          const durationText = duration
+                            ? `${Math.floor(duration / 60)}m ${duration % 60}s`
+                            : '-';
+
+                          return (
+                            <tr key={job.id}>
+                              <td>{job.id}</td>
+                              <td>
+                                {job.first_name} {job.last_name}
+                              </td>
+                              <td>{job.strava_id}</td>
+                              <td>{job.job_type}</td>
+                              <td>
+                                <span
+                                  className={`status-badge ${job.status === 'completed' ? 'synced' : 'error'}`}
+                                >
+                                  {job.status}
+                                </span>
+                              </td>
+                              <td>
+                                {startTime
+                                  ? startTime.toLocaleString()
+                                  : '-'}
+                              </td>
+                              <td>
+                                {endTime
+                                  ? endTime.toLocaleString()
+                                  : '-'}
+                              </td>
+                              <td>{durationText}</td>
+                              <td>{job.activities_synced || 0}</td>
+                              <td>-</td>
+                              <td>
+                                {job.error_message && (
+                                  <span style={{ color: '#dc2626', fontSize: '0.85rem' }}>
+                                    {job.error_message}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
