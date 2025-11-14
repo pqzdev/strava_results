@@ -92,6 +92,7 @@ export interface StravaActivity {
   total_elevation_gain: number;
   average_heartrate?: number;
   max_heartrate?: number;
+  description?: string;
   map?: {
     id: string;
     summary_polyline?: string;
