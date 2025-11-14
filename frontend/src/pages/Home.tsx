@@ -21,12 +21,16 @@ export default function Home() {
   }, []);
 
   const fetchStats = async () => {
+    console.log('[HOME] Fetching stats from /api/stats...');
     try {
       const response = await fetch('/api/stats');
+      console.log('[HOME] Stats response status:', response.status);
       const data = await response.json();
+      console.log('[HOME] Stats data received:', data);
       setStats(data);
+      console.log('[HOME] Stats state updated');
     } catch (error) {
-      console.error('Failed to fetch stats:', error);
+      console.error('[HOME] Failed to fetch stats:', error);
     }
   };
 
