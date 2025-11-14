@@ -1,0 +1,12 @@
+{
+  "name": "strava-ml",
+  "version": "1.0.0",
+  "description": "ML models for Strava race classification",
+  "type": "module",
+  "scripts": {
+    "export": "node export_training_data.js"
+  },
+  "keywords": ["ml", "machine-learning", "strava", "classification"],
+  "author": "",
+  "license": "MIT"
+}
