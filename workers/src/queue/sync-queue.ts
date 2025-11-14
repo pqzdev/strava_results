@@ -366,12 +366,16 @@ async function syncAthleteInternal(
       maxPagesPerBatch      // maxPages per batch (always limited to avoid timeout)
     );
 
-    console.log(`Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
+    console.log(`[v2-run-filter] Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
+
+    // Filter to only Run activities before processing
+    const runActivities = activities.filter(a => a.type === 'Run');
+    console.log(`${runActivities.length} out of ${activities.length} activities are runs`);
 
     if (sessionId) {
       await logSyncProgress(env, athlete.id, sessionId, 'info',
-        `Fetched ${activities.length} activities from Strava API`,
-        { activitiesCount: activities.length }
+        `[v2] Fetched ${runActivities.length} running activities from Strava API (${activities.length} total)`,
+        { runActivitiesCount: runActivities.length, totalActivitiesCount: activities.length }
       );
     }
 
@@ -386,7 +390,7 @@ async function syncAthleteInternal(
       return { moreDataAvailable: false };
     }
 
-    // Calculate the oldest activity timestamp for pagination
+    // Calculate the oldest activity timestamp for pagination (use ALL activities for pagination, not just runs)
     // Activities are returned newest first, so the last activity is the oldest
     let oldestActivityTimestamp: number | undefined;
     if (activities.length > 0) {
@@ -396,22 +400,22 @@ async function syncAthleteInternal(
       console.log(`Oldest activity in batch: ${oldestActivity.name} (${oldestActivity.start_date}, timestamp: ${oldestActivityTimestamp})`);
     }
 
-    // Filter for race activities
-    const races = filterRaceActivities(activities);
+    // Filter for race activities (from run activities only)
+    const races = filterRaceActivities(runActivities);
     console.log(
-      `Athlete ${athlete.strava_id}: Found ${races.length} races out of ${activities.length} activities`
+      `Athlete ${athlete.strava_id}: Found ${races.length} races out of ${runActivities.length} runs`
     );
 
     if (sessionId) {
       await logSyncProgress(env, athlete.id, sessionId, 'info',
-        `Found ${races.length} race activities out of ${activities.length} total activities`,
-        { racesCount: races.length, activitiesCount: activities.length }
+        `[v2] Found ${races.length} race activities out of ${runActivities.length} runs`,
+        { racesCount: races.length, runActivitiesCount: runActivities.length }
       );
     }
 
     // Debug logging to understand what's being found
-    if (activities.length > 0 && races.length === 0) {
-      console.log(`No races found. Sample activities:`, JSON.stringify(activities.slice(0, 3).map(a => ({
+    if (runActivities.length > 0 && races.length === 0) {
+      console.log(`No races found. Sample activities:`, JSON.stringify(runActivities.slice(0, 3).map(a => ({
         name: a.name,
         type: a.type,
         workout_type: a.workout_type,
