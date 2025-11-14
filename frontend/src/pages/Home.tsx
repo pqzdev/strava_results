@@ -48,9 +48,18 @@ export default function Home() {
           </p>
 
           <div className="hero-buttons">
-            <Link to="/submit-activities" className="button button-primary">
-              Submit Results
-            </Link>
+            <button
+              onClick={handleConnectStrava}
+              className="button button-primary button-large"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                <path d="M7.5 2L2 11h5.5l2-6 2 6H17l-5.5-9z"/>
+              </svg>
+              Connect with Strava
+            </button>
+          </div>
+
+          <div className="hero-buttons hero-buttons-secondary">
             <Link to="/dashboard" className="button button-secondary">
               View Races
             </Link>
@@ -59,29 +68,10 @@ export default function Home() {
             </Link>
           </div>
 
-          <div style={{ marginTop: '1.5rem' }}>
-            <button
-              className="button button-secondary"
-              onClick={handleConnectStrava}
-              style={{
-                padding: '0.5rem 1rem',
-                fontSize: '0.85rem',
-                opacity: 0.6,
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{ marginRight: '0.5rem' }}>
-                <path d="M7.5 2L2 11h5.5l2-6 2 6H17l-5.5-9z"/>
-              </svg>
-              Connect with Strava
-            </button>
-            <p style={{
-              fontSize: '0.75rem',
-              color: '#999',
-              marginTop: '0.5rem',
-              fontStyle: 'italic'
-            }}>
-              Currently unavailable
-            </p>
+          <div className="hero-buttons" style={{ marginTop: '1rem' }}>
+            <Link to="/submit-activities" className="button button-tertiary">
+              Manually upload Strava activities
+            </Link>
           </div>
         </div>
 

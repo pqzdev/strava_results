@@ -53,12 +53,6 @@ export default function Layout() {
               >
                 Parkrun
               </Link>
-              <Link
-                to="/submit-activities"
-                className={`nav-link nav-link-button ${location.pathname.startsWith('/submit-activities') ? 'active' : ''}`}
-              >
-                Submit Results
-              </Link>
               {isAdmin && (
                 <Link
                   to="/admin"
