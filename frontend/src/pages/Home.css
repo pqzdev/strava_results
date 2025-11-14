@@ -100,11 +100,27 @@
   margin-top: 1rem;
 }
 
+.stats-container {
+  margin: 4rem 0;
+}
+
+.stats-section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
-  margin: 4rem 0;
+  margin-bottom: 3rem;
+}
+
+.stats-grid-parkrun {
+  margin-bottom: 0;
 }
 
 .stat-card {
@@ -114,43 +130,78 @@
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   text-align: center;
-  border: 1px solid var(--border-color);
   min-height: 140px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
 }
 
 .stat-value {
-  font-size: 2.5rem;
+  font-size: 3rem;
   font-weight: 700;
   color: white;
   margin-bottom: 0.5rem;
-  text-align: center;
+  line-height: 1;
 }
 
 .stat-label {
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: white;
-  opacity: 0.9;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-  text-align: center;
+  opacity: 0.95;
+  font-weight: 400;
+  text-transform: lowercase;
+}
+
+/* Special styling for the KM card */
+.stat-card-km {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.stat-value-km {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.stat-km-number {
+  font-size: 3rem;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
+}
+
+.stat-km-unit {
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: white;
+  opacity: 0.95;
+}
+
+.stat-label-km {
+  font-size: 1rem;
+  color: white;
+  opacity: 0.95;
+  font-weight: 400;
+  text-transform: lowercase;
 }
 
 .stat-card-loading {
-  background: white !important;
-  opacity: 0.6;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  opacity: 0.5;
   animation: pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse {
   0%, 100% {
-    opacity: 0.6;
+    opacity: 0.5;
   }
   50% {
-    opacity: 0.4;
+    opacity: 0.3;
   }
 }
 
@@ -214,7 +265,19 @@
   }
 
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
+  }
+
+  .stat-value {
+    font-size: 2.5rem;
+  }
+
+  .stat-km-number {
+    font-size: 2.5rem;
+  }
+
+  .stat-km-unit {
+    font-size: 1.25rem;
   }
 
   .features-grid {

@@ -6,11 +6,9 @@ interface Stats {
   athletes: number;
   total_races: number;
   total_distance_km: number;
-  races_last_30_days: number;
-  last_sync: {
-    timestamp: number;
-    new_races: number;
-  } | null;
+  parkrun_athletes: number;
+  parkrun_results: number;
+  parkrun_events: number;
 }
 
 export default function Home() {
@@ -79,46 +77,82 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="stats-grid">
-          {stats ? (
-            <>
-              <div className="stat-card">
-                <div className="stat-value">{stats.athletes}</div>
-                <div className="stat-label">Connected Athletes</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-value">{stats.total_races}</div>
-                <div className="stat-label">Total Races</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-value">{(stats.total_distance_km ?? 0).toLocaleString()}</div>
-                <div className="stat-label">Total Distance (km)</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-value">{stats.races_last_30_days}</div>
-                <div className="stat-label">Races This Month</div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="stat-card stat-card-loading">
-                <div className="stat-value">-</div>
-                <div className="stat-label">Connected Athletes</div>
-              </div>
-              <div className="stat-card stat-card-loading">
-                <div className="stat-value">-</div>
-                <div className="stat-label">Total Races</div>
-              </div>
-              <div className="stat-card stat-card-loading">
-                <div className="stat-value">-</div>
-                <div className="stat-label">Total Distance (km)</div>
-              </div>
-              <div className="stat-card stat-card-loading">
-                <div className="stat-value">-</div>
-                <div className="stat-label">Races This Month</div>
-              </div>
-            </>
-          )}
+        <div className="stats-container">
+          <h2 className="stats-section-title">Strava Results</h2>
+          <div className="stats-grid">
+            {stats ? (
+              <>
+                <div className="stat-card">
+                  <div className="stat-value">{stats.athletes}</div>
+                  <div className="stat-label">woodies</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-value">{stats.total_races}</div>
+                  <div className="stat-label">races</div>
+                </div>
+                <div className="stat-card stat-card-km">
+                  <div className="stat-value-km">
+                    <span className="stat-km-number">{(stats.total_distance_km ?? 0).toLocaleString()}</span>
+                    <span className="stat-km-unit">km</span>
+                  </div>
+                  <div className="stat-label-km">raced</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="stat-card stat-card-loading">
+                  <div className="stat-value">-</div>
+                  <div className="stat-label">woodies</div>
+                </div>
+                <div className="stat-card stat-card-loading">
+                  <div className="stat-value">-</div>
+                  <div className="stat-label">races</div>
+                </div>
+                <div className="stat-card stat-card-loading stat-card-km">
+                  <div className="stat-value-km">
+                    <span className="stat-km-number">-</span>
+                    <span className="stat-km-unit">km</span>
+                  </div>
+                  <div className="stat-label-km">raced</div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <h2 className="stats-section-title">parkrun</h2>
+          <div className="stats-grid stats-grid-parkrun">
+            {stats ? (
+              <>
+                <div className="stat-card">
+                  <div className="stat-value">{stats.parkrun_athletes}</div>
+                  <div className="stat-label">parkrunners</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-value">{stats.parkrun_results}</div>
+                  <div className="stat-label">parkruns</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-value">{stats.parkrun_events}</div>
+                  <div className="stat-label">distinct events</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="stat-card stat-card-loading">
+                  <div className="stat-value">-</div>
+                  <div className="stat-label">parkrunners</div>
+                </div>
+                <div className="stat-card stat-card-loading">
+                  <div className="stat-value">-</div>
+                  <div className="stat-label">parkruns</div>
+                </div>
+                <div className="stat-card stat-card-loading">
+                  <div className="stat-value">-</div>
+                  <div className="stat-label">distinct events</div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="features">
@@ -147,15 +181,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        {stats?.last_sync && (
-          <div className="sync-status">
-            <p>
-              Last sync: {new Date(stats.last_sync.timestamp * 1000).toLocaleString()}
-              {stats.last_sync.new_races > 0 && ` • ${stats.last_sync.new_races} new races added`}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
