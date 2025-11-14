@@ -2364,47 +2364,66 @@ export default function Admin() {
           </div>
 
           {/* Filters */}
-          <div style={{ marginBottom: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1', minWidth: '250px' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Search Commands
-              </label>
-              <input
-                type="text"
-                placeholder="Search by name or description..."
-                value={apiSearch}
-                onChange={(e) => setApiSearch(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  fontSize: '1rem',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                }}
-              />
-            </div>
-            <div style={{ minWidth: '200px' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Category
-              </label>
-              <select
-                value={apiCategory}
-                onChange={(e) => setApiCategory(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  fontSize: '1rem',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                }}
-              >
-                <option value="all">All Categories</option>
-                {API_CATEGORIES.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
+          <div style={{
+            marginBottom: '2.5rem',
+            padding: '1.5rem',
+            backgroundColor: '#f9fafb',
+            borderRadius: '8px',
+            border: '1px solid #e5e7eb',
+          }}>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1', minWidth: '300px' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
+                  🔍 Search Commands
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search by name or description..."
+                  value={apiSearch}
+                  onChange={(e) => setApiSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    fontSize: '0.95rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    backgroundColor: 'white',
+                    outline: 'none',
+                    transition: 'border-color 0.2s',
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                  onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+                />
+              </div>
+              <div style={{ minWidth: '220px' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
+                  📂 Category
+                </label>
+                <select
+                  value={apiCategory}
+                  onChange={(e) => setApiCategory(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    fontSize: '0.95rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    backgroundColor: 'white',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    transition: 'border-color 0.2s',
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#2563eb'}
+                  onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+                >
+                  <option value="all">All Categories</option>
+                  {API_CATEGORIES.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -2449,26 +2468,32 @@ export default function Admin() {
             return Object.entries(commandsByCategory).map(([categoryId, commands]) => {
               const category = API_CATEGORIES.find(c => c.id === categoryId);
               return (
-                <div key={categoryId} style={{ marginBottom: '2rem' }}>
-                  <h3 style={{
-                    fontSize: '1.2rem',
-                    fontWeight: 600,
-                    marginBottom: '0.5rem',
-                    color: '#1f2937',
+                <div key={categoryId} style={{ marginBottom: '3rem' }}>
+                  <div style={{
+                    borderLeft: '4px solid #2563eb',
+                    paddingLeft: '1rem',
+                    marginBottom: '1.25rem',
                   }}>
-                    {category?.label || categoryId}
-                  </h3>
-                  <p style={{
-                    fontSize: '0.9rem',
-                    color: '#6b7280',
-                    marginBottom: '1rem',
-                  }}>
-                    {category?.description}
-                  </p>
+                    <h3 style={{
+                      fontSize: '1.3rem',
+                      fontWeight: 700,
+                      marginBottom: '0.25rem',
+                      color: '#111827',
+                    }}>
+                      {category?.label || categoryId}
+                    </h3>
+                    <p style={{
+                      fontSize: '0.95rem',
+                      color: '#6b7280',
+                      margin: 0,
+                    }}>
+                      {category?.description}
+                    </p>
+                  </div>
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))',
-                    gap: '1rem',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+                    gap: '1.25rem',
                   }}>
                     {commands.map(cmd => (
                       <ApiCommandCard
