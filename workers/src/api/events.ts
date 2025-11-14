@@ -165,11 +165,11 @@ export async function renameEvent(request: Request, env: Env): Promise<Response>
     // Update activity_event_mappings table to persist across syncs
     for (const race of races) {
       await env.DB.prepare(`
-        INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, updated_at)
-        VALUES (?, ?, ?, strftime('%s', 'now'))
+        INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, is_hidden, updated_at)
+        VALUES (?, ?, ?, COALESCE((SELECT is_hidden FROM activity_event_mappings WHERE strava_activity_id = ? AND athlete_id = ?), 0), strftime('%s', 'now'))
         ON CONFLICT(strava_activity_id, athlete_id)
         DO UPDATE SET event_name = excluded.event_name, updated_at = excluded.updated_at
-      `).bind(race.strava_activity_id, race.athlete_id, new_name).run();
+      `).bind(race.strava_activity_id, race.athlete_id, new_name, race.strava_activity_id, race.athlete_id).run();
     }
 
     console.log(`Renamed event "${old_name}" to "${new_name}" for ${races.length} activities`);

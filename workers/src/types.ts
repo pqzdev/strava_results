@@ -93,6 +93,7 @@ export interface StravaActivity {
   average_heartrate?: number;
   max_heartrate?: number;
   description?: string;
+  private?: boolean; // True if activity is private
   map?: {
     id: string;
     summary_polyline?: string;

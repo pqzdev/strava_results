@@ -628,19 +628,22 @@ export async function updateRaceEvent(
     if (race.athlete_id) {
       if (body.event_name) {
         await env.DB.prepare(
-          `INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, updated_at)
-           VALUES (?, ?, ?, strftime('%s', 'now'))
+          `INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, is_hidden, updated_at)
+           VALUES (?, ?, ?, COALESCE((SELECT is_hidden FROM activity_event_mappings WHERE strava_activity_id = ? AND athlete_id = ?), 0), strftime('%s', 'now'))
            ON CONFLICT(strava_activity_id, athlete_id)
            DO UPDATE SET event_name = excluded.event_name, updated_at = excluded.updated_at`
         )
-          .bind(race.strava_activity_id, race.athlete_id, body.event_name)
+          .bind(race.strava_activity_id, race.athlete_id, body.event_name, race.strava_activity_id, race.athlete_id)
           .run();
       } else {
-        // If event_name is being cleared, remove from mapping table
+        // If event_name is being cleared, only update the event_name to NULL but keep is_hidden
         await env.DB.prepare(
-          `DELETE FROM activity_event_mappings WHERE strava_activity_id = ? AND athlete_id = ?`
+          `INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, is_hidden, updated_at)
+           VALUES (?, ?, NULL, COALESCE((SELECT is_hidden FROM races WHERE strava_activity_id = ? AND athlete_id = ?), 0), strftime('%s', 'now'))
+           ON CONFLICT(strava_activity_id, athlete_id)
+           DO UPDATE SET event_name = NULL, updated_at = excluded.updated_at`
         )
-          .bind(race.strava_activity_id, race.athlete_id)
+          .bind(race.strava_activity_id, race.athlete_id, race.strava_activity_id, race.athlete_id)
           .run();
       }
     }
@@ -1035,19 +1038,22 @@ export async function bulkEditRaces(
         // Update persistent mapping
         if (updates.event_name) {
           await env.DB.prepare(
-            `INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, updated_at)
-             VALUES (?, ?, ?, strftime('%s', 'now'))
+            `INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, is_hidden, updated_at)
+             VALUES (?, ?, ?, COALESCE((SELECT is_hidden FROM activity_event_mappings WHERE strava_activity_id = ? AND athlete_id = ?), 0), strftime('%s', 'now'))
              ON CONFLICT(strava_activity_id, athlete_id)
              DO UPDATE SET event_name = excluded.event_name, updated_at = excluded.updated_at`
           )
-            .bind(race.strava_activity_id, race.athlete_id, updates.event_name)
+            .bind(race.strava_activity_id, race.athlete_id, updates.event_name, race.strava_activity_id, race.athlete_id)
             .run();
         } else if (updates.event_name === null) {
-          // Clear from mapping table
+          // Clear event name but keep is_hidden
           await env.DB.prepare(
-            `DELETE FROM activity_event_mappings WHERE strava_activity_id = ? AND athlete_id = ?`
+            `INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, is_hidden, updated_at)
+             VALUES (?, ?, NULL, COALESCE((SELECT is_hidden FROM races WHERE strava_activity_id = ? AND athlete_id = ?), 0), strftime('%s', 'now'))
+             ON CONFLICT(strava_activity_id, athlete_id)
+             DO UPDATE SET event_name = NULL, updated_at = excluded.updated_at`
           )
-            .bind(race.strava_activity_id, race.athlete_id)
+            .bind(race.strava_activity_id, race.athlete_id, race.strava_activity_id, race.athlete_id)
             .run();
         }
       }

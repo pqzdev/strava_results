@@ -268,12 +268,12 @@ async function syncAthleteInternal(
     if (fullSync && !continuationTimestamp && athlete.last_synced_at !== null) {
       console.log(`Full sync (first batch) - saving event name mappings to persistent table before deletion`);
 
-      // Migrate any event names from races table to persistent mapping table
+      // Migrate any event names and visibility settings from races table to persistent mapping table
       await env.DB.prepare(
-        `INSERT OR IGNORE INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, updated_at)
-         SELECT strava_activity_id, athlete_id, event_name, strftime('%s', 'now')
+        `INSERT OR IGNORE INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, is_hidden, updated_at)
+         SELECT strava_activity_id, athlete_id, event_name, is_hidden, strftime('%s', 'now')
          FROM races
-         WHERE athlete_id = ? AND event_name IS NOT NULL`
+         WHERE athlete_id = ? AND (event_name IS NOT NULL OR is_hidden = 1)`
       )
         .bind(athlete.id)
         .run();
