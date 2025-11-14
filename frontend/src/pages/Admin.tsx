@@ -1447,14 +1447,14 @@ export default function Admin() {
                       </td>
                       <td className="number-cell">{event.activity_count}</td>
                       <td>
-                        <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
+                        <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
                           {event.dates.map((date, idx) => (
                             <div key={idx}>{formatDateString(date)}</div>
                           ))}
                         </div>
                       </td>
                       <td>
-                        <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
+                        <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
                           {event.distances.map((distance, idx) => (
                             <div key={idx}>{formatDistance(distance)}</div>
                           ))}
