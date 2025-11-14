@@ -292,26 +292,31 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
 export async function getStats(env: Env): Promise<Response> {
   console.log('[STATS API] Fetching statistics...');
   try {
-    // Get various statistics (exclude hidden races)
+    // Get various statistics (exclude hidden races and hidden athletes)
     const athleteCount = await env.DB.prepare(
-      'SELECT COUNT(*) as count FROM athletes'
+      'SELECT COUNT(*) as count FROM athletes WHERE is_hidden = 0'
     ).first<{ count: number }>();
     console.log('[STATS API] Athletes query result:', JSON.stringify(athleteCount));
 
     const raceCount = await env.DB.prepare(
-      'SELECT COUNT(*) as count FROM races'
+      'SELECT COUNT(*) as count FROM races WHERE is_hidden = 0'
     ).first<{ count: number }>();
     console.log('[STATS API] Races query result:', JSON.stringify(raceCount));
 
     const totalDistance = await env.DB.prepare(
-      'SELECT SUM(distance) as total FROM races'
+      'SELECT SUM(distance) as total FROM races WHERE is_hidden = 0'
     ).first<{ total: number }>();
     console.log('[STATS API] Total distance query result:', JSON.stringify(totalDistance));
 
+    // Calculate 30 days ago timestamp (dates in races table are stored as ISO strings)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0]; // YYYY-MM-DD format
+
     const recentRaces = await env.DB.prepare(
       `SELECT COUNT(*) as count FROM races
-       WHERE date >= date('now', '-30 days')`
-    ).first<{ count: number }>();
+       WHERE date >= ? AND is_hidden = 0`
+    ).bind(thirtyDaysAgoStr).first<{ count: number }>();
     console.log('[STATS API] Recent races query result:', JSON.stringify(recentRaces));
 
     const lastSync = await env.DB.prepare(

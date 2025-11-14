@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import './AthleteSummary.css';
 
 interface Race {
@@ -34,6 +35,9 @@ interface AthleteStat {
 }
 
 export default function AthleteSummary({ races }: AthleteSummaryProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
   // Group races by athlete and calculate statistics
   const athleteStats = races.reduce((acc, race) => {
     const athleteKey = `${race.firstname} ${race.lastname}`;
@@ -65,8 +69,22 @@ export default function AthleteSummary({ races }: AthleteSummaryProps) {
     averagePace: stat.totalDistance > 0 ? (stat.totalTime / 60) / (stat.totalDistance / 1000) : 0,
   }));
 
-  // Sort by total distance descending
-  summaryData.sort((a, b) => b.totalDistance - a.totalDistance);
+  // Sort by activity count descending
+  summaryData.sort((a, b) => b.activityCount - a.activityCount);
+
+  // Pagination logic
+  const totalAthletes = summaryData.length;
+  const showAll = itemsPerPage === -1;
+  const paginatedData = showAll
+    ? summaryData
+    : summaryData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = showAll ? 1 : Math.ceil(totalAthletes / itemsPerPage);
+
+  // Reset to page 1 when items per page changes
+  const handleItemsPerPageChange = (value: number) => {
+    setItemsPerPage(value);
+    setCurrentPage(1);
+  };
 
   const formatDistance = (meters: number) => {
     return (meters / 1000).toFixed(2);
@@ -98,20 +116,42 @@ export default function AthleteSummary({ races }: AthleteSummaryProps) {
 
   return (
     <div className="athlete-summary">
-      <h2 className="summary-title">Athlete Summary</h2>
+      <div className="summary-header">
+        <h2 className="summary-title">Athlete Summary</h2>
+        <div className="summary-controls">
+          <span className="summary-count">
+            Showing {showAll ? totalAthletes : `${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, totalAthletes)}`} of {totalAthletes} athlete{totalAthletes !== 1 ? 's' : ''}
+          </span>
+          <div className="per-page-selector">
+            <label htmlFor="itemsPerPage">Per page:</label>
+            <select
+              id="itemsPerPage"
+              value={itemsPerPage}
+              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={-1}>All</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div className="summary-table-container">
         <table className="summary-table">
           <thead>
             <tr>
               <th>Athlete</th>
-              <th>Activities</th>
+              <th>Races</th>
               <th>Total Distance</th>
               <th>Total Time</th>
               <th>Avg Pace</th>
             </tr>
           </thead>
           <tbody>
-            {summaryData.map((stat) => (
+            {paginatedData.map((stat) => (
               <tr key={stat.athleteName}>
                 <td>
                   <div className="athlete-cell">
@@ -134,6 +174,28 @@ export default function AthleteSummary({ races }: AthleteSummaryProps) {
           </tbody>
         </table>
       </div>
+
+      {!showAll && totalPages > 1 && (
+        <div className="summary-pagination">
+          <button
+            className="pagination-button"
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </button>
+          <span className="pagination-info">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            className="pagination-button"
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 }

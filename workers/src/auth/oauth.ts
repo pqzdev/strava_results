@@ -2,7 +2,7 @@
 
 import { Env } from '../types';
 import { buildAuthorizationUrl, exchangeCodeForToken, getAthleteClubs } from '../utils/strava';
-import { upsertAthlete } from '../utils/db';
+import { upsertAthlete, getAthleteByStravaId } from '../utils/db';
 import { createSyncJob } from '../queue/queue-processor';
 
 /**
@@ -136,6 +136,10 @@ export async function handleCallback(
       );
     }
 
+    // Check if this is a new user (first time sign-up)
+    const existingAthlete = await getAthleteByStravaId(tokenData.athlete.id, env);
+    const isNewUser = !existingAthlete;
+
     // Store athlete and tokens in database
     await upsertAthlete(
       tokenData.athlete.id,
@@ -148,14 +152,22 @@ export async function handleCallback(
       env
     );
 
-    console.log(`Successfully connected Woodstock Runners member: ${tokenData.athlete.id}`);
+    console.log(`Successfully connected Woodstock Runners member: ${tokenData.athlete.id} (new user: ${isNewUser})`);
 
-    // Queue athlete for data sync (high priority for new members)
-    try {
-      const jobId = await createSyncJob(env, tokenData.athlete.id, 'full_sync', 100, 3);
-      console.log(`Queued sync job ${jobId} for new athlete ${tokenData.athlete.id}`);
-    } catch (error) {
-      console.error(`Failed to queue sync for athlete ${tokenData.athlete.id}:`, error);
+    // Queue athlete for data sync ONLY if this is a new user (first time sign-up)
+    if (isNewUser) {
+      try {
+        // Get the athlete's internal database ID for queueing
+        const athlete = await getAthleteByStravaId(tokenData.athlete.id, env);
+        if (athlete) {
+          const jobId = await createSyncJob(env, athlete.id, 'full_sync', 100, 3);
+          console.log(`Queued sync job ${jobId} for new athlete ${tokenData.athlete.id} (db id: ${athlete.id})`);
+        }
+      } catch (error) {
+        console.error(`Failed to queue sync for new athlete ${tokenData.athlete.id}:`, error);
+      }
+    } else {
+      console.log(`Existing user ${tokenData.athlete.id} re-authenticated - not queuing sync`);
     }
 
     // Return success HTML page that closes the popup or redirects
