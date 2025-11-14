@@ -169,11 +169,12 @@ export async function insertRace(
     console.log(`Restored event name "${eventName}" for activity ${activity.id}`);
   }
 
-  // Auto-hide parkrun races (parkrun, park run, or parkie in name)
+  // Auto-hide parkrun races (parkrun, park run, parkie, or parky in name)
   const nameLower = activity.name.toLowerCase();
   const isParkrun = nameLower.includes('parkrun') ||
                     nameLower.includes('park run') ||
-                    nameLower.includes('parkie');
+                    nameLower.includes('parkie') ||
+                    nameLower.includes('parky');
   const isHidden = isParkrun ? 1 : 0;
 
   if (isParkrun) {
