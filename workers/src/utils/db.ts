@@ -225,28 +225,36 @@ export async function insertRace(
     }
   }
 
-  // Look up event name from persistent mapping table (survives full syncs)
+  // Look up event name and visibility from persistent mapping table (survives full syncs)
   const eventMapping = await env.DB.prepare(
-    `SELECT event_name FROM activity_event_mappings
+    `SELECT event_name, is_hidden FROM activity_event_mappings
      WHERE strava_activity_id = ? AND athlete_id = ?`
   )
     .bind(activity.id, athleteId)
-    .first<{ event_name: string }>();
+    .first<{ event_name: string | null; is_hidden: number | null }>();
 
   let eventName = eventMapping?.event_name || null;
+  let isHidden = 0;
 
   if (eventName) {
     console.log(`Restored event name "${eventName}" for activity ${activity.id}`);
   }
 
-  // Detect and auto-hide parkrun races
-  const isParkrun = isParkrunActivity(activity);
-  const isHidden = isParkrun ? 1 : 0;
+  // Check if visibility was manually set (persisted in mapping table)
+  if (eventMapping?.is_hidden !== null && eventMapping?.is_hidden !== undefined) {
+    // Use the persisted value (user manually set this)
+    isHidden = eventMapping.is_hidden;
+    console.log(`Restored manual visibility setting for activity ${activity.id}: is_hidden=${isHidden}`);
+  } else {
+    // No manual setting - apply auto-detection for parkruns
+    const isParkrun = isParkrunActivity(activity);
+    isHidden = isParkrun ? 1 : 0;
 
-  // Override event name for parkruns
-  if (isParkrun) {
-    eventName = 'parkrun';
-    console.log(`Detected parkrun activity: "${activity.name}" (ID: ${activity.id})`);
+    // Override event name for parkruns
+    if (isParkrun) {
+      eventName = 'parkrun';
+      console.log(`Detected parkrun activity: "${activity.name}" (ID: ${activity.id})`);
+    }
   }
 
   await env.DB.prepare(

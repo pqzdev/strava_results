@@ -69,6 +69,7 @@ async function insertRaceOptimized(
   activity: StravaActivity,
   env: Env,
   eventName: string | null,
+  persistedIsHidden: number | null | undefined,
   accessToken?: string
 ): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
@@ -94,14 +95,23 @@ async function insertRaceOptimized(
     }
   }
 
-  // Detect and auto-hide parkrun races
-  const isParkrun = isParkrunActivity(activity);
-  const isHidden = isParkrun ? 1 : 0;
+  let isHidden = 0;
 
-  // Override event name for parkruns
-  if (isParkrun) {
-    eventName = 'parkrun';
-    console.log(`Detected parkrun activity: "${activity.name}" (ID: ${activity.id})`);
+  // Check if visibility was manually set (persisted in mapping table)
+  if (persistedIsHidden !== null && persistedIsHidden !== undefined) {
+    // Use the persisted value (user manually set this)
+    isHidden = persistedIsHidden;
+    console.log(`Restored manual visibility setting for activity ${activity.id}: is_hidden=${isHidden}`);
+  } else {
+    // No manual setting - apply auto-detection for parkruns
+    const isParkrun = isParkrunActivity(activity);
+    isHidden = isParkrun ? 1 : 0;
+
+    // Override event name for parkruns
+    if (isParkrun) {
+      eventName = 'parkrun';
+      console.log(`Detected parkrun activity: "${activity.name}" (ID: ${activity.id})`);
+    }
   }
 
   await env.DB.prepare(
@@ -424,28 +434,39 @@ async function syncAthleteInternal(
     if (fullSync) {
       console.log(`Full sync - attempting to insert ${races.length} races`);
 
-      // OPTIMIZED: Batch fetch event names for all races at once
-      let eventMappings = new Map<number, string>();
+      // OPTIMIZED: Batch fetch event names and visibility settings for all races at once
+      let eventMappings = new Map<number, { event_name: string | null; is_hidden: number | null }>();
       if (races.length > 0) {
         const raceIds = races.map(r => r.id);
         const placeholders = raceIds.map(() => '?').join(',');
         const mappings = await env.DB.prepare(
-          `SELECT strava_activity_id, event_name FROM activity_event_mappings
+          `SELECT strava_activity_id, event_name, is_hidden FROM activity_event_mappings
            WHERE strava_activity_id IN (${placeholders}) AND athlete_id = ?`
         )
           .bind(...raceIds, athlete.id)
-          .all<{ strava_activity_id: number; event_name: string }>();
+          .all<{ strava_activity_id: number; event_name: string | null; is_hidden: number | null }>();
 
         for (const mapping of mappings.results || []) {
-          eventMappings.set(mapping.strava_activity_id, mapping.event_name);
+          eventMappings.set(mapping.strava_activity_id, {
+            event_name: mapping.event_name,
+            is_hidden: mapping.is_hidden
+          });
         }
       }
 
-      // OPTIMIZED: Insert races with batch event name lookups
+      // OPTIMIZED: Insert races with batch event name and visibility lookups
       // Still fetches detailed polylines for races that need them
       for (const race of races) {
         try {
-          await insertRaceOptimized(athlete.id, race, env, eventMappings.get(race.id) || null, accessToken);
+          const mapping = eventMappings.get(race.id);
+          await insertRaceOptimized(
+            athlete.id,
+            race,
+            env,
+            mapping?.event_name || null,
+            mapping?.is_hidden,
+            accessToken
+          );
           newRacesAdded++;
           console.log(`Inserted race: ${race.name} (ID: ${race.id})`);
         } catch (error) {
@@ -504,23 +525,34 @@ async function syncAthleteInternal(
 
         const existingIdsSet = new Set(existingRaceIds.results?.map(r => r.strava_activity_id) || []);
 
-        // Batch fetch event names
-        const eventMappings = new Map<number, string>();
+        // Batch fetch event names and visibility settings
+        const eventMappings = new Map<number, { event_name: string | null; is_hidden: number | null }>();
         const mappings = await env.DB.prepare(
-          `SELECT strava_activity_id, event_name FROM activity_event_mappings
+          `SELECT strava_activity_id, event_name, is_hidden FROM activity_event_mappings
            WHERE strava_activity_id IN (${placeholders}) AND athlete_id = ?`
         )
           .bind(...raceIdsList, athlete.id)
-          .all<{ strava_activity_id: number; event_name: string }>();
+          .all<{ strava_activity_id: number; event_name: string | null; is_hidden: number | null }>();
 
         for (const mapping of mappings.results || []) {
-          eventMappings.set(mapping.strava_activity_id, mapping.event_name);
+          eventMappings.set(mapping.strava_activity_id, {
+            event_name: mapping.event_name,
+            is_hidden: mapping.is_hidden
+          });
         }
 
         // Insert only the races that don't exist (using optimized insert)
         for (const race of races) {
           if (!existingIdsSet.has(race.id)) {
-            await insertRaceOptimized(athlete.id, race, env, eventMappings.get(race.id) || null, accessToken);
+            const mapping = eventMappings.get(race.id);
+            await insertRaceOptimized(
+              athlete.id,
+              race,
+              env,
+              mapping?.event_name || null,
+              mapping?.is_hidden,
+              accessToken
+            );
             newRacesAdded++;
           }
         }
