@@ -127,33 +127,6 @@ export default function Home() {
           )}
         </div>
 
-        <div className="features">
-          <h2 className="features-title">How It Works</h2>
-          <div className="features-grid">
-            <div className="feature">
-              <div className="feature-icon">🔗</div>
-              <h3 className="feature-title">Connect Your Strava</h3>
-              <p className="feature-text">
-                Securely link your Strava account with one click. We only access activities you've marked as races.
-              </p>
-            </div>
-            <div className="feature">
-              <div className="feature-icon">🔄</div>
-              <h3 className="feature-title">Automatic Sync</h3>
-              <p className="feature-text">
-                Race results sync automatically every day. Just mark your activity as a "Race" in Strava.
-              </p>
-            </div>
-            <div className="feature">
-              <div className="feature-icon">📊</div>
-              <h3 className="feature-title">View Club Results</h3>
-              <p className="feature-text">
-                See all club members' race results in one dashboard. Filter by date, distance, or athlete.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {stats?.last_sync && (
           <div className="sync-status">
             <p>

@@ -90,6 +90,7 @@
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   text-align: center;
+  border: 1px solid var(--border-color);
   min-height: 140px;
   display: flex;
   flex-direction: column;
@@ -115,15 +116,9 @@
 }
 
 .stat-card-loading {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  color: white !important;
+  background: white !important;
   opacity: 0.6;
   animation: pulse 1.5s ease-in-out infinite;
-}
-
-.stat-card-loading .stat-value,
-.stat-card-loading .stat-label {
-  color: white !important;
 }
 
 @keyframes pulse {
