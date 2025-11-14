@@ -99,7 +99,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchRaces();
-  }, [filters, pagination.offset]);
+  }, [filters, pagination.offset, currentAthleteId]);
 
   const fetchEarliestDate = async () => {
     try {
