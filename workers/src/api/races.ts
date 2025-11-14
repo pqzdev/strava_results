@@ -50,6 +50,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
         r.id,
         r.strava_activity_id,
         r.name,
+        r.description,
         r.distance,
         r.elapsed_time,
         r.moving_time,
