@@ -140,7 +140,7 @@ function formatDistance(meters: number): string {
 /**
  * Format date string to readable format
  */
-function formatDate(dateString: string): string {
+function formatDateString(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
@@ -1381,7 +1381,7 @@ export default function Admin() {
                       <td>
                         <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
                           {event.dates.map((date, idx) => (
-                            <div key={idx}>{formatDate(date)}</div>
+                            <div key={idx}>{formatDateString(date)}</div>
                           ))}
                         </div>
                       </td>
