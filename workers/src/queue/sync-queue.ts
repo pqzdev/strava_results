@@ -404,8 +404,8 @@ async function syncAthleteInternal(
 
     if (sessionId) {
       await logSyncProgress(env, athlete.id, sessionId, 'info',
-        `Found ${races.length} race activities out of ${activities.length} total activities`,
-        { racesCount: races.length, activitiesCount: activities.length }
+        `Found ${races.length} race activities`,
+        { racesCount: races.length }
       );
     }
 
@@ -478,8 +478,8 @@ async function syncAthleteInternal(
       // Get all activity IDs that are currently races from the sync
       const raceActivityIds = new Set(races.map(r => r.id));
 
-      // Get all activity IDs from fetched activities
-      const fetchedActivityIds = new Set(activities.map(a => a.id));
+      // Get all activity IDs from fetched running activities
+      const fetchedActivityIds = new Set(runningActivities.map(a => a.id));
 
       // OPTIMIZED: Only query for existing races within the current batch window
       // This prevents "Too many subrequests" errors for athletes with thousands of activities
