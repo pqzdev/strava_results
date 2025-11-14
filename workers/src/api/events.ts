@@ -48,6 +48,151 @@ export async function getEventNames(request: Request, env: Env): Promise<Respons
 }
 
 /**
+ * Get event statistics for admin panel
+ * GET /api/events/stats
+ */
+export async function getEventStats(request: Request, env: Env): Promise<Response> {
+  try {
+    // Get all events with their statistics
+    const result = await env.DB.prepare(`
+      SELECT
+        r.event_name,
+        GROUP_CONCAT(DISTINCT r.date) as dates,
+        GROUP_CONCAT(DISTINCT COALESCE(re.manual_distance, r.manual_distance, r.distance)) as distances,
+        COUNT(DISTINCT r.id) as activity_count
+      FROM races r
+      LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
+      WHERE r.event_name IS NOT NULL AND r.event_name != ''
+      GROUP BY r.event_name
+      ORDER BY r.event_name ASC
+    `).all();
+
+    const events = result.results.map((row: any) => ({
+      event_name: row.event_name,
+      dates: row.dates ? row.dates.split(',').filter((d: string) => d) : [],
+      distances: row.distances ? row.distances.split(',').map((d: string) => parseInt(d)).filter((d: number) => !isNaN(d)) : [],
+      activity_count: row.activity_count || 0,
+    }));
+
+    return new Response(JSON.stringify({ events }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  } catch (error) {
+    console.error('Failed to fetch event stats:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to fetch event statistics' }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+}
+
+/**
+ * Rename an event across all activities
+ * POST /api/events/rename
+ */
+export async function renameEvent(request: Request, env: Env): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      admin_strava_id: number;
+      old_name: string;
+      new_name: string;
+    };
+
+    const { admin_strava_id, old_name, new_name } = body;
+
+    // Verify admin access
+    if (!admin_strava_id || !(await isAdmin(env, admin_strava_id))) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate input
+    if (!old_name || !new_name) {
+      return new Response(
+        JSON.stringify({ error: 'Both old_name and new_name are required' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Get all races with this event name
+    const racesResult = await env.DB.prepare(`
+      SELECT id, strava_activity_id, athlete_id
+      FROM races
+      WHERE event_name = ?
+    `).bind(old_name).all();
+
+    const races = racesResult.results as { id: number; strava_activity_id: number; athlete_id: number }[];
+
+    if (races.length === 0) {
+      return new Response(
+        JSON.stringify({ error: `No activities found with event name "${old_name}"` }),
+        {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Update all races with the new event name
+    await env.DB.prepare(`
+      UPDATE races
+      SET event_name = ?
+      WHERE event_name = ?
+    `).bind(new_name, old_name).run();
+
+    // Update activity_event_mappings table to persist across syncs
+    for (const race of races) {
+      await env.DB.prepare(`
+        INSERT INTO activity_event_mappings (strava_activity_id, athlete_id, event_name, updated_at)
+        VALUES (?, ?, ?, strftime('%s', 'now'))
+        ON CONFLICT(strava_activity_id, athlete_id)
+        DO UPDATE SET event_name = excluded.event_name, updated_at = excluded.updated_at
+      `).bind(race.strava_activity_id, race.athlete_id, new_name).run();
+    }
+
+    console.log(`Renamed event "${old_name}" to "${new_name}" for ${races.length} activities`);
+
+    return new Response(
+      JSON.stringify({
+        message: `Successfully renamed "${old_name}" to "${new_name}" for ${races.length} activit${races.length !== 1 ? 'ies' : 'y'}`,
+        updated_count: races.length
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Failed to rename event:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to rename event',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+}
+
+/**
  * Get all event suggestions
  * GET /api/event-suggestions?admin_strava_id=123&status=pending
  */

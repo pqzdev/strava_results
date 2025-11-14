@@ -7,7 +7,7 @@ import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, up
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs } from './api/admin';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
-import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames } from './api/events';
+import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames, getEventStats, renameEvent } from './api/events';
 import { backfillPolylines } from './api/polyline-backfill';
 import { extractActivities, submitActivities, getManualSubmissions, updateSubmission, approveSubmission, rejectSubmission, deleteSubmission } from './api/manual-submissions';
 import { googleLogin, googleCallback, logout, getCurrentAdmin } from './api/google-auth';
@@ -191,6 +191,14 @@ export default {
       // Event routes
       if (path === '/api/events/names' && request.method === 'GET') {
         return getEventNames(request, env);
+      }
+
+      if (path === '/api/events/stats' && request.method === 'GET') {
+        return getEventStats(request, env);
+      }
+
+      if (path === '/api/events/rename' && request.method === 'POST') {
+        return renameEvent(request, env);
       }
 
       // Event suggestion routes
