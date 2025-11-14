@@ -172,6 +172,54 @@ export default {
         );
       }
 
+      // Sync routes that accept Strava ID (used by API dashboard)
+      const syncAthleteByStravaIdMatch = path.match(/^\/api\/sync\/athlete\/(\d+)$/);
+      if (syncAthleteByStravaIdMatch && request.method === 'POST') {
+        const stravaId = parseInt(syncAthleteByStravaIdMatch[1]);
+
+        // Get athlete database ID from Strava ID
+        const athlete = await env.DB.prepare(
+          'SELECT id FROM athletes WHERE strava_id = ?'
+        )
+          .bind(stravaId)
+          .first<{ id: number }>();
+
+        if (!athlete) {
+          return new Response(
+            JSON.stringify({ error: 'Athlete not found' }),
+            { status: 404, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return triggerAthleteSync(request, env, ctx, athlete.id);
+      }
+
+      const stopSyncByStravaIdMatch = path.match(/^\/api\/sync\/stop\/(\d+)$/);
+      if (stopSyncByStravaIdMatch && request.method === 'POST') {
+        const stravaId = parseInt(stopSyncByStravaIdMatch[1]);
+
+        // Get athlete database ID from Strava ID
+        const athlete = await env.DB.prepare(
+          'SELECT id FROM athletes WHERE strava_id = ?'
+        )
+          .bind(stravaId)
+          .first<{ id: number }>();
+
+        if (!athlete) {
+          return new Response(
+            JSON.stringify({ error: 'Athlete not found' }),
+            { status: 404, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return stopAthleteSync(request, env, athlete.id);
+      }
+
+      const resetStuckSyncsMatch = path.match(/^\/api\/sync\/reset-stuck$/);
+      if (resetStuckSyncsMatch && request.method === 'POST') {
+        return resetStuckSyncs(request, env);
+      }
+
       // Parkrun API routes
       if (path === '/api/parkrun' && request.method === 'GET') {
         return getParkrunResults(request, env);
