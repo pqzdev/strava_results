@@ -28,12 +28,44 @@ export default function Heatmap() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ total: 0, withPolylines: 0, inSydney: 0 });
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchAndRenderHeatmap();
+    checkAdminStatus();
   }, []);
+
+  const checkAdminStatus = async () => {
+    try {
+      const athleteId = localStorage.getItem('strava_athlete_id');
+      if (!athleteId) return;
+
+      const response = await fetch(`/api/admin/check?strava_id=${athleteId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setIsAdmin(data.is_admin === true);
+      }
+    } catch (error) {
+      console.error('[HEATMAP] Failed to check admin status:', error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    // Clear existing polylines from map
+    if (mapRef.current) {
+      mapRef.current.eachLayer((layer) => {
+        if (layer instanceof L.Polyline) {
+          mapRef.current?.removeLayer(layer);
+        }
+      });
+    }
+    await fetchAndRenderHeatmap();
+    setTimeout(() => setRefreshing(false), 500);
+  };
 
   async function fetchAndRenderHeatmap() {
     try {
@@ -171,7 +203,28 @@ export default function Heatmap() {
   return (
     <div className="heatmap-container">
       <div className="heatmap-header">
-        <h1>Sydney Racing Heatmap</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <h1>Sydney Racing Heatmap</h1>
+          {isAdmin && (
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+              className="refresh-button"
+              style={{
+                padding: '0.5rem 1rem',
+                fontSize: '0.875rem',
+                background: refreshing || loading ? '#e9ecef' : '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: refreshing || loading ? 'not-allowed' : 'pointer',
+                opacity: refreshing || loading ? 0.6 : 1,
+              }}
+            >
+              {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+            </button>
+          )}
+        </div>
         <div className="heatmap-stats">
           {loading ? (
             <p>Loading activities...</p>

@@ -275,6 +275,34 @@
   opacity: 1;
 }
 
+.description-text {
+  margin-bottom: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.fetch-description-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  width: 100%;
+  transition: opacity 0.2s;
+}
+
+.fetch-description-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.fetch-description-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
   .description-tooltip {
     max-width: 200px;

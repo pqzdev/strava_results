@@ -746,6 +746,94 @@ export async function updateRaceVisibility(
 }
 
 /**
+ * POST /api/races/:id/fetch-description - Fetch description for a single activity
+ */
+export async function fetchRaceDescription(
+  request: Request,
+  env: Env,
+  raceId: number
+): Promise<Response> {
+  try {
+    const body = await request.json() as { strava_activity_id: number; athlete_strava_id: number };
+
+    // Verify the athlete owns this race or is admin
+    const race = await env.DB.prepare(
+      `SELECT r.athlete_id, r.strava_activity_id, a.strava_id, a.access_token
+       FROM races r
+       JOIN athletes a ON r.athlete_id = a.id
+       WHERE r.id = ?`
+    )
+      .bind(raceId)
+      .first<{ athlete_id: number; strava_activity_id: number; strava_id: number; access_token: string }>();
+
+    if (!race) {
+      return new Response(
+        JSON.stringify({ error: 'Race not found' }),
+        {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Check if the user is an admin
+    const requestingAthlete = await env.DB.prepare(
+      'SELECT is_admin FROM athletes WHERE strava_id = ?'
+    ).bind(body.athlete_strava_id).first<{ is_admin: number }>();
+
+    const isAdmin = requestingAthlete?.is_admin === 1;
+
+    // Verify athlete owns this race OR is an admin
+    if (!isAdmin && race.strava_id !== body.athlete_strava_id) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: You can only fetch descriptions for your own activities' }),
+        {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Fetch detailed activity from Strava
+    const { fetchDetailedActivity } = await import('../utils/strava');
+    const detailed = await fetchDetailedActivity(race.strava_activity_id, race.access_token);
+
+    // Update the race with the fetched description
+    await env.DB.prepare(
+      `UPDATE races SET description = ? WHERE id = ?`
+    )
+      .bind(detailed.description || null, raceId)
+      .run();
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        description: detailed.description || null,
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error fetching race description:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to fetch race description',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+}
+
+/**
  * GET /api/athletes - Get list of connected athletes
  */
 export async function getAthletes(env: Env): Promise<Response> {

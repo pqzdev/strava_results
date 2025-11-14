@@ -3,7 +3,7 @@
 import { Env } from './types';
 import { handleAuthorize, handleCallback, handleDisconnect } from './auth/oauth';
 import { syncAllAthletes } from './cron/sync';
-import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces } from './api/races';
+import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin } from './api/admin';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
@@ -105,6 +105,12 @@ export default {
       const raceVisibilityMatch = path.match(/^\/api\/races\/(\d+)\/visibility$/);
       if (raceVisibilityMatch && request.method === 'PATCH') {
         return updateRaceVisibility(request, env, parseInt(raceVisibilityMatch[1]));
+      }
+
+      // Fetch race description from Strava
+      const raceDescriptionMatch = path.match(/^\/api\/races\/(\d+)\/fetch-description$/);
+      if (raceDescriptionMatch && request.method === 'POST') {
+        return fetchRaceDescription(request, env, parseInt(raceDescriptionMatch[1]));
       }
 
       // Bulk edit races

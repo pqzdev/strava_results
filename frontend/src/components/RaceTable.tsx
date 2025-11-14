@@ -54,19 +54,57 @@ function VisibilityToggle({ race, isOwner, onToggle }: VisibilityToggleProps) {
 }
 
 interface DescriptionTooltipProps {
-  description?: string;
+  race: Race;
+  isOwner: boolean;
+  onFetchDescription: (raceId: number, stravaActivityId: number) => Promise<void>;
 }
 
-function DescriptionTooltip({ description }: DescriptionTooltipProps) {
-  if (!description) {
-    return null; // Don't show icon if no description
+function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTooltipProps) {
+  const [isFetching, setIsFetching] = useState(false);
+
+  // Only show to owner or admin
+  if (!isOwner) {
+    return null;
   }
+
+  const handleFetch = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFetching(true);
+    try {
+      await onFetchDescription(race.id, race.strava_activity_id);
+    } catch (error) {
+      alert('Failed to fetch description');
+    } finally {
+      setIsFetching(false);
+    }
+  };
 
   return (
     <div className="description-tooltip-wrapper">
       <FaRegCommentDots className="description-icon" />
       <div className="description-tooltip">
-        {description}
+        {race.description ? (
+          <>
+            <div className="description-text">{race.description}</div>
+            <button
+              onClick={handleFetch}
+              disabled={isFetching}
+              className="fetch-description-btn"
+              style={{ marginTop: '0.5rem' }}
+            >
+              {isFetching ? 'Refreshing...' : 'Refresh description'}
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={handleFetch}
+            disabled={isFetching}
+            className="fetch-description-btn"
+          >
+            {isFetching ? 'Fetching...' : 'Fetch description'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -102,6 +140,7 @@ interface RaceTableProps {
   onTimeUpdate?: () => void; // Callback to refresh races after update
   availableEvents?: string[]; // List of all existing event names
   onEventUpdate?: () => void; // Callback to refresh races and events after event update
+  onDescriptionUpdate?: () => void; // Callback to refresh races after description fetch
 }
 
 /**
@@ -603,7 +642,7 @@ function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteI
   );
 }
 
-export default function RaceTable({ races, currentAthleteId, isAdmin = false, onTimeUpdate, availableEvents = [], onEventUpdate }: RaceTableProps) {
+export default function RaceTable({ races, currentAthleteId, isAdmin = false, onTimeUpdate, availableEvents = [], onEventUpdate, onDescriptionUpdate }: RaceTableProps) {
   const [sortField, setSortField] = useState<keyof Race | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -759,6 +798,34 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
     }
   };
 
+  const handleDescriptionFetch = async (raceId: number, stravaActivityId: number) => {
+    try {
+      const response = await fetch(`/api/races/${raceId}/fetch-description`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          strava_activity_id: stravaActivityId,
+          athlete_strava_id: currentAthleteId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch description');
+      }
+
+      // Refresh the races list
+      if (onDescriptionUpdate) {
+        onDescriptionUpdate();
+      }
+    } catch (error) {
+      console.error('Error fetching description:', error);
+      throw error;
+    }
+  };
+
   return (
     <div className="race-table-container">
       <table className="race-table">
@@ -815,7 +882,11 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                   >
                     {race.name}
                   </a>
-                  <DescriptionTooltip description={race.description} />
+                  <DescriptionTooltip
+                    race={race}
+                    isOwner={isAdmin || race.strava_id === currentAthleteId}
+                    onFetchDescription={handleDescriptionFetch}
+                  />
                 </div>
               </td>
               <td>
