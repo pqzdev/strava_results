@@ -45,6 +45,7 @@ const getDefaultStartDate = () => {
 export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [races, setRaces] = useState<Race[]>([]);
+  const [allFilteredRaces, setAllFilteredRaces] = useState<Race[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Initialize filters from URL params
@@ -100,6 +101,10 @@ export default function Dashboard() {
   useEffect(() => {
     fetchRaces();
   }, [filters, pagination.offset, currentAthleteId]);
+
+  useEffect(() => {
+    fetchAllFilteredRaces();
+  }, [filters, currentAthleteId]);
 
   const fetchEarliestDate = async () => {
     try {
@@ -198,6 +203,37 @@ export default function Dashboard() {
     }
   };
 
+  const fetchAllFilteredRaces = async () => {
+    try {
+      const params = new URLSearchParams();
+      params.set('limit', '10000'); // Fetch all results for summary
+
+      // Pass current viewer's athlete_id to show their hidden races
+      if (currentAthleteId) {
+        params.set('viewer_athlete_id', currentAthleteId.toString());
+      }
+
+      // Handle multi-select athletes filter
+      filters.athletes.forEach(athlete => params.append('athlete', athlete));
+
+      // Handle multi-select events filter
+      filters.events.forEach(event => params.append('event', event));
+
+      // Handle multi-select distance filter
+      filters.distances.forEach(distance => params.append('distance', distance));
+
+      if (filters.activityName) params.set('activity_name', filters.activityName);
+      if (filters.dateFrom) params.set('date_from', filters.dateFrom);
+      if (filters.dateTo) params.set('date_to', filters.dateTo);
+
+      const response = await fetch(`/api/races?${params.toString()}`);
+      const data = await response.json();
+      setAllFilteredRaces(data.races || []);
+    } catch (error) {
+      console.error('Failed to fetch all filtered races:', error);
+    }
+  };
+
   const handleFilterChange = (newFilters: Partial<Filters>) => {
     const updatedFilters = { ...filters, ...newFilters };
     setFilters(updatedFilters);
@@ -283,7 +319,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            <AthleteSummary races={races} />
+            <AthleteSummary races={allFilteredRaces} />
 
             <div className="results-count">
               Showing {pagination.offset + 1}-{Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} race{pagination.total !== 1 ? 's' : ''}

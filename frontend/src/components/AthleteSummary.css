@@ -6,11 +6,64 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
 .summary-title {
   font-size: 1.5rem;
   font-weight: 600;
   color: #333;
-  margin-bottom: 1rem;
+  margin: 0;
+}
+
+.summary-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.summary-count {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.per-page-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.per-page-selector label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.per-page-selector select {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.per-page-selector select:hover {
+  border-color: #667eea;
+}
+
+.per-page-selector select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .summary-table-container {
@@ -68,6 +121,44 @@
   border: 2px solid #e9ecef;
 }
 
+.summary-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.summary-pagination .pagination-button {
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.summary-pagination .pagination-button:hover:not(:disabled) {
+  background: #5568d3;
+}
+
+.summary-pagination .pagination-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.summary-pagination .pagination-info {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
   .athlete-summary {
@@ -75,8 +166,20 @@
     margin: 1rem 0;
   }
 
+  .summary-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .summary-title {
     font-size: 1.25rem;
+  }
+
+  .summary-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
   }
 
   .summary-table {
@@ -91,5 +194,14 @@
   .athlete-avatar-small {
     width: 28px;
     height: 28px;
+  }
+
+  .summary-pagination {
+    gap: 0.5rem;
+  }
+
+  .summary-pagination .pagination-button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
   }
 }
