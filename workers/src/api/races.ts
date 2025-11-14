@@ -292,9 +292,9 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
 export async function getStats(env: Env): Promise<Response> {
   console.log('[STATS API] Fetching statistics...');
   try {
-    // Get various statistics (exclude hidden races)
+    // Get various statistics (exclude hidden races and hidden athletes)
     const athleteCount = await env.DB.prepare(
-      'SELECT COUNT(*) as count FROM athletes'
+      'SELECT COUNT(*) as count FROM athletes WHERE is_hidden = 0'
     ).first<{ count: number }>();
     console.log('[STATS API] Athletes query result:', JSON.stringify(athleteCount));
 
