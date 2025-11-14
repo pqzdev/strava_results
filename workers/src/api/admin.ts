@@ -451,3 +451,45 @@ export async function getAdminSyncLogs(
     );
   }
 }
+
+/**
+ * GET /api/admin/check - Check if user is an admin
+ */
+export async function checkAdmin(request: Request, env: Env): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const stravaId = parseInt(url.searchParams.get('strava_id') || '0');
+
+    if (!stravaId) {
+      return new Response(
+        JSON.stringify({ is_admin: false }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+
+    const adminStatus = await isAdmin(stravaId, env);
+
+    return new Response(
+      JSON.stringify({ is_admin: adminStatus }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return new Response(
+      JSON.stringify({ is_admin: false }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}

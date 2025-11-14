@@ -13,10 +13,28 @@ interface Stats {
 
 export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchStats();
+    checkAdminStatus();
   }, []);
+
+  const checkAdminStatus = async () => {
+    try {
+      const athleteId = localStorage.getItem('strava_athlete_id');
+      if (!athleteId) return;
+
+      const response = await fetch(`/api/admin/check?strava_id=${athleteId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setIsAdmin(data.is_admin === true);
+      }
+    } catch (error) {
+      console.error('[HOME] Failed to check admin status:', error);
+    }
+  };
 
   const fetchStats = async () => {
     console.log('[HOME] Fetching stats from /api/stats...');
@@ -30,6 +48,12 @@ export default function Home() {
     } catch (error) {
       console.error('[HOME] Failed to fetch stats:', error);
     }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchStats();
+    setTimeout(() => setRefreshing(false), 500);
   };
 
   const handleConnectStrava = () => {
@@ -78,7 +102,19 @@ export default function Home() {
         </div>
 
         <div className="stats-container">
-          <h2 className="stats-section-title">Strava Results</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 className="stats-section-title" style={{ margin: 0 }}>Strava Results</h2>
+            {isAdmin && (
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="button button-secondary"
+                style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+              >
+                {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+              </button>
+            )}
+          </div>
           <div className="stats-grid">
             {stats ? (
               <>
