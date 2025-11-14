@@ -52,7 +52,7 @@ export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl,
 
     // Automatically inject admin_strava_id if provided
     // This is used for admin-only endpoints that require authentication
-    if (adminStravaId && command.method !== 'GET') {
+    if (adminStravaId) {
       body.admin_strava_id = adminStravaId;
       // Also add athlete_strava_id for race visibility endpoints
       if (command.endpoint.includes('/races/')) {
