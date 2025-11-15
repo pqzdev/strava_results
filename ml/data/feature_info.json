@@ -1,0 +1,195 @@
+{
+  "parkrun_classifier": {
+    "model_type": "parkrun_binary_classifier",
+    "total_features": 32,
+    "feature_groups": {
+      "core": [
+        "distance_km",
+        "pace_min_per_km",
+        "elevation_gain"
+      ],
+      "time": [
+        "day_of_week",
+        "hour",
+        "month"
+      ],
+      "text": [
+        "contains_parkrun",
+        "contains_marathon",
+        "contains_half",
+        "contains_ultra",
+        "contains_fun_run",
+        "name_length"
+      ],
+      "distance_category": [
+        "is_5k",
+        "is_10k",
+        "is_half_marathon",
+        "is_marathon",
+        "is_ultra"
+      ],
+      "geolocation": [
+        "start_lat",
+        "start_lng",
+        "end_lat",
+        "end_lng",
+        "distance_start_to_end_km",
+        "is_loop",
+        "coord_count"
+      ],
+      "day_one_hot": [
+        "day_of_week",
+        "day_of_week",
+        "day_0",
+        "day_1",
+        "day_2",
+        "day_3",
+        "day_4",
+        "day_5",
+        "day_6"
+      ],
+      "hour_one_hot": [
+        "hour_6",
+        "hour_7",
+        "hour_8",
+        "hour_9",
+        "hour_10",
+        "hour_other"
+      ]
+    },
+    "feature_names": [
+      "distance_km",
+      "pace_min_per_km",
+      "elevation_gain",
+      "day_of_week",
+      "hour",
+      "month",
+      "contains_parkrun",
+      "contains_marathon",
+      "contains_half",
+      "contains_ultra",
+      "contains_fun_run",
+      "name_length",
+      "is_5k",
+      "is_10k",
+      "is_half_marathon",
+      "is_marathon",
+      "is_ultra",
+      "coord_count",
+      "day_of_week",
+      "day_0",
+      "day_1",
+      "day_2",
+      "day_3",
+      "day_4",
+      "day_5",
+      "day_6",
+      "hour_6",
+      "hour_7",
+      "hour_8",
+      "hour_9",
+      "hour_10",
+      "hour_other"
+    ],
+    "record_count": 678
+  },
+  "event_predictor": {
+    "model_type": "event_name_predictor",
+    "total_features": 32,
+    "feature_groups": {
+      "core": [
+        "distance_km",
+        "pace_min_per_km",
+        "elevation_gain"
+      ],
+      "time": [
+        "day_of_week",
+        "hour",
+        "month"
+      ],
+      "text": [
+        "contains_parkrun",
+        "contains_marathon",
+        "contains_half",
+        "contains_ultra",
+        "contains_fun_run",
+        "name_length"
+      ],
+      "distance_category": [
+        "is_5k",
+        "is_10k",
+        "is_half_marathon",
+        "is_marathon",
+        "is_ultra"
+      ],
+      "geolocation": [
+        "start_lat",
+        "start_lng",
+        "end_lat",
+        "end_lng",
+        "distance_start_to_end_km",
+        "is_loop",
+        "coord_count"
+      ],
+      "day_one_hot": [
+        "day_of_week",
+        "day_of_week",
+        "day_0.0",
+        "day_1.0",
+        "day_2.0",
+        "day_3.0",
+        "day_4.0",
+        "day_5.0",
+        "day_6.0"
+      ],
+      "hour_one_hot": [
+        "hour_6.0",
+        "hour_7.0",
+        "hour_8.0",
+        "hour_9.0",
+        "hour_10.0",
+        "hour_other"
+      ]
+    },
+    "feature_names": [
+      "distance_km",
+      "pace_min_per_km",
+      "elevation_gain",
+      "day_of_week",
+      "hour",
+      "month",
+      "contains_parkrun",
+      "contains_marathon",
+      "contains_half",
+      "contains_ultra",
+      "contains_fun_run",
+      "name_length",
+      "is_5k",
+      "is_10k",
+      "is_half_marathon",
+      "is_marathon",
+      "is_ultra",
+      "coord_count",
+      "day_of_week",
+      "day_0.0",
+      "day_1.0",
+      "day_2.0",
+      "day_3.0",
+      "day_4.0",
+      "day_5.0",
+      "day_6.0",
+      "hour_6.0",
+      "hour_7.0",
+      "hour_8.0",
+      "hour_9.0",
+      "hour_10.0",
+      "hour_other"
+    ],
+    "record_count": 644
+  },
+  "polyline_features_available": false,
+  "notes": {
+    "polyline_extraction": "Polyline features currently not extracted (requires separate DB query)",
+    "next_step": "Extract polylines from database and add geolocation features"
+  }
+}

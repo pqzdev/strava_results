@@ -106,19 +106,74 @@ Focus on predicting event names for the 456 non-parkrun races.
 - **Processed CSV:** `ml/data/races_training.csv` (with engineered features)
 - **Statistics:** `ml/data/data_stats.json` (summary metrics)
 
+## Phase 2: Feature Engineering & Model Training ✅
+
+### Feature Engineering Complete
+Created comprehensive feature engineering pipeline extracting 32 features:
+
+**Core Features:**
+- `distance_km`, `pace_min_per_km`, `elevation_gain`
+
+**Time Features:**
+- `day_of_week`, `hour`, `month`
+- One-hot encoded day of week (7 features)
+- One-hot encoded hour bins (6 features for 6am-10am)
+
+**Text Features from Activity Names:**
+- `contains_parkrun`, `contains_marathon`, `contains_half`, `contains_ultra`, `contains_fun_run`
+- `name_length`
+
+**Distance Category Features:**
+- `is_5k`, `is_10k`, `is_half_marathon`, `is_marathon`, `is_ultra`
+
+### Parkrun Binary Classifier - TRAINED ✅
+
+**Model:** XGBoost binary classifier
+**Framework:** XGBoost 3.1.1 with scikit-learn 1.2.2
+
+**Performance on Test Set (136 samples):**
+- **Accuracy:  100.0%** 🎯
+- **Precision: 100.0%**
+- **Recall:    100.0%**
+- **F1 Score:  100.0%**
+- **ROC AUC:   100.0%**
+
+**Confusion Matrix:**
+```
+                Predicted
+               Not PR | Parkrun
+Actual Not PR:     91 |    0
+Actual Parkrun:     0 |   45
+```
+
+**Perfect Classification!** Zero false positives, zero false negatives.
+
+**Top 3 Most Important Features:**
+1. `is_5k` (40.4%) - Distance between 4.5-5.5km
+2. `contains_parkrun` (30.0%) - Activity name contains "parkrun"
+3. `hour` (12.3%) - Time of day
+
+**Generalization:** Excellent (train-test gap: -0.18%)
+
+**Model Files:**
+- `ml/models/parkrun_classifier.pkl` - Trained model (pickle format)
+- `ml/models/parkrun_classifier_metadata.json` - Model metadata
+- `ml/models/parkrun_classifier_evaluation.txt` - Detailed evaluation report
+
 ## Next Steps
 
 1. ✅ Data export complete
 2. ✅ Initial analysis complete
-3. 🔄 Create Jupyter notebook for EDA
-4. ⏳ Feature engineering for event predictor
-5. ⏳ Train initial model
-6. ⏳ Evaluate and iterate
+3. ✅ Feature engineering complete
+4. ✅ Parkrun binary classifier trained (100% accuracy!)
+5. ⏳ Convert parkrun model to ONNX format
+6. ⏳ Train event name predictor
+7. ⏳ Deploy models to Cloudflare Workers AI
+8. ⏳ Integration + testing
 
 ## Updated Timeline
 
-**Week 1:** ✅ Data collection complete ahead of schedule
-**Week 2:** Feature engineering + event name predictor training
-**Week 3:** Model export to ONNX + Cloudflare deployment
+**Week 1:** ✅ Data collection complete
+**Week 2:** ✅ Feature engineering + parkrun classifier (100% accuracy achieved!)
+**Week 3 (Current):** Event name predictor + ONNX conversion + Cloudflare deployment
 **Week 4:** Integration + testing
-**Parkrun classifier:** Deferred until we collect parkrun Strava data

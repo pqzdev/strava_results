@@ -1,0 +1,194 @@
+{
+  "model_type": "parkrun_binary_classifier",
+  "framework": "xgboost",
+  "version": "1.0.0",
+  "trained_at": "2025-11-15T13:33:25.943448",
+  "metrics": {
+    "test_accuracy": 1.0,
+    "test_precision": 1.0,
+    "test_recall": 1.0,
+    "test_f1": 1.0,
+    "test_roc_auc": 1.0,
+    "train_accuracy": 0.9981549815498155,
+    "confusion_matrix": [
+      [
+        91,
+        0
+      ],
+      [
+        0,
+        45
+      ]
+    ]
+  },
+  "feature_importance": [
+    {
+      "feature": "is_5k",
+      "importance": 0.4041689932346344
+    },
+    {
+      "feature": "contains_parkrun",
+      "importance": 0.30003270506858826
+    },
+    {
+      "feature": "hour",
+      "importance": 0.12250575423240662
+    },
+    {
+      "feature": "hour_8",
+      "importance": 0.06391093879938126
+    },
+    {
+      "feature": "distance_km",
+      "importance": 0.03737470135092735
+    },
+    {
+      "feature": "name_length",
+      "importance": 0.02074255421757698
+    },
+    {
+      "feature": "pace_min_per_km",
+      "importance": 0.016261523589491844
+    },
+    {
+      "feature": "elevation_gain",
+      "importance": 0.011591300368309021
+    },
+    {
+      "feature": "day_of_week",
+      "importance": 0.008890330791473389
+    },
+    {
+      "feature": "day_5",
+      "importance": 0.006799299735575914
+    },
+    {
+      "feature": "month",
+      "importance": 0.006227798294275999
+    },
+    {
+      "feature": "hour_7",
+      "importance": 0.001494083902798593
+    },
+    {
+      "feature": "day_1",
+      "importance": 0.0
+    },
+    {
+      "feature": "hour_6",
+      "importance": 0.0
+    },
+    {
+      "feature": "day_6",
+      "importance": 0.0
+    },
+    {
+      "feature": "hour_9",
+      "importance": 0.0
+    },
+    {
+      "feature": "hour_10",
+      "importance": 0.0
+    },
+    {
+      "feature": "day_4",
+      "importance": 0.0
+    },
+    {
+      "feature": "day_3",
+      "importance": 0.0
+    },
+    {
+      "feature": "day_2",
+      "importance": 0.0
+    },
+    {
+      "feature": "is_ultra",
+      "importance": 0.0
+    },
+    {
+      "feature": "day_0",
+      "importance": 0.0
+    },
+    {
+      "feature": "day_of_week.1",
+      "importance": 0.0
+    },
+    {
+      "feature": "coord_count",
+      "importance": 0.0
+    },
+    {
+      "feature": "is_marathon",
+      "importance": 0.0
+    },
+    {
+      "feature": "is_half_marathon",
+      "importance": 0.0
+    },
+    {
+      "feature": "is_10k",
+      "importance": 0.0
+    },
+    {
+      "feature": "contains_fun_run",
+      "importance": 0.0
+    },
+    {
+      "feature": "contains_ultra",
+      "importance": 0.0
+    },
+    {
+      "feature": "contains_half",
+      "importance": 0.0
+    },
+    {
+      "feature": "contains_marathon",
+      "importance": 0.0
+    },
+    {
+      "feature": "hour_other",
+      "importance": 0.0
+    }
+  ],
+  "feature_names": [
+    "distance_km",
+    "pace_min_per_km",
+    "elevation_gain",
+    "day_of_week",
+    "hour",
+    "month",
+    "contains_parkrun",
+    "contains_marathon",
+    "contains_half",
+    "contains_ultra",
+    "contains_fun_run",
+    "name_length",
+    "is_5k",
+    "is_10k",
+    "is_half_marathon",
+    "is_marathon",
+    "is_ultra",
+    "coord_count",
+    "day_of_week.1",
+    "day_0",
+    "day_1",
+    "day_2",
+    "day_3",
+    "day_4",
+    "day_5",
+    "day_6",
+    "hour_6",
+    "hour_7",
+    "hour_8",
+    "hour_9",
+    "hour_10",
+    "hour_other"
+  ],
+  "num_features": 32,
+  "training_records": 678,
+  "class_balance": {
+    "parkrun": 222,
+    "not_parkrun": 456
+  }
+}
