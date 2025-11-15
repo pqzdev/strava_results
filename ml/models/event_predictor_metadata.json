@@ -2,117 +2,109 @@
   "model_type": "event_name_predictor",
   "framework": "xgboost",
   "version": "1.0.0",
-  "trained_at": "2025-11-15T13:38:40.225471",
+  "trained_at": "2025-11-15T07:54:00.925381",
   "metrics": {
-    "test_accuracy": 0.8837209302325582,
-    "test_top3_accuracy": 0.9922480620155039,
+    "test_accuracy": 0.9583333333333334,
+    "test_top3_accuracy": 1.0,
     "test_top5_accuracy": 1.0,
-    "test_precision": 0.9057434813248767,
-    "test_recall": 0.8837209302325582,
-    "test_f1": 0.8919440644474843,
-    "train_accuracy": 0.9805825242718447,
-    "mean_confidence": 0.9330205321311951,
-    "num_classes": 7.0
+    "test_precision": 0.9722222222222223,
+    "test_recall": 0.9583333333333334,
+    "test_f1": 0.9615942028985508,
+    "train_accuracy": 1.0,
+    "mean_confidence": 0.8439955115318298,
+    "num_classes": 6.0
   },
   "feature_importance": [
     {
       "feature": "hour_9.0",
-      "importance": 0.34697940945625305
-    },
-    {
-      "feature": "is_marathon",
-      "importance": 0.16853132843971252
-    },
-    {
-      "feature": "is_10k",
-      "importance": 0.0755780041217804
-    },
-    {
-      "feature": "contains_half",
-      "importance": 0.06284672766923904
-    },
-    {
-      "feature": "month",
-      "importance": 0.060770146548748016
-    },
-    {
-      "feature": "is_ultra",
-      "importance": 0.042688097804784775
+      "importance": 0.2811489999294281
     },
     {
       "feature": "is_half_marathon",
-      "importance": 0.03695298731327057
+      "importance": 0.09282038360834122
+    },
+    {
+      "feature": "is_marathon",
+      "importance": 0.08268636465072632
+    },
+    {
+      "feature": "is_10k",
+      "importance": 0.06668975204229355
+    },
+    {
+      "feature": "month",
+      "importance": 0.05522255226969719
     },
     {
       "feature": "distance_km",
-      "importance": 0.031292874366045
-    },
-    {
-      "feature": "day_of_week",
-      "importance": 0.025803888216614723
-    },
-    {
-      "feature": "elevation_gain",
-      "importance": 0.02562686987221241
-    },
-    {
-      "feature": "hour_7.0",
-      "importance": 0.02116648480296135
-    },
-    {
-      "feature": "hour",
-      "importance": 0.018416304141283035
-    },
-    {
-      "feature": "pace_min_per_km",
-      "importance": 0.015090652741491795
-    },
-    {
-      "feature": "hour_8.0",
-      "importance": 0.013707837089896202
-    },
-    {
-      "feature": "hour_6.0",
-      "importance": 0.010866022668778896
-    },
-    {
-      "feature": "contains_marathon",
-      "importance": 0.010547954589128494
-    },
-    {
-      "feature": "day_3.0",
-      "importance": 0.009809794835746288
-    },
-    {
-      "feature": "hour_other",
-      "importance": 0.009483658708631992
-    },
-    {
-      "feature": "day_of_week.1",
-      "importance": 0.004625994712114334
-    },
-    {
-      "feature": "name_length",
-      "importance": 0.004171018488705158
-    },
-    {
-      "feature": "day_5.0",
-      "importance": 0.0038484036922454834
+      "importance": 0.054967451840639114
     },
     {
       "feature": "day_6.0",
-      "importance": 0.0011955947848036885
+      "importance": 0.054287709295749664
     },
     {
-      "feature": "day_0.0",
+      "feature": "elevation_gain",
+      "importance": 0.04152495414018631
+    },
+    {
+      "feature": "hour_6.0",
+      "importance": 0.03974366933107376
+    },
+    {
+      "feature": "hour",
+      "importance": 0.03422713279724121
+    },
+    {
+      "feature": "pace_min_per_km",
+      "importance": 0.033447496592998505
+    },
+    {
+      "feature": "hour_8.0",
+      "importance": 0.03173401206731796
+    },
+    {
+      "feature": "is_ultra",
+      "importance": 0.030434271320700645
+    },
+    {
+      "feature": "contains_marathon",
+      "importance": 0.02976071648299694
+    },
+    {
+      "feature": "day_of_week",
+      "importance": 0.028680948540568352
+    },
+    {
+      "feature": "hour_7.0",
+      "importance": 0.025533685460686684
+    },
+    {
+      "feature": "day_of_week.1",
+      "importance": 0.01308861281722784
+    },
+    {
+      "feature": "name_length",
+      "importance": 0.004001273773610592
+    },
+    {
+      "feature": "is_5k",
+      "importance": 0.0
+    },
+    {
+      "feature": "contains_fun_run",
+      "importance": 0.0
+    },
+    {
+      "feature": "contains_parkrun",
+      "importance": 0.0
+    },
+    {
+      "feature": "contains_half",
       "importance": 0.0
     },
     {
       "feature": "contains_ultra",
-      "importance": 0.0
-    },
-    {
-      "feature": "day_2.0",
       "importance": 0.0
     },
     {
@@ -124,15 +116,23 @@
       "importance": 0.0
     },
     {
-      "feature": "contains_parkrun",
+      "feature": "day_3.0",
       "importance": 0.0
     },
     {
-      "feature": "is_5k",
+      "feature": "day_2.0",
       "importance": 0.0
     },
     {
-      "feature": "contains_fun_run",
+      "feature": "day_1.0",
+      "importance": 0.0
+    },
+    {
+      "feature": "day_0.0",
+      "importance": 0.0
+    },
+    {
+      "feature": "day_5.0",
       "importance": 0.0
     },
     {
@@ -140,7 +140,7 @@
       "importance": 0.0
     },
     {
-      "feature": "day_1.0",
+      "feature": "hour_other",
       "importance": 0.0
     }
   ],
@@ -185,53 +185,52 @@
     "Cooks River Fun Run",
     "Sydney 10",
     "Sydney Marathon",
-    "rare_event",
-    NaN
+    "rare_event"
   ],
-  "num_classes": 7,
+  "num_classes": 6,
   "rare_events": [
-    "Canberra Marathon",
-    "Hoka Sydney Half marathon",
-    "Sri Chinmoy Dolls Point Half marathon",
-    "S\u00e3o Silvestre de Lisboa",
-    "Blacktown Marathon",
-    "BBB",
-    "SMC Half marathon",
-    "Sun Run",
-    "SMC 30k",
-    "SMC 10k",
-    "Sydney Backyard Ultra",
-    "Gold Coast Marathon",
-    "Canberra Half marathon",
-    "Kiama Coastal Classic",
     "Three Bridges 10k",
     "ReBoot in Bermagui",
+    "BBB",
+    "Canberra Half marathon",
+    "Kiama Coastal Classic",
+    "SMC Half marathon",
+    "Sun Run",
+    "SMC 10k",
+    "SMC 30k",
+    "Sydney Backyard Ultra",
+    "Canberra Marathon",
+    "Blacktown Marathon",
+    "S\u00e3o Silvestre de Lisboa",
+    "Hoka Sydney Half marathon",
     "Sydney Half marathon",
-    "S\u00e3o Silvestre dos Olivais",
-    "Berlin Marathon",
-    "Adelaide Marathon",
-    "Madrid Marathon",
-    "Melbourne Marathon",
-    "SMH Sydney Half marathon",
-    "San Marcos Half marathon",
-    "Blackmores Bridge Run",
-    "Queenstown Marathon",
-    "Orange Marathon",
+    "Sri Chinmoy Dolls Point Half marathon",
+    "Gold Coast Marathon",
+    "Bondi to Manly Leg 1",
     "Magic Mile",
-    "Bondi to Manly Leg 3",
-    "Raffertys Coastal",
-    "Sutherland 2 Surf",
-    "Mudgee 10k",
-    "Run for the Hills",
-    "Sydney Marathon 10k",
-    "Bondi to Manly Leg 2",
-    "Hobart Marathon",
-    "Shellharbour 10K",
     "Sri Chinmoy Cooleman Clip 10k",
     "Bravehearts Half",
     "Sydney Harbour 10",
     "Coastal Classic",
-    "Bondi to Manly Leg 1",
+    "Shellharbour 10K",
+    "Bondi to Manly Leg 3",
+    "Sydney Marathon 10k",
+    "Hobart Marathon",
+    "Raffertys Coastal",
+    "Sutherland 2 Surf",
+    "Mudgee 10k",
+    "Run for the Hills",
+    "Bondi to Manly Leg 2",
+    "Orange Marathon",
+    "Blackmores Bridge Run",
+    "Queenstown Marathon",
+    "San Marcos Half marathon",
+    "Berlin Marathon",
+    "Adelaide Marathon",
+    "S\u00e3o Silvestre dos Olivais",
+    "Madrid Marathon",
+    "Melbourne Marathon",
+    "SMH Sydney Half marathon",
     "Blackmores Sydney Half marathon"
   ],
   "min_samples_per_class": 3,
