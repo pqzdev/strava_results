@@ -77,7 +77,7 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
       const response = await fetch('/api/events/names');
       if (response.ok) {
         const data = await response.json();
-        setAvailableEvents(data.event_names || []);
+        setAvailableEvents(data.eventNames || []);
       }
     } catch (err) {
       console.error('Failed to load event names:', err);
