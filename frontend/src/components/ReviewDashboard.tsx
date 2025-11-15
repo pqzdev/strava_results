@@ -63,6 +63,15 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
     loadEventNames();
   }, [adminStravaId]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setIsDropdownOpen({});
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   async function loadEventNames() {
     try {
       const response = await fetch('/api/events/names');
@@ -189,6 +198,14 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
               is_half_marathon: (distanceKm >= 20 && distanceKm <= 22) ? 1 : 0,
               is_marathon: (distanceKm >= 40 && distanceKm <= 44) ? 1 : 0,
               is_ultra: distanceKm > 44 ? 1 : 0,
+              // Geolocation features (not available in frontend, set to None/0)
+              start_lat: null,
+              start_lng: null,
+              end_lat: null,
+              end_lng: null,
+              distance_start_to_end_km: null,
+              is_loop: null,
+              coord_count: 0,
               ...dayFeatures,
               ...hourFeatures,
             };
