@@ -289,6 +289,13 @@ export default function Dashboard() {
     setSearchParams({}, { replace: true });
   };
 
+  const handleAthleteToggle = (athleteName: string) => {
+    const updatedAthletes = filters.athletes.includes(athleteName)
+      ? filters.athletes.filter(name => name !== athleteName)
+      : [...filters.athletes, athleteName];
+    handleFilterChange({ athletes: updatedAthletes });
+  };
+
   const handlePageChange = (newOffset: number) => {
     setPagination({ ...pagination, offset: newOffset });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -382,7 +389,11 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            <AthleteSummary races={allFilteredRaces} />
+            <AthleteSummary
+              races={allFilteredRaces}
+              selectedAthletes={filters.athletes}
+              onAthleteToggle={handleAthleteToggle}
+            />
 
             <div className="results-header">
               <span className="results-count">

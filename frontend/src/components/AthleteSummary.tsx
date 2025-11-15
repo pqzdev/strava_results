@@ -24,6 +24,8 @@ interface Race {
 
 interface AthleteSummaryProps {
   races: Race[];
+  selectedAthletes?: string[];
+  onAthleteToggle?: (athleteName: string) => void;
 }
 
 interface AthleteStat {
@@ -35,7 +37,7 @@ interface AthleteStat {
   averagePace: number;
 }
 
-export default function AthleteSummary({ races }: AthleteSummaryProps) {
+export default function AthleteSummary({ races, selectedAthletes = [], onAthleteToggle }: AthleteSummaryProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
@@ -88,6 +90,12 @@ export default function AthleteSummary({ races }: AthleteSummaryProps) {
   const handleItemsPerPageChange = (value: number) => {
     setItemsPerPage(value);
     setCurrentPage(1);
+  };
+
+  const handleAthleteClick = (athleteName: string) => {
+    if (onAthleteToggle) {
+      onAthleteToggle(athleteName);
+    }
   };
 
   const formatDistance = (meters: number) => {
@@ -155,26 +163,35 @@ export default function AthleteSummary({ races }: AthleteSummaryProps) {
             </tr>
           </thead>
           <tbody>
-            {paginatedData.map((stat) => (
-              <tr key={stat.athleteName}>
-                <td>
-                  <div className="athlete-cell">
-                    {stat.profilePhoto && (
-                      <img
-                        src={stat.profilePhoto}
-                        alt={stat.athleteName}
-                        className="athlete-avatar-small"
-                      />
-                    )}
-                    <span>{stat.athleteName}</span>
-                  </div>
-                </td>
-                <td>{stat.activityCount}</td>
-                <td>{formatDistance(stat.totalDistance)} km</td>
-                <td>{formatTime(stat.totalTime)}</td>
-                <td>{formatPace(stat.averagePace)} /km</td>
-              </tr>
-            ))}
+            {paginatedData.map((stat) => {
+              const isSelected = selectedAthletes.includes(stat.athleteName);
+              return (
+                <tr key={stat.athleteName} className={isSelected ? 'selected-athlete' : ''}>
+                  <td>
+                    <div className="athlete-cell">
+                      {stat.profilePhoto && (
+                        <img
+                          src={stat.profilePhoto}
+                          alt={stat.athleteName}
+                          className="athlete-avatar-small"
+                        />
+                      )}
+                      <span
+                        className="athlete-name-clickable"
+                        onClick={() => handleAthleteClick(stat.athleteName)}
+                        title={isSelected ? 'Click to remove from filter' : 'Click to add to filter'}
+                      >
+                        {stat.athleteName}
+                      </span>
+                    </div>
+                  </td>
+                  <td>{stat.activityCount}</td>
+                  <td>{formatDistance(stat.totalDistance)} km</td>
+                  <td>{formatTime(stat.totalTime)}</td>
+                  <td>{formatPace(stat.averagePace)} /km</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
