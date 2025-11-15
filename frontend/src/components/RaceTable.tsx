@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { FaRegCommentDots } from 'react-icons/fa6';
 import './RaceTable.css';
@@ -62,11 +62,28 @@ interface DescriptionTooltipProps {
 function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTooltipProps) {
   const [isFetching, setIsFetching] = useState(false);
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Only show to owner or admin
   if (!isOwner) {
     return null;
   }
+
+  // Close tooltip when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsTooltipVisible(false);
+      }
+    }
+
+    if (isTooltipVisible) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isTooltipVisible]);
 
   const handleFetch = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -88,7 +105,7 @@ function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTo
   };
 
   return (
-    <div className="description-tooltip-wrapper">
+    <div className="description-tooltip-wrapper" ref={wrapperRef}>
       <FaRegCommentDots
         className="description-icon"
         onClick={handleIconClick}
@@ -97,23 +114,22 @@ function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTo
         {race.description ? (
           <>
             <div className="description-text">{race.description}</div>
-            <button
+            <a
+              href="#"
               onClick={handleFetch}
-              disabled={isFetching}
-              className="fetch-description-btn"
-              style={{ marginTop: '0.5rem' }}
+              className="fetch-description-link"
             >
               {isFetching ? 'Refreshing...' : 'Refresh description'}
-            </button>
+            </a>
           </>
         ) : (
-          <button
+          <a
+            href="#"
             onClick={handleFetch}
-            disabled={isFetching}
-            className="fetch-description-btn"
+            className="fetch-description-link"
           >
             {isFetching ? 'Fetching...' : 'Fetch description'}
-          </button>
+          </a>
         )}
       </div>
     </div>
