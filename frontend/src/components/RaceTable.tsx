@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import { FaRegCommentDots } from 'react-icons/fa6';
+import { FaCommentDots } from 'react-icons/fa6';
 import './RaceTable.css';
 
 interface VisibilityToggleProps {
@@ -64,8 +64,8 @@ function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTo
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Only show to owner or admin
-  if (!isOwner) {
+  // Only show to owner or admin, and only if there's a description
+  if (!isOwner || !race.description) {
     return null;
   }
 
@@ -106,31 +106,21 @@ function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTo
 
   return (
     <div className="description-tooltip-wrapper" ref={wrapperRef}>
-      <FaRegCommentDots
+      <FaCommentDots
         className="description-icon"
         onClick={handleIconClick}
       />
       <div className={`description-tooltip ${isTooltipVisible ? 'visible' : ''}`}>
-        {race.description ? (
-          <>
-            <div className="description-text">{race.description}</div>
-            <a
-              href="#"
-              onClick={handleFetch}
-              className="fetch-description-link"
-            >
-              {isFetching ? 'Refreshing...' : 'Refresh description'}
-            </a>
-          </>
-        ) : (
+        <>
+          <div className="description-text">{race.description}</div>
           <a
             href="#"
             onClick={handleFetch}
             className="fetch-description-link"
           >
-            {isFetching ? 'Fetching...' : 'Fetch description'}
+            {isFetching ? 'Refreshing...' : 'Refresh description'}
           </a>
-        )}
+        </>
       </div>
     </div>
   );
@@ -671,6 +661,7 @@ function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteI
 export default function RaceTable({ races, currentAthleteId, isAdmin = false, onTimeUpdate, availableEvents = [], onEventUpdate, onDescriptionUpdate }: RaceTableProps) {
   const [sortField, setSortField] = useState<keyof Race | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [descriptionOverrides, setDescriptionOverrides] = useState<Record<number, string>>({});
 
   const handleSort = (field: keyof Race) => {
     if (sortField === field) {
@@ -681,7 +672,13 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
     }
   };
 
-  const sortedRaces = [...races].sort((a, b) => {
+  // Merge races with description overrides
+  const racesWithOverrides = races.map(race => ({
+    ...race,
+    description: descriptionOverrides[race.id] ?? race.description
+  }));
+
+  const sortedRaces = [...racesWithOverrides].sort((a, b) => {
     if (!sortField) return 0;
 
     let aValue: any = a[sortField];
@@ -842,10 +839,15 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
         throw new Error(error.error || 'Failed to fetch description');
       }
 
-      // Refresh the races list
-      if (onDescriptionUpdate) {
-        onDescriptionUpdate();
-      }
+      const data = await response.json();
+
+      // Update description override for this specific race
+      setDescriptionOverrides(prev => ({
+        ...prev,
+        [raceId]: data.description
+      }));
+
+      // Don't call onDescriptionUpdate to avoid full page refresh
     } catch (error) {
       console.error('Error fetching description:', error);
       throw error;
@@ -895,7 +897,7 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                   availableEvents={availableEvents}
                   onSave={handleEventUpdate}
                   currentAthleteId={currentAthleteId}
-                  allRaces={races}
+                  allRaces={racesWithOverrides}
                 />
               </td>
               <td>
