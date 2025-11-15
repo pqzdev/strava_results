@@ -160,20 +160,66 @@ Actual Parkrun:     0 |   45
 - `ml/models/parkrun_classifier_metadata.json` - Model metadata
 - `ml/models/parkrun_classifier_evaluation.txt` - Detailed evaluation report
 
+### Event Name Predictor - TRAINED ✅
+
+**Model:** XGBoost multi-class classifier (7 classes)
+**Framework:** XGBoost 3.1.1 with scikit-learn 1.2.2
+
+**Class Strategy:**
+- 43 rare events (< 3 samples) grouped as "rare_event"
+- 6 major events kept separate: City2Surf, Sydney Marathon, Sydney 10, Bondi to Manly Ultra, Cooks River Fun Run, + rare_event class
+- Used balanced sample weights to handle class imbalance
+
+**Performance on Test Set (129 samples):**
+- **Top-1 Accuracy: 88.4%** 🎯
+- **Top-3 Accuracy: 99.2%**
+- **Top-5 Accuracy: 100.0%**
+- **Precision: 90.6%**
+- **Recall:    88.4%**
+- **F1 Score:  89.2%**
+
+**Per-Class Performance:**
+- **City2Surf:** 100% precision, 100% recall (perfect!)
+- **Sydney 10:** 100% precision, 100% recall (perfect!)
+- **Bondi to Manly Ultra:** 100% precision, 100% recall (perfect!)
+- **Sydney Marathon:** 67% precision, 100% recall
+- **Cooks River Fun Run:** 50% precision, 100% recall
+- **rare_event:** 44% precision, 58% recall (expected - mixed class)
+
+**Top 3 Most Important Features:**
+1. `hour_9.0` (34.7%) - 9am start time
+2. `is_marathon` (16.9%) - Marathon distance category
+3. `is_10k` (7.6%) - 10km distance category
+
+**Generalization:** Excellent (train-test gap: 9.7%, well below 10% threshold)
+
+**Confidence for Unknown Detection:**
+- Mean max probability: 93.3%
+- Recommended threshold for unknown events: 0.5 (50%)
+- Events below threshold should be flagged for manual review
+
+**Model Files:**
+- `ml/models/event_predictor.pkl` - Trained model (pickle format)
+- `ml/models/event_predictor_metadata.json` - Model metadata
+- `ml/models/event_predictor_label_encoder.pkl` - Label encoder
+- `ml/models/event_predictor_evaluation.txt` - Detailed evaluation report
+
 ## Next Steps
 
 1. ✅ Data export complete
 2. ✅ Initial analysis complete
 3. ✅ Feature engineering complete
 4. ✅ Parkrun binary classifier trained (100% accuracy!)
-5. ⏳ Convert parkrun model to ONNX format
-6. ⏳ Train event name predictor
+5. ✅ Event name predictor trained (88% top-1, 99% top-3 accuracy!)
+6. ⏳ Convert both models to ONNX format
 7. ⏳ Deploy models to Cloudflare Workers AI
-8. ⏳ Integration + testing
+8. ⏳ Integration into sync process
+9. ⏳ Testing + validation
 
 ## Updated Timeline
 
 **Week 1:** ✅ Data collection complete
-**Week 2:** ✅ Feature engineering + parkrun classifier (100% accuracy achieved!)
-**Week 3 (Current):** Event name predictor + ONNX conversion + Cloudflare deployment
+**Week 2:** ✅ Feature engineering + parkrun classifier (100% accuracy!)
+**Week 2.5:** ✅ Event name predictor (88% top-1, 99% top-3 accuracy!)
+**Week 3 (Current):** ONNX conversion + Cloudflare deployment
 **Week 4:** Integration + testing
