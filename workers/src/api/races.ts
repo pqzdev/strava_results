@@ -27,6 +27,7 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
   const dateTo = url.searchParams.get('date_to');
   const distanceCategories = url.searchParams.getAll('distance'); // Get all distance category parameters
   const viewerAthleteId = url.searchParams.get('viewer_athlete_id'); // Current user's strava_id
+  const showHidden = url.searchParams.get('show_hidden') === 'true'; // Whether to show hidden races
 
   // Legacy support for min/max distance
   const minDistanceParam = url.searchParams.get('min_distance');
@@ -76,16 +77,20 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
 
     const bindings: any[] = [];
 
-    // Filter hidden races: only show if viewer is owner or admin
-    if (!isViewerAdmin && viewerAthleteId) {
-      // Not admin: show visible races + own hidden races
-      query += ` AND (r.is_hidden = 0 OR a.strava_id = ?)`;
-      bindings.push(parseInt(viewerAthleteId));
-    } else if (!viewerAthleteId) {
-      // Anonymous: only show visible races
+    // Filter hidden races based on showHidden toggle
+    if (!showHidden) {
+      // showHidden is false (default): hide ALL hidden races
       query += ` AND r.is_hidden = 0`;
+    } else {
+      // showHidden is true: show hidden races based on permissions
+      if (!isViewerAdmin && viewerAthleteId) {
+        // Not admin: show visible races + own hidden races
+        query += ` AND (r.is_hidden = 0 OR a.strava_id = ?)`;
+        bindings.push(parseInt(viewerAthleteId));
+      }
+      // If viewer is admin: show all races (no additional filter)
+      // If anonymous: show all races (no additional filter - they toggled to see hidden)
     }
-    // If viewer is admin: show all races (no additional filter)
 
     // Handle multiple athlete filters - match against full name
     if (athleteNames.length > 0) {

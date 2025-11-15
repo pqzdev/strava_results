@@ -72,6 +72,7 @@ export default function Dashboard() {
   const [availableAthletes, setAvailableAthletes] = useState<string[]>([]);
   const [availableEvents, setAvailableEvents] = useState<string[]>([]);
   const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -103,11 +104,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchRaces();
-  }, [filters, pagination.offset, currentAthleteId]);
+  }, [filters, pagination.offset, currentAthleteId, showHidden]);
 
   useEffect(() => {
     fetchAllFilteredRaces();
-  }, [filters, currentAthleteId]);
+  }, [filters, currentAthleteId, showHidden]);
 
   const fetchEarliestDate = async () => {
     try {
@@ -179,6 +180,11 @@ export default function Dashboard() {
         params.set('viewer_athlete_id', currentAthleteId.toString());
       }
 
+      // Pass show_hidden parameter
+      if (showHidden) {
+        params.set('show_hidden', 'true');
+      }
+
       // Handle multi-select athletes filter
       filters.athletes.forEach(athlete => params.append('athlete', athlete));
 
@@ -214,6 +220,11 @@ export default function Dashboard() {
       // Pass current viewer's athlete_id to show their hidden races
       if (currentAthleteId) {
         params.set('viewer_athlete_id', currentAthleteId.toString());
+      }
+
+      // Pass show_hidden parameter
+      if (showHidden) {
+        params.set('show_hidden', 'true');
       }
 
       // Handle multi-select athletes filter
@@ -378,6 +389,51 @@ export default function Dashboard() {
                 Showing {pagination.offset + 1}-{Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} race{pagination.total !== 1 ? 's' : ''}
               </span>
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '14px', cursor: 'pointer' }}>
+                  <span>See hidden</span>
+                  <input
+                    type="checkbox"
+                    checked={showHidden}
+                    onChange={(e) => setShowHidden(e.target.checked)}
+                    style={{
+                      width: '42px',
+                      height: '22px',
+                      appearance: 'none',
+                      backgroundColor: showHidden ? '#fc4c02' : '#ccc',
+                      borderRadius: '11px',
+                      position: 'relative',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s',
+                      outline: 'none',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!showHidden) {
+                        (e.target as HTMLInputElement).style.backgroundColor = '#bbb';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!showHidden) {
+                        (e.target as HTMLInputElement).style.backgroundColor = '#ccc';
+                      }
+                    }}
+                  />
+                  <style>{`
+                    input[type="checkbox"]:checked::before {
+                      transform: translateX(20px);
+                    }
+                    input[type="checkbox"]::before {
+                      content: '';
+                      position: absolute;
+                      width: 18px;
+                      height: 18px;
+                      border-radius: 50%;
+                      background-color: white;
+                      top: 2px;
+                      left: 2px;
+                      transition: transform 0.2s;
+                    }
+                  `}</style>
+                </label>
                 {isAdmin && pagination.total > 0 && (
                   <button
                     onClick={() => setShowBulkEditModal(true)}
