@@ -171,13 +171,14 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
               day_6: dayOfWeek === 6 ? 1 : 0,
             };
 
-            // One-hot encode hour (only common race hours)
+            // One-hot encode hour (common race hours 6-10, others grouped as 'other')
             const hourFeatures = {
               hour_6: hour === 6 ? 1 : 0,
               hour_7: hour === 7 ? 1 : 0,
               hour_8: hour === 8 ? 1 : 0,
               hour_9: hour === 9 ? 1 : 0,
               hour_10: hour === 10 ? 1 : 0,
+              hour_other: (hour < 6 || hour > 10) ? 1 : 0,
             };
 
             const eventFeatures = {
@@ -198,14 +199,6 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
               is_half_marathon: (distanceKm >= 20 && distanceKm <= 22) ? 1 : 0,
               is_marathon: (distanceKm >= 40 && distanceKm <= 44) ? 1 : 0,
               is_ultra: distanceKm > 44 ? 1 : 0,
-              // Geolocation features (not available in frontend, set to None/0)
-              start_lat: null,
-              start_lng: null,
-              end_lat: null,
-              end_lng: null,
-              distance_start_to_end_km: null,
-              is_loop: null,
-              coord_count: 0,
               ...dayFeatures,
               ...hourFeatures,
             };
