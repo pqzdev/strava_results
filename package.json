@@ -25,5 +25,8 @@
     "cloudflare-workers"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "playwright": "^1.40.0"
+  }
 }

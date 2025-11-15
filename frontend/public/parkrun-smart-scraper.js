@@ -516,6 +516,9 @@
     console.log('   - Club number is correct (19959 for Woodstock Runners)');
     console.log('   - Date range includes Saturdays');
     console.log('   - Members have registered their club with parkrun');
+    // Signal completion for automation
+    window.scraperComplete = true;
+    window.scraperResults = { success: false, totalResults: 0, error: 'No results found' };
     return;
   }
 
