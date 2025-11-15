@@ -180,3 +180,31 @@
   color: #d32f2f;
   padding: 20px;
 }
+
+.event-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  min-width: 200px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.event-dropdown li {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.event-dropdown li:hover,
+.event-dropdown li.highlighted {
+  background-color: #f0f0f0;
+}
