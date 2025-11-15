@@ -191,18 +191,9 @@ async function main() {
         return;
       }
 
-      // Log important messages and errors
-      if (
-        type === 'error' ||
-        text.includes('✅') ||
-        text.includes('❌') ||
-        text.includes('📤') ||
-        text.includes('🎉') ||
-        text.includes('ERROR') ||
-        text.includes('Uploaded') ||
-        text.includes('Summary') ||
-        text.includes('Parkrun Smart Scraper')
-      ) {
+      // Log all console output (temporarily verbose for debugging)
+      // Filter out some noise but keep most messages
+      if (!text.includes('Download the React DevTools')) {
         await log(`   [${type}] ${text}`);
       }
     });
