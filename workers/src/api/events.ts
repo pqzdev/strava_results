@@ -58,7 +58,7 @@ export async function getEventStats(request: Request, env: Env): Promise<Respons
       SELECT
         r.event_name,
         GROUP_CONCAT(DISTINCT r.date) as dates,
-        GROUP_CONCAT(DISTINCT COALESCE(re.manual_distance, r.manual_distance, r.distance)) as distances,
+        GROUP_CONCAT(DISTINCT ROUND(COALESCE(re.manual_distance, r.manual_distance, r.distance))) as distances,
         COUNT(DISTINCT r.id) as activity_count
       FROM races r
       LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
@@ -73,7 +73,7 @@ export async function getEventStats(request: Request, env: Env): Promise<Respons
       const uniqueDates = [...new Set(datesArray)];
 
       // Parse and deduplicate distances
-      const distancesArray = row.distances ? row.distances.split(',').map((d: string) => parseInt(d)).filter((d: number) => !isNaN(d)) : [];
+      const distancesArray = row.distances ? row.distances.split(',').map((d: string) => parseFloat(d)).filter((d: number) => !isNaN(d)) : [];
       const uniqueDistances = [...new Set(distancesArray)];
 
       return {
