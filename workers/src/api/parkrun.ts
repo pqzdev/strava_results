@@ -588,6 +588,9 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
       }
     }
 
+    // Sort rare Pokémon by visit count ascending (2nd visit, then 3rd visit, etc.)
+    rarePokemons.sort((a, b) => a.visitCount - b.visitCount);
+
     return new Response(
       JSON.stringify({
         date: targetDate,

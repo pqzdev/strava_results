@@ -73,6 +73,24 @@ export default function ParkrunWeeklySummary() {
     setShowCalendar(false);
   }
 
+  function jumpToMostRecent() {
+    if (summary && summary.availableDates.length > 0) {
+      const mostRecent = summary.availableDates[0]; // Array is sorted DESC
+      setSelectedDate(mostRecent);
+      setCurrentMonth(new Date(mostRecent));
+    }
+  }
+
+  function handleMonthChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    const newMonth = parseInt(event.target.value);
+    setCurrentMonth(new Date(currentMonth.getFullYear(), newMonth, 1));
+  }
+
+  function handleYearChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    const newYear = parseInt(event.target.value);
+    setCurrentMonth(new Date(newYear, currentMonth.getMonth(), 1));
+  }
+
   function previousMonth() {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
   }
@@ -86,6 +104,16 @@ export default function ParkrunWeeklySummary() {
   }
 
   const availableDatesSet = new Set(summary.availableDates);
+
+  // Get available years from available dates
+  const availableYears = Array.from(
+    new Set(summary.availableDates.map(date => new Date(date).getFullYear()))
+  ).sort((a, b) => b - a); // Descending order
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   // Generate calendar days for current month
   function generateCalendar() {
@@ -116,7 +144,6 @@ export default function ParkrunWeeklySummary() {
 
   const calendarDays = generateCalendar();
   const formattedDate = new Date(selectedDate).toLocaleDateString('en-AU', {
-    weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -136,11 +163,38 @@ export default function ParkrunWeeklySummary() {
 
           {showCalendar && (
             <div className="calendar-dropdown">
+              <div className="calendar-controls">
+                <button onClick={jumpToMostRecent} className="jump-to-recent">
+                  Jump to most recent
+                </button>
+              </div>
+
               <div className="calendar-header">
                 <button onClick={previousMonth} className="nav-button">‹</button>
-                <span className="month-year">
-                  {currentMonth.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}
-                </span>
+                <div className="date-selectors">
+                  <select
+                    value={currentMonth.getMonth()}
+                    onChange={handleMonthChange}
+                    className="month-select"
+                  >
+                    {months.map((month, index) => (
+                      <option key={index} value={index}>
+                        {month}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={currentMonth.getFullYear()}
+                    onChange={handleYearChange}
+                    className="year-select"
+                  >
+                    {availableYears.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <button onClick={nextMonth} className="nav-button">›</button>
               </div>
 
@@ -195,7 +249,7 @@ export default function ParkrunWeeklySummary() {
 
         {summary.rarePokemons.length > 0 && (
           <p>
-            🦄 <strong>Rare pokemons:</strong>{' '}
+            🦄 <strong>Rare Pokémon:</strong>{' '}
             {summary.rarePokemons.map((pokemon, index) => (
               <span key={pokemon.name}>
                 {index > 0 && ', '}
