@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { FaCommentDots, FaRegCommentDots } from 'react-icons/fa6';
 import './RaceTable.css';
@@ -689,10 +689,12 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
   };
 
   // Merge races with description overrides
-  const racesWithOverrides = races.map(race => ({
-    ...race,
-    description: descriptionOverrides[race.id] ?? race.description
-  }));
+  const racesWithOverrides = useMemo(() => {
+    return races.map(race => ({
+      ...race,
+      description: descriptionOverrides[race.id] ?? race.description
+    }));
+  }, [races, descriptionOverrides]);
 
   const sortedRaces = [...racesWithOverrides].sort((a, b) => {
     if (!sortField) return 0;
