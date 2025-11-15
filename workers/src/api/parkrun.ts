@@ -479,6 +479,153 @@ export async function getParkrunByDate(request: Request, env: Env): Promise<Resp
 }
 
 /**
+ * GET /api/parkrun/weekly-summary - Get weekly parkrun summary for a specific date
+ * Query params: date (optional, defaults to most recent)
+ */
+export async function getParkrunWeeklySummary(request: Request, env: Env): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const requestedDate = url.searchParams.get('date');
+
+    // Get the most recent date if not specified
+    let targetDate = requestedDate;
+    if (!targetDate) {
+      const mostRecentResult = await env.DB.prepare(
+        `SELECT MAX(date) as latest_date FROM parkrun_results`
+      ).first<{ latest_date: string }>();
+      targetDate = mostRecentResult?.latest_date || '';
+    }
+
+    if (!targetDate) {
+      return new Response(
+        JSON.stringify({ error: 'No parkrun data available' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get all available dates for the picker
+    const availableDatesResult = await env.DB.prepare(
+      `SELECT DISTINCT date FROM parkrun_results ORDER BY date DESC`
+    ).all();
+    const availableDates = (availableDatesResult.results || []).map((r: any) => r.date);
+
+    // Get summary for the target date (excluding hidden athletes)
+    const summaryQuery = `
+      SELECT
+        COUNT(DISTINCT pr.athlete_name) as athlete_count,
+        COUNT(DISTINCT pr.event_name) as event_count
+      FROM parkrun_results pr
+      LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+      WHERE pr.date = ?
+        AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+    `;
+    const summary = await env.DB.prepare(summaryQuery).bind(targetDate).first<{
+      athlete_count: number;
+      event_count: number;
+    }>();
+
+    // Get most popular events for this date (excluding hidden athletes)
+    const popularEventsQuery = `
+      SELECT
+        pr.event_name,
+        COUNT(*) as count
+      FROM parkrun_results pr
+      LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+      WHERE pr.date = ?
+        AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+      GROUP BY pr.event_name
+      ORDER BY count DESC
+      LIMIT 5
+    `;
+    const popularEventsResult = await env.DB.prepare(popularEventsQuery).bind(targetDate).all();
+    const popularEvents = (popularEventsResult.results || []).map((e: any) => ({
+      name: e.event_name,
+      count: e.count,
+    }));
+
+    // Get all events before this date (excluding hidden athletes)
+    const precedingEventsQuery = `
+      SELECT DISTINCT pr.event_name
+      FROM parkrun_results pr
+      LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+      WHERE pr.date < ?
+        AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+    `;
+    const precedingEventsResult = await env.DB.prepare(precedingEventsQuery).bind(targetDate).all();
+    const precedingEvents = new Set((precedingEventsResult.results || []).map((e: any) => e.event_name));
+
+    // Get events on this date (excluding hidden athletes)
+    const currentEventsQuery = `
+      SELECT DISTINCT pr.event_name
+      FROM parkrun_results pr
+      LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+      WHERE pr.date = ?
+        AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+    `;
+    const currentEventsResult = await env.DB.prepare(currentEventsQuery).bind(targetDate).all();
+    const currentEvents = (currentEventsResult.results || []).map((e: any) => e.event_name);
+
+    // Find first-time events (events on current date that don't appear in preceding dates)
+    const firstTimeEvents = currentEvents.filter((event) => !precedingEvents.has(event));
+
+    // Get event occurrence counts before this date (for rare pokemons)
+    const rarePokemons: Array<{ name: string; visitCount: number }> = [];
+    for (const event of currentEvents) {
+      const countQuery = `
+        SELECT COUNT(DISTINCT pr.date) as visit_count
+        FROM parkrun_results pr
+        LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+        WHERE pr.event_name = ?
+          AND pr.date < ?
+          AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+      `;
+      const countResult = await env.DB.prepare(countQuery).bind(event, targetDate).first<{ visit_count: number }>();
+      const visitCount = (countResult?.visit_count || 0) + 1; // +1 to include current date
+
+      // Only include events with <=5 total visits (including current)
+      if (visitCount <= 5 && visitCount > 1) { // >1 to exclude first-time events
+        rarePokemons.push({ name: event, visitCount });
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        date: targetDate,
+        availableDates,
+        summary: {
+          athleteCount: summary?.athlete_count || 0,
+          eventCount: summary?.event_count || 0,
+        },
+        popularEvents,
+        firstTimeEvents,
+        rarePokemons,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error fetching parkrun weekly summary:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to fetch weekly summary',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  }
+}
+
+/**
  * PATCH /api/parkrun/athletes/:name - Update parkrun athlete visibility
  */
 export async function updateParkrunAthlete(

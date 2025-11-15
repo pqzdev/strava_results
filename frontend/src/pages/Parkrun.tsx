@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import './Parkrun.css';
 import ParkrunChart from '../components/ParkrunChart';
+import ParkrunWeeklySummary from '../components/ParkrunWeeklySummary';
 import MultiSelectAutocomplete from '../components/MultiSelectAutocomplete';
 
 // Default date range for parkrun filters
@@ -295,6 +296,8 @@ export default function Parkrun() {
           </a>
         </p>
       </div>
+
+      <ParkrunWeeklySummary />
 
       <div className="stats-grid">
         {stats ? (
