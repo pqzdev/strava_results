@@ -57,6 +57,11 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
   const [availableEvents, setAvailableEvents] = useState<string[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState<Record<number, boolean>>({});
   const [highlightedIndex, setHighlightedIndex] = useState<Record<number, number>>({});
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const ACTIVITIES_PER_PAGE = 20;
 
   useEffect(() => {
     loadActivities();
@@ -88,7 +93,7 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
     try {
       setLoading(true);
       const response = await fetch(
-        `/api/admin/review?admin_strava_id=${adminStravaId}&limit=50`
+        `/api/admin/review?admin_strava_id=${adminStravaId}&limit=${ACTIVITIES_PER_PAGE}&offset=0`
       );
 
       if (!response.ok) {
@@ -97,8 +102,11 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
 
       const data = await response.json();
       setActivities(data.activities || []);
+      setTotalCount(data.pagination?.total || 0);
+      setOffset(ACTIVITIES_PER_PAGE);
+      setHasMore((data.activities?.length || 0) >= ACTIVITIES_PER_PAGE);
 
-      // Load ML suggestions for each activity
+      // Auto-load ML suggestions for initial activities
       if (data.activities && data.activities.length > 0) {
         loadMLSuggestions(data.activities);
       }
@@ -107,6 +115,40 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadMoreActivities() {
+    try {
+      setLoadingMore(true);
+      const response = await fetch(
+        `/api/admin/review?admin_strava_id=${adminStravaId}&limit=${ACTIVITIES_PER_PAGE}&offset=${offset}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to load more activities');
+      }
+
+      const data = await response.json();
+      const newActivities = data.activities || [];
+      setActivities(prev => [...prev, ...newActivities]);
+      setOffset(prev => prev + ACTIVITIES_PER_PAGE);
+      setHasMore(newActivities.length >= ACTIVITIES_PER_PAGE);
+
+      // Auto-load ML suggestions for NEW activities only
+      if (newActivities.length > 0) {
+        loadMLSuggestions(newActivities);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function loadMLSuggestionsForCurrentActivities() {
+    // Only load suggestions for activities that don't have them yet
+    const activitiesNeedingSuggestions = activities.filter(a => !a.suggested_event && !a.is_parkrun);
+    await loadMLSuggestions(activitiesNeedingSuggestions);
   }
 
   async function loadMLSuggestions(acts: ReviewActivity[]) {
@@ -347,13 +389,40 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
     );
   }
 
+  const activitiesWithoutSuggestions = activities.filter(a => !a.suggested_event && !a.is_parkrun).length;
+  const isLoadingSuggestions = loadingSuggestions.size > 0;
+
   return (
     <div className="review-dashboard">
       <h2>Activity Review Dashboard</h2>
       <p className="dashboard-description">
-        Review and assign events to activities. ML suggestions are provided where available.
+        Review and assign events to activities. ML suggestions load automatically as activities are displayed.
       </p>
-      <p className="activity-count">{activities.length} activities pending review</p>
+      <p className="activity-count">
+        Showing {activities.length} of {totalCount} activities pending review
+        {isLoadingSuggestions && ` (loading ${loadingSuggestions.size} ML suggestions...)`}
+      </p>
+
+      <div className="action-buttons">
+        {activitiesWithoutSuggestions > 0 && (
+          <button
+            onClick={loadMLSuggestionsForCurrentActivities}
+            disabled={isLoadingSuggestions}
+            className="ml-suggestions-btn"
+          >
+            Retry ML Suggestions ({activitiesWithoutSuggestions} activities)
+          </button>
+        )}
+        {hasMore && (
+          <button
+            onClick={loadMoreActivities}
+            disabled={loadingMore || isLoadingSuggestions}
+            className="load-more-btn"
+          >
+            {loadingMore ? 'Loading...' : `Load ${ACTIVITIES_PER_PAGE} More Activities`}
+          </button>
+        )}
+      </div>
 
       <div className="review-table-container">
         <table className="review-table">
