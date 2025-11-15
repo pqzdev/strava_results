@@ -1,0 +1,182 @@
+.review-dashboard {
+  padding: 20px;
+}
+
+.review-dashboard h2 {
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.dashboard-description {
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.activity-count {
+  font-weight: bold;
+  color: #FC4C02;
+  margin-bottom: 20px;
+}
+
+.no-activities {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 18px;
+}
+
+.review-table-container {
+  overflow-x: auto;
+  margin-top: 20px;
+}
+
+.review-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.review-table thead {
+  background-color: #f5f5f5;
+}
+
+.review-table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #ddd;
+  font-size: 14px;
+}
+
+.review-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+.review-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.activity-link {
+  color: #FC4C02;
+  text-decoration: none;
+}
+
+.activity-link:hover {
+  text-decoration: underline;
+}
+
+.small-input {
+  width: 80px;
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.small-input:focus {
+  outline: none;
+  border-color: #FC4C02;
+}
+
+.small-select {
+  width: 90px;
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+}
+
+.small-select:focus {
+  outline: none;
+  border-color: #FC4C02;
+}
+
+.event-input {
+  width: 180px;
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.event-input:focus {
+  outline: none;
+  border-color: #FC4C02;
+}
+
+.suggestion-cell {
+  min-width: 150px;
+}
+
+.loading-suggestion {
+  color: #999;
+  font-style: italic;
+  font-size: 12px;
+}
+
+.suggestion {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.suggestion-name {
+  font-weight: 500;
+  color: #333;
+  font-size: 13px;
+}
+
+.confidence {
+  font-size: 11px;
+  color: #666;
+}
+
+.use-suggestion-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.use-suggestion-btn:hover {
+  background: #45a049;
+}
+
+.no-suggestion {
+  color: #ccc;
+}
+
+.submit-btn {
+  background: #FC4C02;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #e6440  2;
+}
+
+.submit-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #d32f2f;
+  padding: 20px;
+}

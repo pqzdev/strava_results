@@ -1,3 +1,8 @@
+// DEPRECATED: This file is deprecated in favor of the new ML-powered Review Dashboard
+// The Review Dashboard uses the Railway ML API for event predictions instead of
+// Cloudflare Workers AI. This file is kept for reference but should not be used
+// for new features. See: workers/src/utils/ml-client.ts
+
 // AI-powered event name analysis and grouping
 import { Env, Race } from '../types';
 

@@ -6,6 +6,7 @@ import { syncAllAthletes } from './cron/sync';
 import { syncAthlete } from './queue/sync-queue';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin, getAdminSyncStatus, stopSyncJob } from './api/admin';
+import { getReviewActivities, updateActivity } from './api/admin-review';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames, getEventStats, renameEvent } from './api/events';
@@ -158,6 +159,17 @@ export default {
       // Check if user is admin
       if (path === '/api/admin/check' && request.method === 'GET') {
         return checkAdmin(request, env);
+      }
+
+      // Review dashboard - Get unassigned activities
+      if (path === '/api/admin/review' && request.method === 'GET') {
+        return getReviewActivities(request, env);
+      }
+
+      // Update activity (distance, time, visibility, event)
+      const adminActivityMatch = path.match(/^\/api\/admin\/activities\/(\d+)$/);
+      if (adminActivityMatch && request.method === 'PATCH') {
+        return updateActivity(request, env, parseInt(adminActivityMatch[1]));
       }
 
       // Manual sync trigger (for testing)

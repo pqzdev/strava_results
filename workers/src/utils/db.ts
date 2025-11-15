@@ -1,14 +1,45 @@
 // Database utility functions
 
 import { Env, Athlete, Race, StravaActivity } from '../types';
+import { extractParkrunFeatures, predictParkrun } from './ml-client';
 
 /**
- * Detect if an activity is a parkrun based on multiple criteria:
- * 1. Name contains parkrun keywords
- * 2. Distance is ~5km (4.5-5.5km)
- * 3. Start time is 7 AM, 8 AM, or 9 AM (-2 to +7 minutes tolerance)
+ * Detect if an activity is a parkrun using ML model
+ * Falls back to rule-based detection if ML API is unavailable
  */
-function isParkrunActivity(activity: StravaActivity): boolean {
+async function isParkrunActivity(activity: StravaActivity): Promise<boolean> {
+  try {
+    // Extract features for ML prediction
+    const features = extractParkrunFeatures({
+      name: activity.name,
+      distance: activity.distance,
+      moving_time: activity.moving_time,
+      elevation_gain: activity.total_elevation_gain,
+      date: activity.start_date_local,
+    });
+
+    // Call ML API
+    const prediction = await predictParkrun(features);
+
+    // Use prediction if confidence is high enough (>0.7)
+    if (prediction.probability > 0.7) {
+      return prediction.is_parkrun;
+    }
+
+    // If low confidence, fall back to rule-based detection
+    console.log(`Low ML confidence (${prediction.probability.toFixed(2)}) for activity ${activity.id}, using fallback`);
+    return fallbackParkrunDetection(activity);
+  } catch (error) {
+    // If ML API fails, use fallback
+    console.warn(`ML parkrun detection failed for activity ${activity.id}, using fallback:`, error);
+    return fallbackParkrunDetection(activity);
+  }
+}
+
+/**
+ * Fallback rule-based parkrun detection (original logic)
+ */
+function fallbackParkrunDetection(activity: StravaActivity): boolean {
   // Name-based detection
   const nameLower = activity.name.toLowerCase();
   const hasKeyword = nameLower.includes('parkrun') ||
@@ -246,14 +277,14 @@ export async function insertRace(
     isHidden = eventMapping.is_hidden;
     console.log(`Restored manual visibility setting for activity ${activity.id}: is_hidden=${isHidden}`);
   } else {
-    // No manual setting - apply auto-detection for parkruns
-    const isParkrun = isParkrunActivity(activity);
+    // No manual setting - apply auto-detection for parkruns using ML
+    const isParkrun = await isParkrunActivity(activity);
     isHidden = isParkrun ? 1 : 0;
 
     // Override event name for parkruns
     if (isParkrun) {
       eventName = 'parkrun';
-      console.log(`Detected parkrun activity: "${activity.name}" (ID: ${activity.id})`);
+      console.log(`ML detected parkrun activity: "${activity.name}" (ID: ${activity.id})`);
     }
   }
 
