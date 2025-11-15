@@ -64,26 +64,28 @@ function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTo
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Only show to owner or admin
-  if (!isOwner) {
-    return null;
-  }
-
   // Close tooltip when clicking outside
   useEffect(() => {
+    if (!isOwner || !isTooltipVisible) {
+      return;
+    }
+
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setIsTooltipVisible(false);
       }
     }
 
-    if (isTooltipVisible) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [isTooltipVisible]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isTooltipVisible, isOwner]);
+
+  // Only show to owner or admin
+  if (!isOwner) {
+    return null;
+  }
 
   const handleFetch = async (e: React.MouseEvent) => {
     e.preventDefault();
