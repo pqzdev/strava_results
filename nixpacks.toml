@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["python310", "libgcc"]
+
+[phases.install]
+cmds = ["cd ml && pip install -r requirements.txt"]
+
+[start]
+cmd = "cd ml && uvicorn inference_api:app --host 0.0.0.0 --port $PORT"

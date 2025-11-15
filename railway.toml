@@ -1,8 +1,7 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd ml && pip install -r requirements.txt"
 
 [deploy]
-startCommand = "cd ml && uvicorn inference_api:app --host 0.0.0.0 --port $PORT"
+startCommand = "cd ml && python -m uvicorn inference_api:app --host 0.0.0.0 --port $PORT"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
