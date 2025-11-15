@@ -224,7 +224,7 @@ export default function ParkrunWeeklySummary() {
 
       <div className="summary-stats">
         <p>
-          👟 <strong>{summary.summary.athleteCount}</strong> Woodies across{' '}
+          👟 <strong>{summary.summary.athleteCount}</strong> Woodie{summary.summary.athleteCount !== 1 ? 's' : ''} across{' '}
           <strong>{summary.summary.eventCount}</strong> different event{summary.summary.eventCount !== 1 ? 's' : ''}
         </p>
 
