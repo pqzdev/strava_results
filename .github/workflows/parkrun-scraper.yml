@@ -45,10 +45,10 @@ jobs:
 
       - name: Run Parkrun scraper
         env:
-          # API endpoint for uploading results
-          PARKRUN_API_ENDPOINT: ${{ secrets.PARKRUN_API_ENDPOINT }}
+          # API endpoint for uploading results (using variable since it's a public URL)
+          PARKRUN_API_ENDPOINT: ${{ vars.PARKRUN_API_ENDPOINT }}
 
-          # Optional: Proxy configuration for IP rotation
+          # Optional: Proxy configuration for IP rotation (using secret since it contains credentials)
           # Format: http://username:password@proxy-host:port
           PROXY_URL: ${{ secrets.PROXY_URL }}
 
