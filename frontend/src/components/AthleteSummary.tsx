@@ -15,6 +15,7 @@ interface Race {
   average_heartrate?: number;
   max_heartrate?: number;
   athlete_id: number;
+  is_hidden?: number;
   firstname: string;
   lastname: string;
   profile_photo?: string;
@@ -38,8 +39,11 @@ export default function AthleteSummary({ races }: AthleteSummaryProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
+  // Filter out hidden races before calculating statistics
+  const visibleRaces = races.filter(race => !race.is_hidden);
+
   // Group races by athlete and calculate statistics
-  const athleteStats = races.reduce((acc, race) => {
+  const athleteStats = visibleRaces.reduce((acc, race) => {
     const athleteKey = `${race.firstname} ${race.lastname}`;
 
     if (!acc[athleteKey]) {
