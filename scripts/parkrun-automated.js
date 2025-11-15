@@ -162,17 +162,6 @@ async function main() {
 
     await log(`✅ Page loaded successfully (Status: ${response.status()})`);
 
-    // Wait a bit for page to fully settle
-    await page.waitForTimeout(2000);
-
-    // Inject and execute the scraper script
-    await log('💉 Injecting scraper script...');
-    await page.evaluate(scraperScript);
-
-    await log('⏳ Waiting for scraper to complete...');
-    await log('   (This may take 3-5 minutes for ~100 dates)');
-    await log('');
-
     // Track completion by monitoring console output
     let scraperCompleted = false;
     let completionResolver;
@@ -180,9 +169,15 @@ async function main() {
       completionResolver = resolve;
     });
 
-    // Monitor console output from the page
+    // Set up error listener to catch page errors
+    page.on('pageerror', async (error) => {
+      await log(`   ⚠️  Page error: ${error.message}`);
+    });
+
+    // Set up console listener BEFORE injecting script
     page.on('console', async (msg) => {
       const text = msg.text();
+      const type = msg.type();
 
       // Check for completion signals
       if (
@@ -196,19 +191,38 @@ async function main() {
         return;
       }
 
-      // Filter out noise and only log important messages
+      // Log important messages and errors
       if (
+        type === 'error' ||
         text.includes('✅') ||
         text.includes('❌') ||
         text.includes('📤') ||
         text.includes('🎉') ||
         text.includes('ERROR') ||
         text.includes('Uploaded') ||
-        text.includes('Summary')
+        text.includes('Summary') ||
+        text.includes('Parkrun Smart Scraper')
       ) {
-        await log(`   ${text}`);
+        await log(`   [${type}] ${text}`);
       }
     });
+
+    // Wait a bit for page to fully settle
+    await log('⏳ Waiting for page to be fully ready...');
+    await page.waitForTimeout(3000);
+
+    // Inject and execute the scraper script
+    await log('💉 Injecting scraper script...');
+    try {
+      await page.evaluate(scraperScript);
+      await log('✅ Scraper script injected successfully');
+    } catch (error) {
+      throw new Error(`Failed to inject scraper: ${error.message}`);
+    }
+
+    await log('⏳ Waiting for scraper to complete...');
+    await log('   (This may take 3-5 minutes for ~100 dates)');
+    await log('');
 
     // Wait for scraper completion (detected via console logs)
     await Promise.race([
