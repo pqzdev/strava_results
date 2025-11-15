@@ -159,6 +159,18 @@ function formatDateString(dateString: string): string {
   });
 }
 
+/**
+ * Get current date formatted as "15 November 2025"
+ */
+function getCurrentDateFormatted(): string {
+  const date = new Date();
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 export default function Admin() {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
@@ -1913,7 +1925,7 @@ export default function Admin() {
       {activeTab === 'parkrun' && (
         <div className="tab-content">
           <div className="admin-header">
-            <h2>Parkrun Data Sync</h2>
+            <h2>Weekly summary - {getCurrentDateFormatted()}</h2>
             <p className="subtitle">Automatically scrape and import parkrun results</p>
           </div>
 
