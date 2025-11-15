@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import './Admin.css';
 import { ApiCommandCard } from '../components/ApiCommandCard';
 import { API_COMMANDS, API_CATEGORIES } from '../config/apiCommands';
+import { ReviewDashboard } from '../components/ReviewDashboard';
 
 interface AdminAthlete {
   id: number;
@@ -113,7 +114,7 @@ type SortDirection = 'asc' | 'desc';
 type ParkrunSortField = 'name' | 'runs' | 'events';
 type ParkrunSortDirection = 'asc' | 'desc';
 
-type AdminTab = 'athletes' | 'parkrun' | 'event-suggestions' | 'events' | 'submissions' | 'api-control' | 'sync-dashboard';
+type AdminTab = 'athletes' | 'parkrun' | 'review' | 'events' | 'submissions' | 'api-control' | 'sync-dashboard';
 
 type EventSortField = 'event_name' | 'activity_count' | 'dates' | 'distances';
 type EventSortDirection = 'asc' | 'desc';
@@ -1100,10 +1101,10 @@ export default function Admin() {
           📅 Events
         </button>
         <button
-          className={`admin-tab ${activeTab === 'event-suggestions' ? 'active' : ''}`}
-          onClick={() => setActiveTab('event-suggestions')}
+          className={`admin-tab ${activeTab === 'review' ? 'active' : ''}`}
+          onClick={() => setActiveTab('review')}
         >
-          🤖 AI Events
+          ✅ Review
         </button>
         <button
           className={`admin-tab ${activeTab === 'submissions' ? 'active' : ''}`}
@@ -1597,8 +1598,15 @@ export default function Admin() {
         </div>
       )}
 
-      {/* AI Event Suggestions Tab */}
-      {activeTab === 'event-suggestions' && (
+      {/* Review Dashboard Tab */}
+      {activeTab === 'review' && (
+        <div className="tab-content">
+          <ReviewDashboard adminStravaId={stravaId} />
+        </div>
+      )}
+
+      {/* OLD: AI Event Suggestions Tab - DEPRECATED, to be removed */}
+      {activeTab === 'event-suggestions-OLD-DEPRECATED' && (
         <div className="tab-content">
           <div className="admin-header">
             <h2>AI Event Classification</h2>
