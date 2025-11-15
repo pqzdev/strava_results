@@ -100,6 +100,16 @@
   margin-top: 1rem;
 }
 
+.greeting-text {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--primary-color), var(--strava-orange));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  padding: 1rem 2.5rem;
+}
+
 .stats-container {
   margin: 4rem 0;
 }

@@ -15,11 +15,38 @@ export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [athleteFirstname, setAthleteFirstname] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     fetchStats();
     checkAdminStatus();
+    checkLoggedInStatus();
   }, []);
+
+  const checkLoggedInStatus = async () => {
+    const athleteId = localStorage.getItem('strava_athlete_id');
+    if (!athleteId) {
+      setIsLoggedIn(false);
+      return;
+    }
+
+    setIsLoggedIn(true);
+
+    // Fetch athlete's first name
+    try {
+      const response = await fetch('/api/athletes');
+      if (response.ok) {
+        const data = await response.json();
+        const athlete = data.athletes?.find((a: any) => a.strava_id === parseInt(athleteId));
+        if (athlete) {
+          setAthleteFirstname(athlete.firstname);
+        }
+      }
+    } catch (error) {
+      console.error('[HOME] Failed to fetch athlete info:', error);
+    }
+  };
 
   const checkAdminStatus = async () => {
     try {
@@ -74,15 +101,21 @@ export default function Home() {
           </p>
 
           <div className="hero-buttons">
-            <button
-              onClick={handleConnectStrava}
-              className="button button-primary button-large"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '0.5rem' }}>
-                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/>
-              </svg>
-              Connect with Strava
-            </button>
+            {isLoggedIn && athleteFirstname ? (
+              <div className="greeting-text">
+                G'day, {athleteFirstname}!
+              </div>
+            ) : (
+              <button
+                onClick={handleConnectStrava}
+                className="button button-primary button-large"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                  <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/>
+                </svg>
+                Connect with Strava
+              </button>
+            )}
           </div>
 
           <div className="hero-buttons hero-buttons-secondary">
