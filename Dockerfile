@@ -15,3 +15,4 @@ EXPOSE 8000
 
 # Start command - run from ml directory
 CMD ["sh", "-c", "cd ml && uvicorn inference_api:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Force rebuild
