@@ -1,0 +1,81 @@
+{
+  "model_type": "parkrun_binary_classifier_simple",
+  "framework": "xgboost",
+  "version": "2.0.0",
+  "trained_at": "2025-11-15T15:03:58.242900",
+  "metrics": {
+    "test_accuracy": 1.0,
+    "test_precision": 1.0,
+    "test_recall": 1.0,
+    "test_f1": 1.0,
+    "test_roc_auc": 0.9999999999999999,
+    "train_accuracy": 0.9981549815498155,
+    "confusion_matrix": [
+      [
+        91,
+        0
+      ],
+      [
+        0,
+        45
+      ]
+    ],
+    "num_features": 10.0
+  },
+  "feature_importance": [
+    {
+      "feature": "contains_parkrun",
+      "importance": 0.33882978558540344
+    },
+    {
+      "feature": "is_5k",
+      "importance": 0.32659611105918884
+    },
+    {
+      "feature": "hour_8",
+      "importance": 0.09260784834623337
+    },
+    {
+      "feature": "hour",
+      "importance": 0.09159566462039948
+    },
+    {
+      "feature": "distance_km",
+      "importance": 0.04666774719953537
+    },
+    {
+      "feature": "name_length",
+      "importance": 0.03490031138062477
+    },
+    {
+      "feature": "elevation_gain",
+      "importance": 0.02361941523849964
+    },
+    {
+      "feature": "day_5",
+      "importance": 0.021167658269405365
+    },
+    {
+      "feature": "pace_min_per_km",
+      "importance": 0.01678210124373436
+    },
+    {
+      "feature": "day_of_week",
+      "importance": 0.007233360782265663
+    }
+  ],
+  "feature_names": [
+    "is_5k",
+    "contains_parkrun",
+    "hour",
+    "hour_8",
+    "distance_km",
+    "name_length",
+    "pace_min_per_km",
+    "elevation_gain",
+    "day_of_week",
+    "day_5"
+  ],
+  "num_features": 10,
+  "notes": "Simplified model using only top 10 features (99.3% of importance from full model)"
+}

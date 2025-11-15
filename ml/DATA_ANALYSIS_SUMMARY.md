@@ -128,8 +128,13 @@ Created comprehensive feature engineering pipeline extracting 32 features:
 
 ### Parkrun Binary Classifier - TRAINED ✅
 
-**Model:** XGBoost binary classifier
+**Model:** XGBoost binary classifier (SIMPLIFIED)
 **Framework:** XGBoost 3.1.1 with scikit-learn 1.2.2
+
+**Model Optimization:**
+- **Features: 10** (reduced from 32) - **69% reduction!**
+- Captures 99.3% of feature importance from full model
+- Same perfect accuracy with much smaller, faster model
 
 **Performance on Test Set (136 samples):**
 - **Accuracy:  100.0%** 🎯
@@ -148,17 +153,25 @@ Actual Parkrun:     0 |   45
 
 **Perfect Classification!** Zero false positives, zero false negatives.
 
-**Top 3 Most Important Features:**
-1. `is_5k` (40.4%) - Distance between 4.5-5.5km
-2. `contains_parkrun` (30.0%) - Activity name contains "parkrun"
-3. `hour` (12.3%) - Time of day
+**The 10 Essential Features:**
+1. `contains_parkrun` (33.9%) - Activity name contains "parkrun"
+2. `is_5k` (32.7%) - Distance between 4.5-5.5km
+3. `hour_8` (9.3%) - 8am start time
+4. `hour` (9.2%) - Hour of day
+5. `distance_km` (4.7%) - Exact distance
+6. `name_length` (3.5%) - Activity name length
+7. `elevation_gain` (2.4%) - Elevation gain
+8. `day_5` (2.1%) - Saturday
+9. `pace_min_per_km` (1.7%) - Running pace
+10. `day_of_week` (0.7%) - Day as number
 
 **Generalization:** Excellent (train-test gap: -0.18%)
 
 **Model Files:**
-- `ml/models/parkrun_classifier.pkl` - Trained model (pickle format)
-- `ml/models/parkrun_classifier_metadata.json` - Model metadata
-- `ml/models/parkrun_classifier_evaluation.txt` - Detailed evaluation report
+- `ml/models/parkrun_classifier_simple.pkl` - **Production model** (10 features)
+- `ml/models/parkrun_classifier_simple_metadata.json` - Model metadata
+- `ml/models/parkrun_classifier_simple_evaluation.txt` - Detailed evaluation report
+- `ml/models/parkrun_classifier.pkl` - Full model (32 features, archived)
 
 ### Event Name Predictor - TRAINED ✅
 
