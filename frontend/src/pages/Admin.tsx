@@ -1601,12 +1601,12 @@ export default function Admin() {
       {/* Review Dashboard Tab */}
       {activeTab === 'review' && (
         <div className="tab-content">
-          <ReviewDashboard adminStravaId={stravaId} />
+          <ReviewDashboard adminStravaId={currentAthleteId} />
         </div>
       )}
 
       {/* OLD: AI Event Suggestions Tab - DEPRECATED, to be removed */}
-      {activeTab === 'event-suggestions-OLD-DEPRECATED' && (
+      {false && (
         <div className="tab-content">
           <div className="admin-header">
             <h2>AI Event Classification</h2>

@@ -29,11 +29,6 @@ interface EditableActivity extends ReviewActivity {
   parkrun_confidence?: number;
 }
 
-interface MLSuggestion {
-  event_name: string;
-  probability: number;
-}
-
 const ML_API_URL = 'https://woodstock-results-production.up.railway.app';
 
 function formatTime(seconds: number): string {
