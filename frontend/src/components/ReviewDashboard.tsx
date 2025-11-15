@@ -54,10 +54,26 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<Set<number>>(new Set());
   const [loadingSuggestions, setLoadingSuggestions] = useState<Set<number>>(new Set());
+  const [availableEvents, setAvailableEvents] = useState<string[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState<Record<number, boolean>>({});
+  const [highlightedIndex, setHighlightedIndex] = useState<Record<number, number>>({});
 
   useEffect(() => {
     loadActivities();
+    loadEventNames();
   }, [adminStravaId]);
+
+  async function loadEventNames() {
+    try {
+      const response = await fetch('/api/events/names');
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableEvents(data.event_names || []);
+      }
+    } catch (err) {
+      console.error('Failed to load event names:', err);
+    }
+  }
 
   async function loadActivities() {
     try {
@@ -135,6 +151,26 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
 
           // If not a confident parkrun, get event suggestion
           if (!parkrunPrediction.is_parkrun || parkrunPrediction.probability < 0.7) {
+            // One-hot encode day of week (all 7 days)
+            const dayFeatures = {
+              day_0: dayOfWeek === 0 ? 1 : 0,
+              day_1: dayOfWeek === 1 ? 1 : 0,
+              day_2: dayOfWeek === 2 ? 1 : 0,
+              day_3: dayOfWeek === 3 ? 1 : 0,
+              day_4: dayOfWeek === 4 ? 1 : 0,
+              day_5: dayOfWeek === 5 ? 1 : 0,
+              day_6: dayOfWeek === 6 ? 1 : 0,
+            };
+
+            // One-hot encode hour (only common race hours)
+            const hourFeatures = {
+              hour_6: hour === 6 ? 1 : 0,
+              hour_7: hour === 7 ? 1 : 0,
+              hour_8: hour === 8 ? 1 : 0,
+              hour_9: hour === 9 ? 1 : 0,
+              hour_10: hour === 10 ? 1 : 0,
+            };
+
             const eventFeatures = {
               distance_km: distanceKm,
               pace_min_per_km: paceMinPerKm,
@@ -153,8 +189,8 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
               is_half_marathon: (distanceKm >= 20 && distanceKm <= 22) ? 1 : 0,
               is_marathon: (distanceKm >= 40 && distanceKm <= 44) ? 1 : 0,
               is_ultra: distanceKm > 44 ? 1 : 0,
-              [`day_${dayOfWeek}`]: 1,
-              ...[6, 7, 8, 9, 10].reduce((acc, h) => ({ ...acc, [`hour_${h}`]: hour === h ? 1 : 0 }), {}),
+              ...dayFeatures,
+              ...hourFeatures,
             };
 
             const eventResponse = await fetch(`${ML_API_URL}/predict/event`, {
@@ -241,6 +277,40 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
   function useSuggestion(activity: EditableActivity) {
     if (activity.suggested_event) {
       updateActivity(activity.id, { edit_event_name: activity.suggested_event });
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent, activityId: number) {
+    const filteredEvents = availableEvents.filter(event =>
+      event.toLowerCase().includes((activities.find(a => a.id === activityId)?.edit_event_name || '').toLowerCase())
+    );
+    const currentIndex = highlightedIndex[activityId] || 0;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setIsDropdownOpen(prev => ({ ...prev, [activityId]: true }));
+        setHighlightedIndex(prev => ({
+          ...prev,
+          [activityId]: currentIndex < filteredEvents.length - 1 ? currentIndex + 1 : currentIndex
+        }));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setIsDropdownOpen(prev => ({ ...prev, [activityId]: true }));
+        setHighlightedIndex(prev => ({ ...prev, [activityId]: currentIndex > 0 ? currentIndex - 1 : 0 }));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (isDropdownOpen[activityId] && filteredEvents[currentIndex]) {
+          updateActivity(activityId, { edit_event_name: filteredEvents[currentIndex] });
+          setIsDropdownOpen(prev => ({ ...prev, [activityId]: false }));
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsDropdownOpen(prev => ({ ...prev, [activityId]: false }));
+        break;
     }
   }
 
@@ -357,14 +427,42 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
                     <span className="no-suggestion">-</span>
                   )}
                 </td>
-                <td>
+                <td style={{ position: 'relative' }}>
                   <input
                     type="text"
                     value={activity.edit_event_name ?? ''}
-                    onChange={e => updateActivity(activity.id, { edit_event_name: e.target.value })}
+                    onChange={e => {
+                      updateActivity(activity.id, { edit_event_name: e.target.value });
+                      setIsDropdownOpen(prev => ({ ...prev, [activity.id]: true }));
+                      setHighlightedIndex(prev => ({ ...prev, [activity.id]: 0 }));
+                    }}
+                    onFocus={() => setIsDropdownOpen(prev => ({ ...prev, [activity.id]: true }))}
+                    onKeyDown={e => handleKeyDown(e, activity.id)}
                     placeholder="Event name"
                     className="event-input"
                   />
+                  {isDropdownOpen[activity.id] && (() => {
+                    const filteredEvents = availableEvents.filter(event =>
+                      event.toLowerCase().includes((activity.edit_event_name || '').toLowerCase())
+                    );
+                    return filteredEvents.length > 0 && (
+                      <ul className="event-dropdown">
+                        {filteredEvents.slice(0, 50).map((event, index) => (
+                          <li
+                            key={event}
+                            onClick={() => {
+                              updateActivity(activity.id, { edit_event_name: event });
+                              setIsDropdownOpen(prev => ({ ...prev, [activity.id]: false }));
+                            }}
+                            onMouseEnter={() => setHighlightedIndex(prev => ({ ...prev, [activity.id]: index }))}
+                            className={index === (highlightedIndex[activity.id] || 0) ? 'highlighted' : ''}
+                          >
+                            {event}
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
                 </td>
                 <td>
                   <button
