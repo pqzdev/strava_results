@@ -152,7 +152,7 @@ export default function ParkrunWeeklySummary() {
   return (
     <div className="weekly-summary">
       <div className="summary-header">
-        <h2>Woodstock parkruns - {formattedDate}</h2>
+        <h2>Woodstock weekly summary - {formattedDate}</h2>
         <div className="date-picker">
           <button
             onClick={() => setShowCalendar(!showCalendar)}
