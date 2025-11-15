@@ -154,7 +154,9 @@ async function main() {
       timeout: 30000,
     });
 
-    if (!response || response.status() !== 200) {
+    // Accept both 200 (OK) and 202 (Accepted) status codes
+    // 202 is sometimes returned by parkrun during high traffic or as anti-bot measure
+    if (!response || (response.status() !== 200 && response.status() !== 202)) {
       throw new Error(`Failed to load parkrun page: ${response?.status() || 'unknown'}`);
     }
 
