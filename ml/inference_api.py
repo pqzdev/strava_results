@@ -20,7 +20,7 @@ from pydantic import BaseModel
 import pickle
 import numpy as np
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import logging
 
 # Setup logging
@@ -126,7 +126,7 @@ class ParkrunPrediction(BaseModel):
 class EventPrediction(BaseModel):
     event_name: str
     probability: float
-    top_3: List[Dict[str, float]]
+    top_3: List[Dict[str, Any]]
     model: str = "event_predictor"
 
 
@@ -244,14 +244,19 @@ async def predict_event(features: EventFeatures):
         top_3_indices = np.argsort(probabilities)[-3:][::-1]
         top_3 = [
             {
-                "event_name": label_encoder.classes_[idx],
+                "event_name": str(label_encoder.classes_[idx]),
                 "probability": float(probabilities[idx])
             }
             for idx in top_3_indices
         ]
 
+        # Convert predicted class to string, handle NaN
+        predicted_event = str(label_encoder.classes_[prediction])
+        if predicted_event == 'nan':
+            predicted_event = "Unknown Event"
+
         return EventPrediction(
-            event_name=label_encoder.classes_[prediction],
+            event_name=predicted_event,
             probability=float(probabilities[prediction]),
             top_3=top_3
         )
