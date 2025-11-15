@@ -109,9 +109,11 @@ async function insertRaceOptimized(
   // Descriptions and detailed polylines can be backfilled later via separate process
   let polyline = activity.map?.summary_polyline || null;
   let description = activity.description || null; // Use description from list API if available
+  let rawResponse = null; // WOOD-6: Store full raw response
 
   // Only fetch detailed activity if absolutely no polyline available
   // This avoids hitting subrequest limits during large syncs
+  // WOOD-6: Also gets raw response for future feature extraction
   if (!polyline && accessToken) {
     const detailed = await fetchDetailedActivity(activity.id, accessToken);
 
@@ -123,6 +125,11 @@ async function insertRaceOptimized(
     // Get description if we had to fetch detailed activity anyway
     if (detailed.description) {
       description = detailed.description;
+    }
+
+    // WOOD-6: Store raw response
+    if (detailed.rawResponse) {
+      rawResponse = detailed.rawResponse;
     }
   }
 
@@ -148,8 +155,8 @@ async function insertRaceOptimized(
   await env.DB.prepare(
     `INSERT OR REPLACE INTO races (
       athlete_id, strava_activity_id, name, distance, elapsed_time,
-      moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, event_name, is_hidden, description, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, event_name, is_hidden, description, raw_response, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       athleteId,
@@ -166,6 +173,7 @@ async function insertRaceOptimized(
       eventName,
       isHidden,
       description,
+      rawResponse, // WOOD-6: Store full raw response
       now
     )
     .run();

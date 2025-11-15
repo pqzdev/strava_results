@@ -91,7 +91,7 @@
       "hour_10",
       "hour_other"
     ],
-    "record_count": 678
+    "record_count": 686
   },
   "event_predictor": {
     "model_type": "event_name_predictor",
@@ -185,7 +185,7 @@
       "hour_10.0",
       "hour_other"
     ],
-    "record_count": 644
+    "record_count": 652
   },
   "polyline_features_available": false,
   "notes": {

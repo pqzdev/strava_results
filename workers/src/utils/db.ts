@@ -175,12 +175,13 @@ export async function raceExists(
 }
 
 /**
- * Fetch detailed activity from Strava to get full polyline and description
+ * Fetch detailed activity from Strava to get full polyline, description, and raw response
+ * WOOD-6: Now stores full API response for future feature extraction
  */
 export async function fetchDetailedActivity(
   activityId: number,
   accessToken: string
-): Promise<{ polyline: string | null; description: string | null }> {
+): Promise<{ polyline: string | null; description: string | null; rawResponse: string | null }> {
   try {
     const response = await fetch(
       `https://www.strava.com/api/v3/activities/${activityId}`,
@@ -195,7 +196,7 @@ export async function fetchDetailedActivity(
       console.error(
         `Failed to fetch detailed activity ${activityId}: ${response.status}`
       );
-      return { polyline: null, description: null };
+      return { polyline: null, description: null, rawResponse: null };
     }
 
     const activity: any = await response.json();
@@ -203,10 +204,12 @@ export async function fetchDetailedActivity(
       // Prefer full polyline over summary polyline
       polyline: activity.map?.polyline || activity.map?.summary_polyline || null,
       description: activity.description || null,
+      // WOOD-6: Store full raw response for future feature extraction (includes start_latlng, end_latlng, etc.)
+      rawResponse: JSON.stringify(activity),
     };
   } catch (error) {
     console.error(`Error fetching detailed activity ${activityId}:`, error);
-    return { polyline: null, description: null };
+    return { polyline: null, description: null, rawResponse: null };
   }
 }
 
@@ -233,12 +236,14 @@ export async function insertRace(
 ): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
 
-  // Fetch detailed activity info (polyline and description) from Strava
+  // Fetch detailed activity info (polyline, description, raw response) from Strava
   let polyline = activity.map?.summary_polyline || null;
   let description = null;
+  let rawResponse = null;
 
   // If no summary polyline and we have access token, fetch detailed activity
   // This gets both the full polyline and description for race activities
+  // WOOD-6: Also stores full raw response for future feature extraction
   if (!polyline && accessToken) {
     console.log(
       `No summary polyline for activity ${activity.id}, fetching detailed activity...`
@@ -253,6 +258,11 @@ export async function insertRace(
     if (detailed.description) {
       description = detailed.description;
       console.log(`Successfully fetched description for activity ${activity.id}`);
+    }
+
+    if (detailed.rawResponse) {
+      rawResponse = detailed.rawResponse;
+      console.log(`Successfully stored raw response for activity ${activity.id}`);
     }
   }
 
@@ -291,8 +301,8 @@ export async function insertRace(
   await env.DB.prepare(
     `INSERT INTO races (
       athlete_id, strava_activity_id, name, distance, elapsed_time,
-      moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, event_name, is_hidden, description, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      moving_time, date, elevation_gain, average_heartrate, max_heartrate, polyline, event_name, is_hidden, description, raw_response, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       athleteId,
@@ -309,6 +319,7 @@ export async function insertRace(
       eventName,
       isHidden,
       description,
+      rawResponse, // WOOD-6: Store full raw response
       now
     )
     .run();

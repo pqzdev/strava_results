@@ -11,6 +11,7 @@ import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAt
 import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames, getEventStats, renameEvent } from './api/events';
 import { backfillPolylines } from './api/polyline-backfill';
+import { handleRawResponseBackfill } from './api/raw-response-backfill';
 import { extractActivities, submitActivities, getManualSubmissions, updateSubmission, approveSubmission, rejectSubmission, deleteSubmission } from './api/manual-submissions';
 import { googleLogin, googleCallback, logout, getCurrentAdmin } from './api/google-auth';
 import {
@@ -405,6 +406,11 @@ export default {
       // Polyline backfill route
       if (path === '/api/polyline/backfill' && request.method === 'POST') {
         return backfillPolylines(request, env);
+      }
+
+      // WOOD-6: Raw response backfill route
+      if (path === '/api/backfill/raw-responses' && request.method === 'POST') {
+        return handleRawResponseBackfill(request, env);
       }
 
       // Manual submissions API routes

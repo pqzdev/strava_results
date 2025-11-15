@@ -79,6 +79,7 @@ id,strava_activity_id,activity_name,is_parkrun,distance_km,pace_min_per_km,eleva
 4319,12175155084,Penrith Duathlon: 2nd run leg - 2.5km,False,2.5498000000000003,3.993777289722069,4.0,6,10,8,0,0,0,0,0,37,0,0,0,0,0,0,6,False,False,False,False,False,False,True,False,False,False,False,True,False
 4320,12175155060,Penrith Duathlon: 1st Run Leg - 5km,False,4.7827,4.296736153218893,0.0,6,9,8,0,0,0,0,0,35,1,0,0,0,0,0,6,False,False,False,False,False,False,True,False,False,False,True,False,False
 652,12174506745,Mudgee 10km - 46:35,False,10.0315,4.647028526807224,30.0,6,8,8,0,0,0,0,0,19,0,1,0,0,0,0,6,False,False,False,False,False,False,True,False,False,True,False,False,False
+4417,12115899480,"My 25th City to Surf but unofficial as I ran with someone else bib, thanks Bob",False,13.8931,5.650286833032224,206.0,6,8,8,0,0,0,0,0,78,0,0,0,0,0,0,6,False,False,False,False,False,False,True,False,False,True,False,False,False
 2247,12115025173,C2S 1min PB and hey look at my magic socks 🦄,False,14.0304,4.540141407230015,204.0,6,7,8,0,0,0,0,0,44,0,0,0,0,0,0,6,False,False,False,False,False,False,True,False,True,False,False,False,False
 2514,12115591298,City2surf,False,14.0068,4.714376826493798,198.0,6,7,8,0,0,0,0,0,9,0,0,0,0,0,0,6,False,False,False,False,False,False,True,False,True,False,False,False,False
 4389,12115029486,City2Surf 2024,False,14.0569,4.803097885498699,199.0,6,7,8,0,0,0,0,0,14,0,0,0,0,0,0,6,False,False,False,False,False,False,True,False,True,False,False,False,False
@@ -104,6 +105,7 @@ id,strava_activity_id,activity_name,is_parkrun,distance_km,pace_min_per_km,eleva
 3115,11227198938,SMC half marathon,False,20.958,4.289531443840062,60.0,6,7,4,0,1,1,0,0,17,0,0,1,0,0,0,6,False,False,False,False,False,False,True,False,True,False,False,False,False
 820,11171412523,Sydney Backyard Ultra,False,81.08630000000001,7.027492108202413,649.0,5,8,4,0,0,0,1,0,21,0,0,0,0,1,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 821,11114585133,Greenie,True,5.0205,4.189489758656176,6.0,5,8,4,0,0,0,0,0,7,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
+4418,11095085446,Sydney Corporate Cup Run 5,False,5.7046,5.665018873657517,67.1,2,12,4,0,0,0,0,0,26,0,0,0,0,0,0,2,False,False,True,False,False,False,False,False,False,False,False,False,True
 822,11064748303,Cookies,True,5.0006,4.276153528243277,32.0,5,7,3,0,0,0,0,0,7,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,True,False,False,False,False
 823,11017179428,Cookies,True,5.0261000000000005,4.257774417540438,28.0,5,8,3,0,0,0,0,0,7,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 655,10926537842,Orange Marathon - 4:10:36,False,42.3249,5.882667964563019,436.0,6,7,3,0,1,0,0,0,25,0,0,0,1,0,0,6,False,False,False,False,False,False,True,False,True,False,False,False,False
@@ -127,7 +129,7 @@ id,strava_activity_id,activity_name,is_parkrun,distance_km,pace_min_per_km,eleva
 661,10349852052,Southern Highlands Botanical Gardens parkrun - 24:01,True,5.023,4.781339173136904,64.0,5,7,12,1,0,0,0,0,52,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,True,False,False,False,False
 662,10275644817,Galston parkrun - 25:39,True,4.913,5.220842662324444,89.0,5,8,11,1,0,0,0,0,23,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 839,10242303188,Kids run with Hazel,False,2.6256999999999997,7.318683271762451,23.1,6,9,11,0,0,0,0,0,19,0,0,0,0,0,0,6,False,False,False,False,False,False,True,False,False,False,True,False,False
-840,10236851827,Stromlo 50,False,50.2332,6.4462679396627465,1050.4,5,6,11,0,0,0,0,0,10,0,0,0,0,1,0,5,False,False,False,False,False,True,False,True,False,False,False,False,False
+840,10236851827,Stromlo 50,False,50.0,6.476333333333333,1050.4,5,6,11,0,0,0,0,0,10,0,0,0,0,1,0,5,False,False,False,False,False,True,False,True,False,False,False,False,False
 663,10195817143,North Sydney parkrun - 25:40,True,4.8827,5.256654446651785,35.0,5,8,11,1,0,0,0,0,28,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 664,10155162567,Umbagong District parkrun - 24:14,True,5.033,4.8115769256242125,47.0,5,8,11,1,0,0,0,0,33,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 2518,10116278531,"Bondi to Manly, finish",False,0.1928,3.8900414937759336,2.0,5,14,10,0,0,0,0,0,22,0,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,False,False,True
@@ -171,6 +173,7 @@ id,strava_activity_id,activity_name,is_parkrun,distance_km,pace_min_per_km,eleva
 2524,9322099097,🚾 PARKRUN,True,5.0192,4.0411486558282865,24.0,5,8,6,1,0,0,0,0,9,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 850,9322479777,Wenty parkrun,True,5.0246,4.159535087370139,18.8,5,8,6,1,0,0,0,0,13,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 852,9278902366,Cookies,True,4.974600000000001,4.2482477653144635,17.0,5,8,6,0,0,0,0,0,7,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
+4419,9279427687,Parramatta Parkrun,True,5.001600000000001,5.085039454041373,12.7,5,8,6,1,0,0,0,0,18,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 854,9248916130,Sri Chinmoy HM Lennox Gardens,False,21.5478,4.600624348348014,56.9,0,9,6,0,0,0,0,0,29,0,0,1,0,0,0,0,True,False,False,False,False,False,False,False,False,False,True,False,False
 681,9235532404,Cooks River parkrun - 24:45,True,5.0317,4.912190048426311,32.0,5,8,6,1,0,0,0,0,27,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 856,9190640764,Dolls Point parkrun,True,4.9758,4.140037782869086,4.8,5,8,6,1,0,0,0,0,19,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
@@ -190,9 +193,11 @@ id,strava_activity_id,activity_name,is_parkrun,distance_km,pace_min_per_km,eleva
 3123,8947286564,MNT Magic Mile,False,1.6932,3.6124891723757777,3.0,0,19,4,0,0,0,0,0,14,0,0,0,0,0,0,0,True,False,False,False,False,False,False,False,False,False,False,False,True
 4180,8897891986,Canberra Marathon,False,42.6131,6.550411336732914,260.9,6,6,4,0,1,0,0,0,17,0,0,0,1,0,0,6,False,False,False,False,False,False,True,True,False,False,False,False,False
 689,8897865626,Canberra Marathon - 3:57:55,False,42.597199999999994,5.582526551040915,327.0,6,6,4,0,1,0,0,0,27,0,0,0,1,0,0,6,False,False,False,False,False,False,True,True,False,False,False,False,False
+4420,8898028091,Westmet Cross Country Heritage Reserve Castle Hill,False,3.3296,5.801497677398686,97.7,5,14,4,0,0,0,0,0,50,0,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,False,False,True
 880,8850461204,Coombs parkrun,True,5.0004,4.396314961469749,34.8,5,8,4,1,0,0,0,0,14,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 690,8815935474,NewRun - Newcastle Hill to Harbour,False,11.8879,4.818625100592479,114.0,6,8,4,0,0,0,0,0,34,0,0,0,0,0,0,6,False,False,False,False,False,False,True,False,False,True,False,False,False
 2527,8809972262,Panania park run ,True,4.9957,4.023460175751146,14.0,5,8,4,1,0,0,0,0,17,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
+4421,8772199181,Wayne Crandell Memorial Meet 3000m Grass Track run,False,2.8127,5.232220523577583,74.3,5,11,3,0,0,0,0,0,50,0,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,False,False,True
 691,8771226782,Greenway parkrun - 21:34,True,4.9927,4.316301800628918,17.0,5,8,3,1,0,0,0,0,24,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 2528,8771452938,Park run ,True,4.9639,4.136532430817167,9.0,5,8,3,1,0,0,0,0,9,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 4324,8771155189,Greenway Park Run ,True,4.9978,3.481531874024571,6.0,5,8,3,1,0,0,0,0,18,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
@@ -273,6 +278,7 @@ id,strava_activity_id,activity_name,is_parkrun,distance_km,pace_min_per_km,eleva
 4334,7256041279,Wollongong Running Festival ,False,9.9789,3.851459913751349,44.7,6,7,6,0,0,0,0,0,28,0,1,0,0,0,0,6,False,False,False,False,False,False,True,False,True,False,False,False,False
 905,7250369697,Cookies,True,4.967899999999999,4.274106429946927,16.8,5,8,6,0,0,0,0,0,7,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 3127,7250198119,Striders Lane Cove 10k,False,9.755,4.180762002391935,121.0,5,7,6,0,0,0,0,0,22,0,1,0,0,0,0,5,False,False,False,False,False,True,False,False,True,False,False,False,False
+4422,7213919665,Rydalmere Westmet Road Run,False,4.218100000000001,4.994349746726408,2.6,5,14,5,0,0,0,0,0,26,0,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,False,False,True
 725,7213183840,Morning Run - Cooks River Parkrun - 24:40,True,4.9807,4.9491035396631,27.0,5,8,5,1,0,0,0,0,41,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 906,7213205691,Cookies,True,4.9453000000000005,4.340821925194965,16.7,5,8,5,0,0,0,0,0,7,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 3128,7181302872,Woodies Bay Run Handicap,False,6.8667,3.987844719200392,24.0,6,7,5,0,0,0,0,0,24,0,0,0,0,0,0,6,False,False,False,False,False,False,True,False,True,False,False,False,False
@@ -349,7 +355,7 @@ id,strava_activity_id,activity_name,is_parkrun,distance_km,pace_min_per_km,eleva
 3139,5186544999,Woodies X Country,True,5.1334,4.022675030194413,64.7,6,8,4,0,0,0,0,0,17,1,0,0,0,0,0,6,False,False,False,False,False,False,True,False,False,True,False,False,False
 774,5180261133,Morning Run - Cooks River Parkrun - 24:03,True,4.9968,4.8164158394705945,28.0,5,8,4,1,0,0,0,0,41,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 776,5105128301,Morning Run - Canberra Half Marathon - 1:51:47 ,False,21.315,5.241222925951989,126.0,6,7,4,0,1,1,0,0,47,0,0,1,0,0,0,6,False,False,False,False,False,False,True,False,True,False,False,False,False
-4343,5105280825,Canberra 1/2 marathon (1:21.:21 official time) ,False,21.2789,3.8253857107275286,126.8,6,7,4,0,1,0,0,0,47,0,0,1,0,0,0,6,False,False,False,False,False,False,True,False,True,False,False,False,False
+4343,5105280825,Canberra 1/2 marathon (1:21.:21 official time) ,False,21.2789,3.823035965204968,126.8,6,7,4,0,1,0,0,0,47,0,0,1,0,0,0,6,False,False,False,False,False,False,True,False,True,False,False,False,False
 929,5104676942,Canberra 10km,False,10.0759,4.54715376955574,54.9,6,7,4,0,0,0,0,0,13,0,1,0,0,0,0,6,False,False,False,False,False,False,True,False,True,False,False,False,False
 4395,5105069961,Canberra Marathon 2021,False,42.713800000000006,5.374921766111498,256.4,6,6,4,0,1,0,0,0,22,0,0,0,1,0,0,6,False,False,False,False,False,False,True,True,False,False,False,False,False
 778,5098639143,Morning Run - Burley Griffin Parkrun ,True,4.9844,5.293181392611615,31.0,5,8,4,1,0,0,0,0,37,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
@@ -479,6 +485,7 @@ id,strava_activity_id,activity_name,is_parkrun,distance_km,pace_min_per_km,eleva
 3176,2302981985,Kawana Parkrun - 4th place,True,4.927,3.798795751302347,46.8,5,7,4,1,0,0,0,0,26,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,True,False,False,False,False
 3177,2285107416,Studley Parkrun - hard course!,True,4.9238,3.926506627672394,53.5,5,8,4,1,0,0,0,0,30,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
 833,2285109593,Morning Run,False,5.0562,4.314834592513482,39.2,5,8,4,0,0,0,0,0,11,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,True,False,False,False
+4423,2268019442,Westmet Cross Country,False,3.9627,4.685357626534097,31.0,5,14,4,0,0,0,0,0,21,0,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,False,False,True
 3178,2212324237,MUAC 5000,False,4.9496,3.4750282851139485,189.1,3,19,3,0,0,0,0,0,9,1,0,0,0,0,0,3,False,False,False,True,False,False,False,False,False,False,False,False,True
 3179,2168160381,AV 1500m final 4:32 - fastest in 2 years,False,1.5221,2.9783413266758645,49.0,5,13,2,0,0,0,0,0,40,0,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,False,False,True
 3180,2159720415,Melb Uni mile,False,1.6116,3.1438735831885496,57.5,1,21,2,0,0,0,0,0,13,0,0,0,0,0,0,1,False,True,False,False,False,False,False,False,False,False,False,False,True
@@ -513,6 +520,7 @@ id,strava_activity_id,activity_name,is_parkrun,distance_km,pace_min_per_km,eleva
 955,2611638108,smh HM 2018,False,21.1223,5.100454653770344,663.6,6,6,5,0,0,0,0,0,11,0,0,1,0,0,0,6,False,False,False,False,False,False,True,True,False,False,False,False,False
 3204,1580998205,Richmond Harriers Runners World 5K 17:17,False,4.8789,3.542465173160618,51.2,5,14,5,0,0,0,0,0,40,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,False,False,True
 3205,1550081297,AV 8K St Anne’s Winery,False,7.919899999999999,3.880520376940787,180.9,5,13,5,0,0,0,0,0,22,0,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,False,False,True
+4424,1535841358,"Westmet Cross Country - Eric Primrose Reserve, Rydalmere",False,4.0352,4.518569918054455,41.4,5,14,4,0,0,0,0,0,56,0,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,False,False,True
 3206,1521264943,AV Jells Park 6K relay,False,5.9085,3.655750190403656,93.6,5,13,4,0,0,0,0,0,22,0,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,False,False,True
 3207,1493434344,Richmond vs Malvern 8K,False,7.996,3.676838419209605,77.1,5,10,4,0,0,0,0,0,22,0,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,False,True,False
 849,1480630465,Easter Fast 5km training - Session 40 - #Fast5k,False,5.025,4.414593698175787,30.6,5,9,3,0,0,0,0,0,47,1,0,0,0,0,0,5,False,False,False,False,False,True,False,False,False,False,True,False,False

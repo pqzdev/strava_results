@@ -1,0 +1,199 @@
+{
+  "model_type": "event_similarity_predictor",
+  "version": "1.0.0",
+  "trained_at": "2025-11-16T06:24:57.256662",
+  "features": [
+    "day_of_year",
+    "distance_km",
+    "start_hour",
+    "start_lat",
+    "start_lng"
+  ],
+  "num_known_events": 18,
+  "known_events": [
+    "City2Surf",
+    "Sydney Marathon",
+    "Sydney 10",
+    "Magic Mile",
+    "Sydney Striders 10k",
+    "SMC Half marathon",
+    "Bay Run Handicap",
+    "Time Trial 3k",
+    "Canberra Half marathon",
+    "Stromlo 30k",
+    "BBBrun",
+    "Sun Run",
+    "Cooks River Fun Run",
+    "Sydney Harbour 10",
+    "Sutherland 2 Surf",
+    "Bondi to Manly Ultra",
+    "SMC 10k",
+    "Canberra Marathon"
+  ],
+  "distance_threshold": 0.4,
+  "min_samples_per_event": 3,
+  "centroids": {
+    "City2Surf": {
+      "day_of_year": 224.16,
+      "distance_km": 14.027388,
+      "start_hour": 7.917999999999999,
+      "start_lat": -33.87370311884798,
+      "start_lng": 151.21274312484138,
+      "sample_count": 25.0,
+      "std_distance": 0.08463181690908761
+    },
+    "Sydney Marathon": {
+      "day_of_year": 255.92307692307693,
+      "distance_km": 42.35896923076923,
+      "start_hour": 6.9692307692307685,
+      "start_lat": -33.83964863466631,
+      "start_lng": 151.20964725919617,
+      "sample_count": 13.0,
+      "std_distance": 0.5320876954422318
+    },
+    "Sydney 10": {
+      "day_of_year": 132.15384615384616,
+      "distance_km": 10.048384615384615,
+      "start_hour": 7.6217948717948705,
+      "start_lat": -33.84877637314511,
+      "start_lng": 151.06359424557832,
+      "sample_count": 13.0,
+      "std_distance": 0.07545187037833939
+    },
+    "Magic Mile": {
+      "day_of_year": 153.375,
+      "distance_km": 1.6483124999999998,
+      "start_hour": 19.0625,
+      "start_lat": -33.88422448695559,
+      "start_lng": 151.14052629419993,
+      "sample_count": 8.0,
+      "std_distance": 0.04165231729104985
+    },
+    "Sydney Striders 10k": {
+      "day_of_year": 121.875,
+      "distance_km": 9.9731625,
+      "start_hour": 7.01875,
+      "start_lat": -33.80993013764653,
+      "start_lng": 151.16951277125824,
+      "sample_count": 8.0,
+      "std_distance": 0.1571092698683673
+    },
+    "SMC Half marathon": {
+      "day_of_year": 136.8,
+      "distance_km": 21.12182,
+      "start_hour": 6.959999999999999,
+      "start_lat": -33.84364430629046,
+      "start_lng": 150.93268277238695,
+      "sample_count": 5.0,
+      "std_distance": 0.15560726846776865
+    },
+    "Bay Run Handicap": {
+      "day_of_year": 158.0,
+      "distance_km": 6.873100000000001,
+      "start_hour": 7.589999999999999,
+      "start_lat": -33.85773250397945,
+      "start_lng": 151.16046291277922,
+      "sample_count": 5.0,
+      "std_distance": 0.04596482350667728
+    },
+    "Time Trial 3k": {
+      "day_of_year": 131.75,
+      "distance_km": 3.1249,
+      "start_hour": 17.229166666666668,
+      "start_lat": -33.900344402386246,
+      "start_lng": 151.14037903312982,
+      "sample_count": 4.0,
+      "std_distance": 0.1399354374941054
+    },
+    "Canberra Half marathon": {
+      "day_of_year": 101.25,
+      "distance_km": 21.311500000000002,
+      "start_hour": 7.820833333333333,
+      "start_lat": -35.301770754379,
+      "start_lng": 149.13040017164124,
+      "sample_count": 4.0,
+      "std_distance": 0.058829867697737556
+    },
+    "Stromlo 30k": {
+      "day_of_year": 259.0,
+      "distance_km": 29.853724999999997,
+      "start_hour": 7.125,
+      "start_lat": -35.32041904830778,
+      "start_lng": 149.02590669675428,
+      "sample_count": 4.0,
+      "std_distance": 0.05686764604471239
+    },
+    "BBBrun": {
+      "day_of_year": 289.25,
+      "distance_km": 10.00995,
+      "start_hour": 7.35,
+      "start_lat": -33.82565661894244,
+      "start_lng": 151.07880984552648,
+      "sample_count": 4.0,
+      "std_distance": 0.041744420784898754
+    },
+    "Sun Run": {
+      "day_of_year": 34.75,
+      "distance_km": 10.0477,
+      "start_hour": 6.420833333333333,
+      "start_lat": -33.75455007229304,
+      "start_lng": 151.29640095660844,
+      "sample_count": 4.0,
+      "std_distance": 0.02265994998523517
+    },
+    "Cooks River Fun Run": {
+      "day_of_year": 171.5,
+      "distance_km": 9.95185,
+      "start_hour": 9.091666666666667,
+      "start_lat": -33.88106712685186,
+      "start_lng": 151.07307786113734,
+      "sample_count": 4.0,
+      "std_distance": 0.10021086102148112
+    },
+    "Sydney Harbour 10": {
+      "day_of_year": 239.0,
+      "distance_km": 10.10745,
+      "start_hour": 8.195833333333333,
+      "start_lat": -33.85859890302119,
+      "start_lng": 151.20903890527143,
+      "sample_count": 4.0,
+      "std_distance": 0.04138183981732393
+    },
+    "Sutherland 2 Surf": {
+      "day_of_year": 197.66666666666666,
+      "distance_km": 11.117933333333333,
+      "start_hour": 7.5,
+      "start_lat": -34.03219389729202,
+      "start_lng": 151.0603666305542,
+      "sample_count": 3.0,
+      "std_distance": 0.02627971334191735
+    },
+    "Bondi to Manly Ultra": {
+      "day_of_year": 298.0,
+      "distance_km": 79.6413,
+      "start_hour": 5.3055555555555545,
+      "start_lat": -33.89058266666667,
+      "start_lng": 151.27735099999998,
+      "sample_count": 3.0,
+      "std_distance": 2.017412035257061
+    },
+    "SMC 10k": {
+      "day_of_year": 148.66666666666666,
+      "distance_km": 9.976466666666667,
+      "start_hour": 7.533333333333332,
+      "start_lat": -33.84554638923538,
+      "start_lng": 150.93612940436694,
+      "sample_count": 3.0,
+      "std_distance": 0.050333818982205
+    },
+    "Canberra Marathon": {
+      "day_of_year": 103.33333333333333,
+      "distance_km": 42.60243333333334,
+      "start_hour": 6.322222222222223,
+      "start_lat": -35.30182666666666,
+      "start_lng": 149.13042833333333,
+      "sample_count": 3.0,
+      "std_distance": 0.11706503890288342
+    }
+  }
+}

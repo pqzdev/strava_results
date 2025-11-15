@@ -39,6 +39,45 @@ def process_races():
     # Convert to DataFrame
     df = pd.DataFrame(races)
 
+    # WOOD-6: Extract coordinates from raw_response if available
+    if 'raw_response' in df.columns:
+        print("   Extracting coordinates from raw_response...")
+        coords_extracted = 0
+        start_lats, start_lngs, end_lats, end_lngs = [], [], [], []
+
+        for idx, row in df.iterrows():
+            if pd.notna(row.get('raw_response')):
+                try:
+                    data = json.loads(row['raw_response'])
+                    start_latlng = data.get('start_latlng', [])
+                    end_latlng = data.get('end_latlng', [])
+
+                    start_lat = start_latlng[0] if start_latlng and len(start_latlng) >= 2 else None
+                    start_lng = start_latlng[1] if start_latlng and len(start_latlng) >= 2 else None
+                    end_lat = end_latlng[0] if end_latlng and len(end_latlng) >= 2 else None
+                    end_lng = end_latlng[1] if end_latlng and len(end_latlng) >= 2 else None
+
+                    if start_lat is not None:
+                        coords_extracted += 1
+                except:
+                    start_lat, start_lng, end_lat, end_lng = None, None, None, None
+            else:
+                start_lat, start_lng, end_lat, end_lng = None, None, None, None
+
+            start_lats.append(start_lat)
+            start_lngs.append(start_lng)
+            end_lats.append(end_lat)
+            end_lngs.append(end_lng)
+
+        df['start_lat'] = start_lats
+        df['start_lng'] = start_lngs
+        df['end_lat'] = end_lats
+        df['end_lng'] = end_lngs
+
+        print(f"   Extracted coordinates for {coords_extracted}/{len(df)} activities")
+    else:
+        print("   No raw_response column found - coordinates not available")
+
     # Parse date
     df['date'] = pd.to_datetime(df['date'])
     df['year'] = df['date'].dt.year
