@@ -50,6 +50,14 @@ function App() {
           }
         />
         <Route
+          path="admin/:tab"
+          element={
+            <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>
+              <Admin />
+            </Suspense>
+          }
+        />
+        <Route
           path="sync-monitor"
           element={
             <Suspense fallback={<div className="loading"><div className="spinner"></div><p>Loading...</p></div>}>

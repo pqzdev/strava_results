@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import './Admin.css';
 import { ApiCommandCard } from '../components/ApiCommandCard';
 import { API_COMMANDS, API_CATEGORIES } from '../config/apiCommands';
@@ -175,7 +175,17 @@ function formatDateString(dateString: string): string {
 }
 
 export default function Admin() {
-  const [activeTab, setActiveTab] = useState<AdminTab>('athletes');
+  const { tab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+
+  // Get active tab from URL param or default to 'athletes'
+  const activeTab: AdminTab = (tab as AdminTab) || 'athletes';
+
+  // Function to change tabs by navigating to new URL
+  const setActiveTab = (newTab: AdminTab) => {
+    navigate(`/admin/${newTab}`);
+  };
+
   const [athletes, setAthletes] = useState<AdminAthlete[]>([]);
   const [parkrunAthletes, setParkrunAthletes] = useState<ParkrunAthlete[]>([]);
   const [eventSuggestions, setEventSuggestions] = useState<EventSuggestion[]>([]);
@@ -227,6 +237,13 @@ export default function Admin() {
   const currentAthleteId = parseInt(
     localStorage.getItem('strava_athlete_id') || '0'
   );
+
+  // Redirect from /admin to /admin/athletes if no tab specified
+  useEffect(() => {
+    if (!tab) {
+      navigate('/admin/athletes', { replace: true });
+    }
+  }, [tab, navigate]);
 
   useEffect(() => {
     fetchAthletes();
