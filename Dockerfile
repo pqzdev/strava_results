@@ -1,20 +1,20 @@
-# Dockerfile for Railway ML API deployment
-FROM python:3.10-slim
+# Railway ML API Deployment
+FROM python:3.11-slim
 
-# Set working directory
-WORKDIR /app
+# Set working directory to ml subdirectory
+WORKDIR /app/ml
 
-# Copy everything from repo
-COPY . /app/
+# Copy requirements first for better Docker layer caching
+COPY ml/requirements.txt .
 
-# Debug: List what was copied
-RUN ls -la /app && ls -la /app/ml || echo "ml directory not found"
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Python dependencies from ml directory
-RUN cd /app/ml && pip install --no-cache-dir -r requirements.txt
+# Copy the entire ml directory (including models and inference_api.py)
+COPY ml/ .
 
-# Expose port
+# Expose port (Railway sets PORT env var)
 EXPOSE 8000
 
-# Start command - run from ml directory
-CMD ["sh", "-c", "cd /app/ml && uvicorn inference_api:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start the API server
+CMD uvicorn inference_api:app --host 0.0.0.0 --port ${PORT:-8000}
