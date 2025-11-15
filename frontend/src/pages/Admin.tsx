@@ -47,7 +47,7 @@ interface EventSuggestion {
 interface EventStats {
   event_name: string;
   dates: string[];
-  distances: number[];
+  distances: string[];
   activity_count: number;
 }
 
@@ -1564,7 +1564,7 @@ export default function Admin() {
                       <td>
                         <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
                           {event.distances.map((distance, idx) => (
-                            <div key={idx}>{formatDistance(distance)}</div>
+                            <div key={idx}>{distance}</div>
                           ))}
                         </div>
                       </td>

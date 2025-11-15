@@ -14,6 +14,21 @@ async function isAdmin(env: Env, stravaId: number): Promise<boolean> {
 }
 
 /**
+ * Format distance to friendly name (5k, 10k, HM, Marathon) or km
+ */
+function formatDistance(meters: number): string {
+  const km = meters / 1000;
+  const tolerance = 0.02;
+
+  if (Math.abs(km - 5) / 5 < tolerance) return '5k';
+  if (Math.abs(km - 10) / 10 < tolerance) return '10k';
+  if (Math.abs(km - 21.0975) / 21.0975 < tolerance) return 'HM';
+  if (Math.abs(km - 42.195) / 42.195 < tolerance) return 'Marathon';
+
+  return `${km.toFixed(1)} km`;
+}
+
+/**
  * Get all unique event names
  * GET /api/events/names
  */
@@ -57,7 +72,7 @@ export async function getEventStats(request: Request, env: Env): Promise<Respons
     const result = await env.DB.prepare(`
       SELECT
         r.event_name,
-        GROUP_CONCAT(DISTINCT r.date) as dates,
+        GROUP_CONCAT(DISTINCT DATE(r.date)) as dates,
         GROUP_CONCAT(DISTINCT ROUND(COALESCE(re.manual_distance, r.manual_distance, r.distance))) as distances,
         COUNT(DISTINCT r.id) as activity_count
       FROM races r
@@ -68,13 +83,14 @@ export async function getEventStats(request: Request, env: Env): Promise<Respons
     `).all();
 
     const events = result.results.map((row: any) => {
-      // Parse and deduplicate dates
+      // Parse and deduplicate dates (already deduplicated by SQL DATE())
       const datesArray = row.dates ? row.dates.split(',').filter((d: string) => d) : [];
       const uniqueDates = [...new Set(datesArray)];
 
-      // Parse and deduplicate distances
+      // Parse distances, format them to display names, then deduplicate
       const distancesArray = row.distances ? row.distances.split(',').map((d: string) => parseFloat(d)).filter((d: number) => !isNaN(d)) : [];
-      const uniqueDistances = [...new Set(distancesArray)];
+      const formattedDistances = distancesArray.map(meters => formatDistance(meters));
+      const uniqueDistances = [...new Set(formattedDistances)];
 
       return {
         event_name: row.event_name,
