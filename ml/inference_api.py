@@ -101,6 +101,15 @@ class EventFeatures(BaseModel):
     is_marathon: int
     is_ultra: int
 
+    # Geolocation features (optional, may be None)
+    start_lat: Optional[float] = None
+    start_lng: Optional[float] = None
+    end_lat: Optional[float] = None
+    end_lng: Optional[float] = None
+    distance_start_to_end_km: Optional[float] = None
+    is_loop: Optional[int] = None
+    coord_count: int = 0
+
     # One-hot encoded features (all optional, default 0)
     day_0: Optional[int] = 0
     day_1: Optional[int] = 0
@@ -217,6 +226,13 @@ async def predict_event(features: EventFeatures):
             features.is_half_marathon,
             features.is_marathon,
             features.is_ultra,
+            features.start_lat if features.start_lat is not None else 0,
+            features.start_lng if features.start_lng is not None else 0,
+            features.end_lat if features.end_lat is not None else 0,
+            features.end_lng if features.end_lng is not None else 0,
+            features.distance_start_to_end_km if features.distance_start_to_end_km is not None else 0,
+            features.is_loop if features.is_loop is not None else 0,
+            features.coord_count,
             features.day_0,
             features.day_1,
             features.day_2,
