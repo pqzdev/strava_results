@@ -148,21 +148,6 @@ function parseTime(timeStr: string): number | null {
 }
 
 /**
- * Format distance to friendly names (5k, 10k, HM, Marathon) or meters
- */
-function formatDistance(meters: number): string {
-  const km = meters / 1000;
-  const tolerance = 0.02;
-
-  if (Math.abs(km - 5) / 5 < tolerance) return '5k';
-  if (Math.abs(km - 10) / 10 < tolerance) return '10k';
-  if (Math.abs(km - 21.1) / 21.1 < tolerance) return 'HM';
-  if (Math.abs(km - 42.2) / 42.2 < tolerance) return 'Marathon';
-
-  return `${km.toFixed(1)}km`;
-}
-
-/**
  * Format date string to readable format
  */
 function formatDateString(dateString: string): string {
@@ -1055,10 +1040,8 @@ export default function Admin() {
         comparison = bDate - aDate;
         break;
       case 'distances':
-        // Sort by average distance
-        const aAvg = a.distances.length > 0 ? a.distances.reduce((sum, d) => sum + d, 0) / a.distances.length : 0;
-        const bAvg = b.distances.length > 0 ? b.distances.reduce((sum, d) => sum + d, 0) / b.distances.length : 0;
-        comparison = aAvg - bAvg;
+        // Sort by number of unique distances
+        comparison = a.distances.length - b.distances.length;
         break;
       default:
         comparison = 0;
