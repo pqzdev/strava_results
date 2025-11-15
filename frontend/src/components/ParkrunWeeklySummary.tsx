@@ -144,7 +144,6 @@ export default function ParkrunWeeklySummary() {
 
   const calendarDays = generateCalendar();
   const formattedDate = new Date(selectedDate).toLocaleDateString('en-AU', {
-    weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
