@@ -242,18 +242,18 @@ export default function ParkrunWeeklySummary() {
 
         {summary.firstTimeEvents.length > 0 && (
           <p>
-            🎉 <strong>First time Woodstock participation:</strong>{' '}
+            🎉 <strong>First Woodies visit:</strong>{' '}
             {summary.firstTimeEvents.join(', ')}
           </p>
         )}
 
         {summary.rarePokemons.length > 0 && (
           <p>
-            🦄 <strong>Rare Pokémon:</strong>{' '}
+            🦄 <strong>Rare Pokémons:</strong>{' '}
             {summary.rarePokemons.map((pokemon, index) => (
               <span key={pokemon.name}>
                 {index > 0 && ', '}
-                {pokemon.name} ({getOrdinal(pokemon.visitCount)} Woodstock visit)
+                {pokemon.name} ({getOrdinal(pokemon.visitCount)} Woodies visit)
               </span>
             ))}
           </p>
