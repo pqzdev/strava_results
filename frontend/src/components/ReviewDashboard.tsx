@@ -212,11 +212,17 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
             if (eventResponse.ok) {
               const eventPrediction = await eventResponse.json();
 
+              // Filter out "Unknown Event", "rare_event", and low confidence predictions
+              const isValidPrediction = eventPrediction.probability > 0.3 &&
+                                       eventPrediction.event_name !== 'Unknown Event' &&
+                                       eventPrediction.event_name !== 'rare_event' &&
+                                       eventPrediction.event_name !== 'nan';
+
               setActivities(prev => prev.map(a =>
                 a.id === activity.id
                   ? {
                       ...a,
-                      suggested_event: eventPrediction.probability > 0.3 ? eventPrediction.event_name : '',
+                      suggested_event: isValidPrediction ? eventPrediction.event_name : '',
                       suggestion_confidence: eventPrediction.probability,
                     }
                   : a

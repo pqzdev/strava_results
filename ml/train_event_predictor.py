@@ -62,6 +62,17 @@ def load_features():
 
     df = pd.read_csv(FEATURES_FILE)
     print(f"   Loaded {len(df)} non-parkrun races")
+
+    # Filter out activities with NULL/NaN event names
+    # We only want to train on activities with known event names
+    initial_count = len(df)
+    df = df[df['event_name'].notna() & (df['event_name'] != '')]
+    filtered_count = initial_count - len(df)
+
+    if filtered_count > 0:
+        print(f"   Filtered out {filtered_count} activities with no event name")
+
+    print(f"   Training on {len(df)} activities with known events")
     print(f"   Unique events: {df['event_name'].nunique()}")
 
     return df
