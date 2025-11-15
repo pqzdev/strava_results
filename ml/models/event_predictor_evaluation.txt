@@ -2,39 +2,39 @@
 EVENT NAME PREDICTOR - EVALUATION REPORT
 ============================================================
 
-Training Date: 2025-11-15 13:38:40
-Number of Classes: 7
-Event Classes: Bondi to Manly Ultra, City2Surf, Cooks River Fun Run, Sydney 10, Sydney Marathon, rare_event, nan...
+Training Date: 2025-11-15 07:54:00
+Number of Classes: 6
+Event Classes: Bondi to Manly Ultra, City2Surf, Cooks River Fun Run, Sydney 10, Sydney Marathon, rare_event...
 
 ------------------------------------------------------------
 TEST SET PERFORMANCE
 ------------------------------------------------------------
 
-Top-1 Accuracy: 0.8837
-Top-3 Accuracy: 0.9922
+Top-1 Accuracy: 0.9583
+Top-3 Accuracy: 1.0000
 Top-5 Accuracy: 1.0000
-Precision:      0.9057
-Recall:         0.8837
-F1 Score:       0.8919
+Precision:      0.9722
+Recall:         0.9583
+F1 Score:       0.9616
 
 ------------------------------------------------------------
 FEATURE IMPORTANCE (Top 15)
 ------------------------------------------------------------
 
-hour_9.0                       0.3470
-is_marathon                    0.1685
-is_10k                         0.0756
-contains_half                  0.0628
-month                          0.0608
-is_ultra                       0.0427
-is_half_marathon               0.0370
-distance_km                    0.0313
-day_of_week                    0.0258
-elevation_gain                 0.0256
-hour_7.0                       0.0212
-hour                           0.0184
-pace_min_per_km                0.0151
-hour_8.0                       0.0137
-hour_6.0                       0.0109
+hour_9.0                       0.2811
+is_half_marathon               0.0928
+is_marathon                    0.0827
+is_10k                         0.0667
+month                          0.0552
+distance_km                    0.0550
+day_6.0                        0.0543
+elevation_gain                 0.0415
+hour_6.0                       0.0397
+hour                           0.0342
+pace_min_per_km                0.0334
+hour_8.0                       0.0317
+is_ultra                       0.0304
+contains_marathon              0.0298
+day_of_week                    0.0287
 
 ============================================================
