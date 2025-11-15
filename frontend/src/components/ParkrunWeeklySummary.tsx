@@ -17,10 +17,31 @@ export default function ParkrunWeeklySummary() {
   const [summary, setSummary] = useState<WeeklySummary | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   useEffect(() => {
     fetchSummary(selectedDate);
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (selectedDate) {
+      setCurrentMonth(new Date(selectedDate));
+    }
+  }, [selectedDate]);
+
+  // Close calendar when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as HTMLElement;
+      if (showCalendar && !target.closest('.date-picker')) {
+        setShowCalendar(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCalendar]);
 
   async function fetchSummary(date?: string) {
     setLoading(true);
@@ -47,39 +68,103 @@ export default function ParkrunWeeklySummary() {
     }
   }
 
-  function handleDateChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    setSelectedDate(event.target.value);
+  function handleDateSelect(date: string) {
+    setSelectedDate(date);
+    setShowCalendar(false);
+  }
+
+  function previousMonth() {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  }
+
+  function nextMonth() {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   }
 
   if (loading || !summary) {
     return <div className="weekly-summary loading">Loading weekly summary...</div>;
   }
 
-  // Format date range (earliest to latest available)
-  const earliestDate = summary.availableDates[summary.availableDates.length - 1];
-  const latestDate = summary.availableDates[0];
-  const dateRangeText = earliestDate && latestDate
-    ? `${new Date(earliestDate).toLocaleDateString()} - ${new Date(latestDate).toLocaleDateString()}`
-    : '';
+  const availableDatesSet = new Set(summary.availableDates);
+
+  // Generate calendar days for current month
+  function generateCalendar() {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    const days: Array<{ date: string; day: number; isAvailable: boolean; isSelected: boolean }> = [];
+
+    // Add empty cells for days before the start of the month
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push({ date: '', day: 0, isAvailable: false, isSelected: false });
+    }
+
+    // Add all days in the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isAvailable = availableDatesSet.has(dateStr);
+      const isSelected = dateStr === selectedDate;
+      days.push({ date: dateStr, day, isAvailable, isSelected });
+    }
+
+    return days;
+  }
+
+  const calendarDays = generateCalendar();
+  const formattedDate = new Date(selectedDate).toLocaleDateString('en-AU', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 
   return (
     <div className="weekly-summary">
       <div className="summary-header">
-        <h2>Woodstock parkruns - {dateRangeText}</h2>
+        <h2>Woodstock parkruns - {formattedDate}</h2>
         <div className="date-picker">
-          <label htmlFor="summary-date">Select date:</label>
-          <select
-            id="summary-date"
-            value={selectedDate}
-            onChange={handleDateChange}
-            className="date-select"
+          <button
+            onClick={() => setShowCalendar(!showCalendar)}
+            className="date-picker-button"
           >
-            {summary.availableDates.map((date) => (
-              <option key={date} value={date}>
-                {new Date(date).toLocaleDateString()}
-              </option>
-            ))}
-          </select>
+            {showCalendar ? 'Close Calendar' : 'Change Date'}
+          </button>
+
+          {showCalendar && (
+            <div className="calendar-dropdown">
+              <div className="calendar-header">
+                <button onClick={previousMonth} className="nav-button">‹</button>
+                <span className="month-year">
+                  {currentMonth.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })}
+                </span>
+                <button onClick={nextMonth} className="nav-button">›</button>
+              </div>
+
+              <div className="calendar-grid">
+                <div className="calendar-day-header">Sun</div>
+                <div className="calendar-day-header">Mon</div>
+                <div className="calendar-day-header">Tue</div>
+                <div className="calendar-day-header">Wed</div>
+                <div className="calendar-day-header">Thu</div>
+                <div className="calendar-day-header">Fri</div>
+                <div className="calendar-day-header">Sat</div>
+
+                {calendarDays.map((day, index) => (
+                  <div
+                    key={index}
+                    className={`calendar-day ${day.isAvailable ? 'available' : ''} ${day.isSelected ? 'selected' : ''}`}
+                    onClick={() => day.isAvailable && handleDateSelect(day.date)}
+                  >
+                    {day.day || ''}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

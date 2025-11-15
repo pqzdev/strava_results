@@ -535,7 +535,7 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
         AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
       GROUP BY pr.event_name
       ORDER BY count DESC
-      LIMIT 5
+      LIMIT 3
     `;
     const popularEventsResult = await env.DB.prepare(popularEventsQuery).bind(targetDate).all();
     const popularEvents = (popularEventsResult.results || []).map((e: any) => ({
