@@ -488,7 +488,6 @@ export default function Dashboard() {
                 fetchRaces();
                 fetchAvailableEvents();
               }}
-              onDescriptionUpdate={fetchRaces}
             />
 
             {totalPages > 1 && (

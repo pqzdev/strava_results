@@ -156,7 +156,6 @@ interface RaceTableProps {
   onTimeUpdate?: () => void; // Callback to refresh races after update
   availableEvents?: string[]; // List of all existing event names
   onEventUpdate?: () => void; // Callback to refresh races and events after event update
-  onDescriptionUpdate?: () => void; // Callback to refresh races after description fetch
 }
 
 /**
@@ -658,7 +657,7 @@ function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteI
   );
 }
 
-export default function RaceTable({ races, currentAthleteId, isAdmin = false, onTimeUpdate, availableEvents = [], onEventUpdate, onDescriptionUpdate }: RaceTableProps) {
+export default function RaceTable({ races, currentAthleteId, isAdmin = false, onTimeUpdate, availableEvents = [], onEventUpdate }: RaceTableProps) {
   const [sortField, setSortField] = useState<keyof Race | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [descriptionOverrides, setDescriptionOverrides] = useState<Record<number, string>>({});
