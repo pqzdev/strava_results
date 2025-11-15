@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import { FaCommentDots } from 'react-icons/fa6';
+import { FaCommentDots, FaRegCommentDots } from 'react-icons/fa6';
 import './RaceTable.css';
 
 interface VisibilityToggleProps {
@@ -64,8 +64,8 @@ function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTo
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Only show to owner or admin, and only if there's a description
-  if (!isOwner || !race.description) {
+  // Only show to owner or admin
+  if (!isOwner) {
     return null;
   }
 
@@ -106,21 +106,38 @@ function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTo
 
   return (
     <div className="description-tooltip-wrapper" ref={wrapperRef}>
-      <FaCommentDots
-        className="description-icon"
-        onClick={handleIconClick}
-      />
+      {race.description ? (
+        <FaCommentDots
+          className="description-icon"
+          onClick={handleIconClick}
+        />
+      ) : (
+        <FaRegCommentDots
+          className="description-icon"
+          onClick={handleIconClick}
+        />
+      )}
       <div className={`description-tooltip ${isTooltipVisible ? 'visible' : ''}`}>
-        <>
-          <div className="description-text">{race.description}</div>
+        {race.description ? (
+          <>
+            <div className="description-text">{race.description}</div>
+            <a
+              href="#"
+              onClick={handleFetch}
+              className="fetch-description-link"
+            >
+              {isFetching ? 'Refreshing...' : 'Refresh description'}
+            </a>
+          </>
+        ) : (
           <a
             href="#"
             onClick={handleFetch}
             className="fetch-description-link"
           >
-            {isFetching ? 'Refreshing...' : 'Refresh description'}
+            {isFetching ? 'Fetching...' : 'Fetch description'}
           </a>
-        </>
+        )}
       </div>
     </div>
   );
