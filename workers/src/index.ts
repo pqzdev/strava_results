@@ -7,7 +7,7 @@ import { syncAthlete } from './queue/sync-queue';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin, getAdminSyncStatus, stopSyncJob } from './api/admin';
 import { getReviewActivities, updateActivity } from './api/admin-review';
-import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate } from './api/parkrun';
+import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate, getParkrunWeeklySummary } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames, getEventStats, renameEvent } from './api/events';
 import { backfillPolylines } from './api/polyline-backfill';
@@ -354,6 +354,10 @@ export default {
 
       if (path === '/api/parkrun/by-date' && request.method === 'GET') {
         return getParkrunByDate(request, env);
+      }
+
+      if (path === '/api/parkrun/weekly-summary' && request.method === 'GET') {
+        return getParkrunWeeklySummary(request, env);
       }
 
       if (path === '/api/parkrun/import' && request.method === 'POST') {
