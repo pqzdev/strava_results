@@ -1,0 +1,78 @@
+name: Parkrun Automated Scraper
+
+on:
+  # Run every Sunday at 12:00 UTC (after parkrun events complete)
+  schedule:
+    - cron: '0 12 * * 0'
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'Start date (YYYY-MM-DD)'
+        required: false
+        default: ''
+      end_date:
+        description: 'End date (YYYY-MM-DD)'
+        required: false
+        default: ''
+      replace_mode:
+        description: 'Replace all existing data'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  scrape-parkrun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Run Parkrun scraper
+        env:
+          # API endpoint for uploading results
+          PARKRUN_API_ENDPOINT: ${{ secrets.PARKRUN_API_ENDPOINT }}
+
+          # Optional: Proxy configuration for IP rotation
+          # Format: http://username:password@proxy-host:port
+          PROXY_URL: ${{ secrets.PROXY_URL }}
+
+          # Optional: Bright Data (formerly Luminati) residential proxy
+          # PROXY_URL: http://username-session-$RANDOM:password@brd.superproxy.io:22225
+
+          # Optional: ScraperAPI proxy
+          # PROXY_URL: http://scraperapi:${{ secrets.SCRAPER_API_KEY }}@proxy-server.scraperapi.com:8001
+
+          # Date range (use workflow inputs or defaults)
+          START_DATE: ${{ github.event.inputs.start_date }}
+          END_DATE: ${{ github.event.inputs.end_date }}
+          REPLACE_MODE: ${{ github.event.inputs.replace_mode }}
+        run: node scripts/parkrun-automated.js
+
+      - name: Upload scraper logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parkrun-scraper-logs
+          path: scripts/parkrun-scraper.log
+          retention-days: 7
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::warning::Parkrun scraper failed. Check logs for details."
