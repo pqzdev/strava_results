@@ -187,20 +187,24 @@ export async function completeBatch(
 
 /**
  * WOOD-8: Get all batches for a sync session
+ * Limits to most recent batches to reduce row reads
  */
 export async function getSessionBatches(
   sessionId: string,
-  env: Env
+  env: Env,
+  limit: number = 100
 ): Promise<SyncBatch[]> {
   const result = await env.DB.prepare(
     `SELECT * FROM sync_batches
      WHERE sync_session_id = ?
-     ORDER BY batch_number ASC`
+     ORDER BY batch_number DESC
+     LIMIT ?`
   )
-    .bind(sessionId)
+    .bind(sessionId, limit)
     .all<SyncBatch>();
 
-  return result.results || [];
+  // Reverse to get chronological order (oldest to newest)
+  return (result.results || []).reverse();
 }
 
 /**

@@ -50,8 +50,10 @@ export async function getAdminAthletes(request: Request, env: Env): Promise<Resp
         a.total_activities_count,
         a.last_synced_at,
         a.created_at,
-        (SELECT COUNT(*) FROM races WHERE athlete_id = a.id) as race_count
+        COALESCE(COUNT(r.id), 0) as race_count
       FROM athletes a
+      LEFT JOIN races r ON r.athlete_id = a.id
+      GROUP BY a.id
       ORDER BY a.lastname, a.firstname`
     ).all();
 
