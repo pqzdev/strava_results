@@ -739,8 +739,8 @@ export async function getSyncQueueStatus(env: Env) {
       sq.activities_synced,
       sq.total_activities_expected,
       a.strava_id,
-      a.first_name,
-      a.last_name
+      a.firstname,
+      a.lastname
     FROM sync_queue sq
     LEFT JOIN athletes a ON sq.athlete_id = a.id
     WHERE sq.status IN ('pending', 'processing')
@@ -761,8 +761,8 @@ export async function getSyncQueueStatus(env: Env) {
       sq.activities_synced,
       sq.total_activities_expected,
       a.strava_id,
-      a.first_name,
-      a.last_name
+      a.firstname,
+      a.lastname
     FROM sync_queue sq
     LEFT JOIN athletes a ON sq.athlete_id = a.id
     WHERE sq.status IN ('completed', 'failed')
