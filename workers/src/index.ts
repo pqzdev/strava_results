@@ -6,7 +6,7 @@ import { syncAllAthletes } from './cron/sync';
 import { syncAthlete } from './queue/sync-queue';
 import { processPendingBatches } from './cron/batch-processor-cron';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
-import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin, getAdminSyncStatus, stopSyncJob } from './api/admin';
+import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin, getAdminSyncStatus, stopSyncJob, triggerBatchedAthleteSync, getBatchedSyncProgress } from './api/admin';
 import { getReviewActivities, updateActivity } from './api/admin-review';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate, getParkrunWeeklySummary } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
@@ -146,6 +146,18 @@ export default {
       const adminStopSyncMatch = path.match(/^\/api\/admin\/athletes\/(\d+)\/sync\/stop$/);
       if (adminStopSyncMatch && request.method === 'POST') {
         return stopAthleteSync(request, env, parseInt(adminStopSyncMatch[1]));
+      }
+
+      // WOOD-8: Trigger batched sync
+      const adminBatchedSyncMatch = path.match(/^\/api\/admin\/athletes\/(\d+)\/batched-sync$/);
+      if (adminBatchedSyncMatch && request.method === 'POST') {
+        return triggerBatchedAthleteSync(request, env, ctx, parseInt(adminBatchedSyncMatch[1]));
+      }
+
+      // WOOD-8: Get batched sync progress
+      const batchedSyncProgressMatch = path.match(/^\/api\/admin\/batched-sync\/([^\/]+)\/progress$/);
+      if (batchedSyncProgressMatch && request.method === 'GET') {
+        return getBatchedSyncProgress(request, env, batchedSyncProgressMatch[1]);
       }
 
       // Reset stuck syncs
