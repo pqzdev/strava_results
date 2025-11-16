@@ -34,7 +34,7 @@ export async function getAdminAthletes(request: Request, env: Env): Promise<Resp
       );
     }
 
-    // Get all athletes with race count
+    // Get all athletes with race count and batched sync progress
     const result = await env.DB.prepare(
       `SELECT
         a.id,
@@ -47,17 +47,52 @@ export async function getAdminAthletes(request: Request, env: Env): Promise<Resp
         a.is_blocked,
         a.sync_status,
         a.sync_error,
+        a.sync_session_id,
         a.total_activities_count,
         a.last_synced_at,
         a.created_at,
-        COALESCE(COUNT(r.id), 0) as race_count
+        COALESCE(COUNT(DISTINCT r.id), 0) as race_count
       FROM athletes a
       LEFT JOIN races r ON r.athlete_id = a.id
       GROUP BY a.id
       ORDER BY a.lastname, a.firstname`
     ).all();
 
-    return new Response(JSON.stringify({ athletes: result.results }), {
+    // For athletes with active sync sessions, get batch progress
+    const athletesWithProgress = [];
+    for (const athlete of result.results) {
+      const athleteData: any = { ...athlete };
+
+      if (athlete.sync_session_id && athlete.sync_status === 'in_progress') {
+        // Get batch summary for this session
+        const batchSummary = await env.DB.prepare(
+          `SELECT
+            COUNT(*) as total_batches,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_batches,
+            SUM(CASE WHEN status = 'completed' THEN activities_fetched ELSE 0 END) as total_activities,
+            SUM(CASE WHEN status = 'completed' THEN races_added ELSE 0 END) as total_races_added,
+            MAX(CASE WHEN status = 'processing' THEN batch_number ELSE NULL END) as current_batch
+          FROM sync_batches
+          WHERE sync_session_id = ?`
+        )
+          .bind(athlete.sync_session_id)
+          .first();
+
+        if (batchSummary) {
+          athleteData.batch_progress = {
+            total_batches: batchSummary.total_batches || 0,
+            completed_batches: batchSummary.completed_batches || 0,
+            total_activities: batchSummary.total_activities || 0,
+            total_races_added: batchSummary.total_races_added || 0,
+            current_batch: batchSummary.current_batch,
+          };
+        }
+      }
+
+      athletesWithProgress.push(athleteData);
+    }
+
+    return new Response(JSON.stringify({ athletes: athletesWithProgress }), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',

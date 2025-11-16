@@ -101,11 +101,8 @@ export async function processDiscoveryBatch(
     console.log(`[Discovery] Batch ${batchNumber}: ${racesAdded} new races, ${racesUpdated} updated`);
 
     // 7. Determine if we need another discovery batch
-    let hasMore = false;
-    if (activities.length >= 1000) {
-      // We hit our batch limit, might be more activities
-      hasMore = true;
-    }
+    // We got a full batch (1000 activities), so there might be more
+    const hasMore = activities.length >= 1000;
 
     // 8. Complete batch
     const result: BatchResult = {
@@ -124,7 +121,8 @@ export async function processDiscoveryBatch(
     );
 
     // 9. Create next discovery batch if needed
-    if (hasMore && batch.before_timestamp) {
+    if (hasMore && activities.length > 0) {
+      // Calculate timestamp of oldest activity in this batch
       const oldestActivity = activities[activities.length - 1];
       const nextBeforeTimestamp = Math.floor(new Date(oldestActivity.start_date).getTime() / 1000);
 
@@ -139,7 +137,7 @@ export async function processDiscoveryBatch(
           sessionId,
           batchNumber + 1,
           nextBeforeTimestamp,
-          batch.after_timestamp
+          batch.after_timestamp || null
         )
         .run();
 
@@ -297,10 +295,10 @@ async function startEnrichmentPhase(
       .run();
   }
 
-  // Update athlete to enrichment status
+  // Update athlete to enrichment status (still 'in_progress' but with enrichment session)
   await env.DB.prepare(
     `UPDATE athletes
-     SET sync_status = 'enriching', sync_session_id = ?,
+     SET sync_status = 'in_progress', sync_session_id = ?,
          current_batch_number = 0, total_batches_expected = ?
      WHERE id = ?`
   )

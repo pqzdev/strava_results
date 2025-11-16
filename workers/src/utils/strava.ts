@@ -152,9 +152,27 @@ export async function fetchAthleteActivities(
     console.log(`[fetchAthleteActivities] Page ${page}: Response status: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
-      console.error(`Failed to fetch activities: ${response.status} ${response.statusText}`);
       const errorBody = await response.text();
+      console.error(`Failed to fetch activities: ${response.status} ${response.statusText}`);
       console.error(`Error response body: ${errorBody}`);
+
+      // Handle 401 Unauthorized - athlete may have revoked access or activities are private
+      if (response.status === 401) {
+        console.warn(`401 Unauthorized: Athlete may have revoked access or activities are private. Returning 0 activities.`);
+        // Parse any error details from Strava
+        try {
+          const errorData = JSON.parse(errorBody);
+          console.warn(`Strava error details:`, errorData);
+        } catch {
+          // Error body is not JSON
+        }
+
+        // Return empty activities - this allows sync to complete without error
+        // The athlete can re-authorize if needed
+        return { activities: [], rateLimits };
+      }
+
+      // For other errors (403, 429, 5xx), throw to fail the sync
       throw new Error(`Failed to fetch activities: ${response.statusText}`);
     }
 
