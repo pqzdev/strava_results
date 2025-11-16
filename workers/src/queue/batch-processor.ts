@@ -170,10 +170,10 @@ export async function processSyncBatch(
         status: 'pending',
       }, env);
 
-      // Enqueue next batch via HTTP self-invocation
-      await enqueueBatchViaHTTP(athleteId, sessionId, batchNumber + 1, env, ctx);
+      // Batch created - cron will pick it up automatically
+      enqueueBatchViaCron(batchNumber + 1);
 
-      console.log(`[WOOD-8] Batch ${batchNumber}: Enqueued batch ${batchNumber + 1}`);
+      console.log(`[WOOD-8] Batch ${batchNumber}: Created batch ${batchNumber + 1}, cron will process it`);
     } else {
       // All batches complete - finalize sync
       console.log(`[WOOD-8] Batch ${batchNumber}: No more data. Finalizing sync session ${sessionId}`);
@@ -259,50 +259,14 @@ export async function finalizeSyncSession(
 }
 
 /**
- * WOOD-8: Enqueue next batch via HTTP self-invocation
- * Free-tier compatible alternative to Cloudflare Queues
+ * WOOD-8: Enqueue next batch (cron-based)
+ * The cron runs every minute and picks up pending batches automatically.
+ * This function just logs - the batch creation is enough.
  */
-async function enqueueBatchViaHTTP(
-  athleteId: number,
-  sessionId: string,
-  batchNumber: number,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<void> {
-  // Use ctx.waitUntil to avoid blocking
-  ctx.waitUntil(
-    (async () => {
-      try {
-        // Small delay to avoid overwhelming the worker
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Self-invoke via HTTP
-        const response = await fetch(`${env.WORKER_URL}/internal/process-batch`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Internal-Secret': env.INTERNAL_SECRET || 'dev-secret', // Prevent external calls
-          },
-          body: JSON.stringify({
-            athleteId,
-            sessionId,
-            batchNumber,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`[WOOD-8] Failed to enqueue batch ${batchNumber}: ${response.status} ${errorText}`);
-          throw new Error(`Failed to enqueue batch: ${response.status}`);
-        }
-
-        console.log(`[WOOD-8] Successfully enqueued batch ${batchNumber} via HTTP`);
-      } catch (error) {
-        console.error(`[WOOD-8] Error enqueueing batch ${batchNumber}:`, error);
-        // Don't throw - this is in waitUntil, we want it to fail gracefully
-      }
-    })()
-  );
+function enqueueBatchViaCron(
+  batchNumber: number
+): void {
+  console.log(`[WOOD-8] Batch ${batchNumber} created and marked as pending. Cron will process it within 1 minute.`);
 }
 
 /**
@@ -389,8 +353,8 @@ export async function initiateBatchedSync(
 
   console.log(`[WOOD-8] Created first batch (ID: ${firstBatchId}) for session ${sessionId}`);
 
-  // Enqueue first batch
-  await enqueueBatchViaHTTP(athleteId, sessionId, 1, env, ctx);
+  // First batch created - cron will pick it up automatically
+  enqueueBatchViaCron(1);
 
   return sessionId;
 }
