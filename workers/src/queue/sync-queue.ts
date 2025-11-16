@@ -239,9 +239,19 @@ export async function syncAthlete(
       if (!result.moreDataAvailable) {
         console.log(`All data fetched for athlete ${athleteStravaId} after ${batchNumber} batch(es)`);
         if (sessionId) {
+          // Get final count for success message
+          const finalCount = await env.DB.prepare(
+            `SELECT total_activities_count, (SELECT COUNT(*) FROM races WHERE athlete_id = ?) as race_count FROM athletes WHERE id = ?`
+          )
+            .bind(athlete.id, athlete.id)
+            .first<{ total_activities_count: number; race_count: number }>();
+
+          const activityCount = finalCount?.total_activities_count || 0;
+          const raceCount = finalCount?.race_count || 0;
+
           await logSyncProgress(env, athlete.id, sessionId, 'success',
-            `Sync completed successfully after ${batchNumber} batch(es)`,
-            { totalBatches: batchNumber }
+            `Sync completed successfully after ${batchNumber} batch(es). Found ${activityCount} total activities, ${raceCount} races.`,
+            { totalBatches: batchNumber, totalActivities: activityCount, totalRaces: raceCount }
           );
         }
         break;
@@ -406,6 +416,11 @@ async function syncAthleteInternal(
     );
 
     console.log(`[v2-run-filter] Fetched ${activities.length} total activities for athlete ${athlete.strava_id}`);
+
+    // Log special message if 0 activities found to make it clear this is not an error
+    if (activities.length === 0) {
+      console.log(`✓ Sync will complete successfully with 0 activities. This is normal if the athlete has no activities, all private activities, or no activities marked as races.`);
+    }
 
     // Filter to only Run activities before processing
     const runActivities = activities.filter(a => a.type === 'Run');
@@ -618,10 +633,18 @@ async function syncAthleteInternal(
 
     // Log batch completion summary
     if (sessionId) {
-      await logSyncProgress(env, athlete.id, sessionId, 'info',
-        `Batch complete: ${newRacesAdded} races added${racesRemoved > 0 ? `, ${racesRemoved} removed` : ''}. ${moreDataAvailable ? 'More data available' : 'All data fetched'}`,
-        { newRacesAdded, racesRemoved, activitiesProcessed: activities.length, moreDataAvailable }
-      );
+      // Special message for 0 activities case to make it clear this is not an error
+      if (activities.length === 0 && !moreDataAvailable) {
+        await logSyncProgress(env, athlete.id, sessionId, 'success',
+          `Sync completed successfully with 0 activities found. This athlete may have no activities, all private activities, or no activities marked as races in Strava.`,
+          { newRacesAdded: 0, racesRemoved: 0, activitiesProcessed: 0, moreDataAvailable: false }
+        );
+      } else {
+        await logSyncProgress(env, athlete.id, sessionId, 'info',
+          `Batch complete: ${newRacesAdded} races added${racesRemoved > 0 ? `, ${racesRemoved} removed` : ''}. ${moreDataAvailable ? 'More data available' : 'All data fetched'}`,
+          { newRacesAdded, racesRemoved, activitiesProcessed: activities.length, moreDataAvailable }
+        );
+      }
     }
 
     // Update last synced timestamp and activity count
@@ -660,7 +683,11 @@ async function syncAthleteInternal(
         .run();
     }
 
-    console.log(`Athlete ${athleteStravaId} sync complete: ${newRacesAdded} races added (${racesRemoved} removed). Total activities processed: ${activities.length}`);
+    if (activities.length === 0) {
+      console.log(`✓ Athlete ${athleteStravaId} sync completed successfully with 0 activities. This is expected if the athlete has no activities, all private activities, or no activities marked as races.`);
+    } else {
+      console.log(`Athlete ${athleteStravaId} sync complete: ${newRacesAdded} races added (${racesRemoved} removed). Total activities processed: ${activities.length}`);
+    }
 
     return {
       moreDataAvailable,

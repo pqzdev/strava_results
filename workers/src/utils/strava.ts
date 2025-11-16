@@ -49,7 +49,8 @@ export async function refreshAccessToken(
   });
 
   if (!response.ok) {
-    throw new Error(`Token refresh failed: ${response.statusText}`);
+    const errorText = await response.text();
+    throw new Error(`OAuth token refresh failed (${response.status}): The athlete may have revoked access. Error: ${errorText || response.statusText}`);
   }
 
   return response.json();
