@@ -175,6 +175,11 @@ export default {
         return getAdminSyncStatus(request, env);
       }
 
+      // Stop sync job
+      if (path === '/api/admin/sync/stop' && request.method === 'POST') {
+        return stopSyncJob(request, env);
+      }
+
       // Check if user is admin
       if (path === '/api/admin/check' && request.method === 'GET') {
         return checkAdmin(request, env);
