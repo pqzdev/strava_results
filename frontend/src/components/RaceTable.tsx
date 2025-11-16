@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaUserPen } from 'react-icons/fa6';
 import { FaCommentDots, FaRegCommentDots } from 'react-icons/fa6';
 import './RaceTable.css';
 
@@ -175,6 +175,9 @@ interface RaceTableProps {
   onTimeUpdate?: () => void; // Callback to refresh races after update
   availableEvents?: string[]; // List of all existing event names
   onEventUpdate?: () => void; // Callback to refresh races and events after event update
+  isEditMode?: boolean; // Whether edit mode is active
+  onEditModeChange?: (isEditMode: boolean) => void; // Callback to toggle edit mode
+  hasEditableRaces?: boolean; // Whether user has any races they can edit
 }
 
 /**
@@ -224,31 +227,29 @@ function formatDate(dateString: string): string {
 interface EditableTimeProps {
   race: Race;
   isOwner: boolean;
+  isEditMode: boolean;
   onSave: (raceId: number, newTime: number | null) => Promise<void>;
 }
 
-function EditableTime({ race, isOwner, onSave }: EditableTimeProps) {
-  const [isEditing, setIsEditing] = useState(false);
+function EditableTime({ race, isOwner, isEditMode, onSave }: EditableTimeProps) {
   const [editValue, setEditValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const displayTime = race.manual_time ?? race.elapsed_time;
   const hasManualTime = race.manual_time !== null && race.manual_time !== undefined;
 
-  // Debug logging
-  console.log(`Race ${race.id}: isOwner=${isOwner}, strava_id=${race.strava_id}`);
-
-  const handleEdit = () => {
-    setEditValue(formatTime(displayTime));
-    setIsEditing(true);
-  };
-
-  const handleCancel = () => {
-    setIsEditing(false);
-    setEditValue('');
-  };
+  // Initialize edit value when entering edit mode
+  useEffect(() => {
+    if (isEditMode && isOwner) {
+      setEditValue(formatTime(displayTime));
+      setHasUnsavedChanges(false);
+    }
+  }, [isEditMode, isOwner, displayTime]);
 
   const handleSave = async () => {
+    if (!hasUnsavedChanges) return;
+
     setIsSaving(true);
     try {
       // Parse the time string (HH:MM:SS or MM:SS)
@@ -265,8 +266,7 @@ function EditableTime({ race, isOwner, onSave }: EditableTimeProps) {
       }
 
       await onSave(race.id, seconds);
-      setIsEditing(false);
-      setEditValue('');
+      setHasUnsavedChanges(false);
     } catch (error) {
       alert('Failed to update time');
     } finally {
@@ -279,7 +279,7 @@ function EditableTime({ race, isOwner, onSave }: EditableTimeProps) {
       setIsSaving(true);
       try {
         await onSave(race.id, null);
-        setIsEditing(false);
+        setHasUnsavedChanges(false);
       } catch (error) {
         alert('Failed to clear manual time');
       } finally {
@@ -288,23 +288,28 @@ function EditableTime({ race, isOwner, onSave }: EditableTimeProps) {
     }
   };
 
-  if (isEditing) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditValue(e.target.value);
+    setHasUnsavedChanges(true);
+  };
+
+  // Auto-save when exiting edit mode
+  useEffect(() => {
+    if (!isEditMode && hasUnsavedChanges && isOwner) {
+      handleSave();
+    }
+  }, [isEditMode]);
+
+  if (isEditMode && isOwner) {
     return (
       <div className="time-edit">
         <input
           type="text"
           value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
+          onChange={handleChange}
           placeholder="HH:MM:SS"
           className="time-input"
-          autoFocus
         />
-        <button onClick={handleSave} disabled={isSaving} className="btn-save">
-          {isSaving ? '...' : '✓'}
-        </button>
-        <button onClick={handleCancel} disabled={isSaving} className="btn-cancel">
-          ✕
-        </button>
         {hasManualTime && (
           <button onClick={handleClear} disabled={isSaving} className="btn-clear" title="Clear manual time">
             ↺
@@ -317,11 +322,10 @@ function EditableTime({ race, isOwner, onSave }: EditableTimeProps) {
   return (
     <div className="time-display">
       <span>{formatTime(displayTime)}</span>
-      {hasManualTime && <span className="manual-indicator" title="Edited for accuracy">✏️</span>}
-      {isOwner && (
-        <button onClick={handleEdit} className="btn-edit" title="Edit time">
-          Edit
-        </button>
+      {hasManualTime && (
+        <span className="manual-indicator" title="Edited for accuracy">
+          <FaUserPen style={{ fontSize: '10px', marginLeft: '4px', color: '#667eea' }} />
+        </span>
       )}
     </div>
   );
@@ -330,29 +334,29 @@ function EditableTime({ race, isOwner, onSave }: EditableTimeProps) {
 interface EditableDistanceProps {
   race: Race;
   isOwner: boolean;
+  isEditMode: boolean;
   onSave: (raceId: number, newDistance: number | null) => Promise<void>;
 }
 
-function EditableDistance({ race, isOwner, onSave }: EditableDistanceProps) {
-  const [isEditing, setIsEditing] = useState(false);
+function EditableDistance({ race, isOwner, isEditMode, onSave }: EditableDistanceProps) {
   const [editValue, setEditValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const displayDistance = race.manual_distance ?? race.distance;
   const hasManualDistance = race.manual_distance !== null && race.manual_distance !== undefined;
 
-  const handleEdit = () => {
-    // Show current distance in km with 2 decimals
-    setEditValue((displayDistance / 1000).toFixed(2));
-    setIsEditing(true);
-  };
-
-  const handleCancel = () => {
-    setIsEditing(false);
-    setEditValue('');
-  };
+  // Initialize edit value when entering edit mode
+  useEffect(() => {
+    if (isEditMode && isOwner) {
+      setEditValue((displayDistance / 1000).toFixed(2));
+      setHasUnsavedChanges(false);
+    }
+  }, [isEditMode, isOwner, displayDistance]);
 
   const handleSave = async () => {
+    if (!hasUnsavedChanges) return;
+
     setIsSaving(true);
     try {
       const km = parseFloat(editValue);
@@ -363,8 +367,7 @@ function EditableDistance({ race, isOwner, onSave }: EditableDistanceProps) {
 
       const meters = Math.round(km * 1000);
       await onSave(race.id, meters);
-      setIsEditing(false);
-      setEditValue('');
+      setHasUnsavedChanges(false);
     } catch (error) {
       alert('Failed to update distance');
     } finally {
@@ -377,7 +380,7 @@ function EditableDistance({ race, isOwner, onSave }: EditableDistanceProps) {
       setIsSaving(true);
       try {
         await onSave(race.id, null);
-        setIsEditing(false);
+        setHasUnsavedChanges(false);
       } catch (error) {
         alert('Failed to clear manual distance');
       } finally {
@@ -386,24 +389,29 @@ function EditableDistance({ race, isOwner, onSave }: EditableDistanceProps) {
     }
   };
 
-  if (isEditing) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditValue(e.target.value);
+    setHasUnsavedChanges(true);
+  };
+
+  // Auto-save when exiting edit mode
+  useEffect(() => {
+    if (!isEditMode && hasUnsavedChanges && isOwner) {
+      handleSave();
+    }
+  }, [isEditMode]);
+
+  if (isEditMode && isOwner) {
     return (
       <div className="time-edit">
         <input
           type="text"
           value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
+          onChange={handleChange}
           placeholder="5.00"
           className="time-input"
-          autoFocus
         />
         <span style={{ fontSize: '12px', color: '#666' }}>km</span>
-        <button onClick={handleSave} disabled={isSaving} className="btn-save">
-          {isSaving ? '...' : '✓'}
-        </button>
-        <button onClick={handleCancel} disabled={isSaving} className="btn-cancel">
-          ✕
-        </button>
         {hasManualDistance && (
           <button onClick={handleClear} disabled={isSaving} className="btn-clear" title="Clear manual distance">
             ↺
@@ -416,11 +424,10 @@ function EditableDistance({ race, isOwner, onSave }: EditableDistanceProps) {
   return (
     <div className="time-display">
       <span>{formatDistance(displayDistance)}</span>
-      {hasManualDistance && <span className="manual-indicator" title="Edited for accuracy">✏️</span>}
-      {isOwner && (
-        <button onClick={handleEdit} className="btn-edit" title="Edit distance">
-          Edit
-        </button>
+      {hasManualDistance && (
+        <span className="manual-indicator" title="Edited for accuracy">
+          <FaUserPen style={{ fontSize: '10px', marginLeft: '4px', color: '#667eea' }} />
+        </span>
       )}
     </div>
   );
@@ -433,14 +440,18 @@ interface EditableEventProps {
   onSave: (raceId: number, newEventName: string | null) => Promise<void>;
   currentAthleteId?: number;
   allRaces: Race[];
+  isOwner: boolean;
 }
 
-function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteId, allRaces }: EditableEventProps) {
+function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteId, allRaces, isOwner }: EditableEventProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  // Only admins can edit all events, others can only edit their own
+  const canEdit = isAdmin || isOwner;
 
   // Helper to generate Strava calendar link for the race's year/month
   // Uses Text Fragments to highlight the event name on the page
@@ -645,7 +656,14 @@ function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteI
     <div className="event-display">
       {race.event_name ? (
         <>
-          <span className="event-badge">{race.event_name}</span>
+          <span
+            className={canEdit ? "event-badge event-badge-clickable" : "event-badge"}
+            onClick={canEdit ? handleEdit : undefined}
+            style={canEdit ? { cursor: 'pointer' } : undefined}
+            title={canEdit ? "Click to edit event" : undefined}
+          >
+            {race.event_name}
+          </span>
           {showFindMineLink && (
             <a
               href={getCalendarLink()}
@@ -664,19 +682,23 @@ function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteI
             </a>
           )}
         </>
+      ) : canEdit ? (
+        <span
+          className="no-event no-event-clickable"
+          onClick={handleEdit}
+          style={{ cursor: 'pointer' }}
+          title="Click to add event"
+        >
+          —
+        </span>
       ) : (
         <span className="no-event">—</span>
-      )}
-      {isAdmin && (
-        <button onClick={handleEdit} className="btn-edit" title="Edit event">
-          Edit
-        </button>
       )}
     </div>
   );
 }
 
-export default function RaceTable({ races, currentAthleteId, isAdmin = false, onTimeUpdate, availableEvents = [], onEventUpdate }: RaceTableProps) {
+export default function RaceTable({ races, currentAthleteId, isAdmin = false, onTimeUpdate, availableEvents = [], onEventUpdate, isEditMode = false }: RaceTableProps) {
   const [sortField, setSortField] = useState<keyof Race | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [descriptionOverrides, setDescriptionOverrides] = useState<Record<number, string>>({});
@@ -918,6 +940,7 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                   onSave={handleEventUpdate}
                   currentAthleteId={currentAthleteId}
                   allRaces={racesWithOverrides}
+                  isOwner={isAdmin || race.strava_id === currentAthleteId}
                 />
               </td>
               <td>
@@ -941,6 +964,7 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                 <EditableDistance
                   race={race}
                   isOwner={isAdmin || race.strava_id === currentAthleteId}
+                  isEditMode={isEditMode}
                   onSave={handleDistanceUpdate}
                 />
               </td>
@@ -948,6 +972,7 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                 <EditableTime
                   race={race}
                   isOwner={isAdmin || race.strava_id === currentAthleteId}
+                  isEditMode={isEditMode}
                   onSave={handleTimeUpdate}
                 />
               </td>

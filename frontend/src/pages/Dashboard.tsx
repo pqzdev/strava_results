@@ -73,6 +73,7 @@ export default function Dashboard() {
   const [availableEvents, setAvailableEvents] = useState<string[]>([]);
   const [showBulkEditModal, setShowBulkEditModal] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -463,6 +464,66 @@ export default function Dashboard() {
                     Bulk Edit
                   </button>
                 )}
+                {(isAdmin || (currentAthleteId && races.some(r => r.strava_id === currentAthleteId))) && pagination.total > 0 && !isEditMode && (
+                  <button
+                    onClick={() => setIsEditMode(true)}
+                    className="button button-secondary"
+                    style={{
+                      padding: '0.5rem 1rem',
+                      fontSize: '14px',
+                      backgroundColor: '#667eea',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
+                {isEditMode && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setIsEditMode(false);
+                        fetchRaces(); // Refresh to save all changes
+                      }}
+                      className="button button-secondary"
+                      style={{
+                        padding: '0.5rem 1rem',
+                        fontSize: '14px',
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                      }}
+                    >
+                      Save edits
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditMode(false);
+                        fetchRaces(); // Refresh to discard changes
+                      }}
+                      className="button button-secondary"
+                      style={{
+                        padding: '0.5rem 1rem',
+                        fontSize: '14px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                      }}
+                    >
+                      Cancel edits
+                    </button>
+                  </>
+                )}
                 <div className="per-page-selector">
                   <label htmlFor="racesPerPage">Per page:</label>
                   <select
@@ -488,6 +549,7 @@ export default function Dashboard() {
                 fetchRaces();
                 fetchAvailableEvents();
               }}
+              isEditMode={isEditMode}
             />
 
             {totalPages > 1 && (
