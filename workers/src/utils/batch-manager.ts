@@ -39,11 +39,13 @@ export interface BatchResult {
 
 /**
  * WOOD-8: Batch size configuration
+ * Reduced to stay within Cloudflare Workers' 50 subrequest limit
+ * Each activity can require multiple subrequests (DB queries, ML predictions, etc.)
  */
 export const BATCH_SIZES = {
-  INCREMENTAL: 1000,  // New activities only, fast
-  FULL_SYNC: 1000,    // All activities, moderate
-  INITIAL_SYNC: 500,  // First time, cautious (more ML predictions)
+  INCREMENTAL: 50,   // New activities only, ~2-3 subrequests per activity
+  FULL_SYNC: 50,     // All activities, ~2-3 subrequests per activity
+  INITIAL_SYNC: 25,  // First time, more ML predictions (~4-5 subrequests per activity)
 };
 
 /**
