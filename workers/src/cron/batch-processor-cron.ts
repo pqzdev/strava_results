@@ -1,20 +1,14 @@
-// WOOD-8: Cron-based batch processor
+// WOOD-8: Cron-based batch processor (Two-Phase)
 // Runs every minute to check for and process pending batches
-// Free-tier compatible, no queues needed!
+// Supports both discovery and enrichment batches
 
 import { Env } from '../types';
-import { processSyncBatch } from '../queue/batch-processor';
+import { processDiscoveryBatch } from '../queue/discovery-processor';
+import { processEnrichmentBatch } from '../queue/enrichment-processor';
 
 /**
- * WOOD-8: Batch processor cron job
- * Runs every 1-2 minutes to process pending batches
- *
- * Benefits over HTTP self-invocation:
- * - More reliable (no HTTP failures)
- * - Automatic retry (cron runs again in 1 min)
- * - Built-in rate limiting (max 1 batch per minute per worker)
- * - Simpler architecture
- * - Free tier compatible
+ * WOOD-8: Two-phase batch processor cron job
+ * Processes both discovery and enrichment batches
  */
 export async function processPendingBatches(env: Env, ctx: ExecutionContext): Promise<void> {
   console.log('[WOOD-8 Cron] Checking for pending batches...');
@@ -27,6 +21,7 @@ export async function processPendingBatches(env: Env, ctx: ExecutionContext): Pr
         sb.athlete_id,
         sb.sync_session_id,
         sb.batch_number,
+        sb.batch_type,
         a.strava_id,
         a.firstname,
         a.lastname
@@ -40,6 +35,7 @@ export async function processPendingBatches(env: Env, ctx: ExecutionContext): Pr
       athlete_id: number;
       sync_session_id: string;
       batch_number: number;
+      batch_type: string;
       strava_id: number;
       firstname: string;
       lastname: string;
@@ -54,19 +50,31 @@ export async function processPendingBatches(env: Env, ctx: ExecutionContext): Pr
 
     // Process batches sequentially to avoid overwhelming Strava API
     for (const batch of pendingBatches.results) {
-      console.log(`[WOOD-8 Cron] Processing batch ${batch.batch_number} for ${batch.firstname} ${batch.lastname} (${batch.strava_id})`);
+      const batchType = batch.batch_type || 'discovery';
+      console.log(`[WOOD-8 Cron] Processing ${batchType} batch ${batch.batch_number} for ${batch.firstname} ${batch.lastname} (${batch.strava_id})`);
 
       try {
-        // Use waitUntil to process batch without blocking cron completion
-        ctx.waitUntil(
-          processSyncBatch(
-            batch.athlete_id,
-            batch.sync_session_id,
-            batch.batch_number,
-            env,
-            ctx
-          )
-        );
+        // Route to appropriate processor based on batch type
+        if (batchType === 'enrichment') {
+          ctx.waitUntil(
+            processEnrichmentBatch(
+              batch.athlete_id,
+              batch.sync_session_id,
+              batch.batch_number,
+              env
+            )
+          );
+        } else {
+          // Default to discovery
+          ctx.waitUntil(
+            processDiscoveryBatch(
+              batch.athlete_id,
+              batch.sync_session_id,
+              batch.batch_number,
+              env
+            )
+          );
+        }
 
         console.log(`[WOOD-8 Cron] Started processing batch ${batch.batch_number} for session ${batch.sync_session_id}`);
 
