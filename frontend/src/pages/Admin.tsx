@@ -16,10 +16,18 @@ interface AdminAthlete {
   is_blocked: number;
   sync_status: string;
   sync_error?: string;
+  sync_session_id?: string;
   total_activities_count: number;
   last_synced_at?: number;
   created_at: number;
   race_count: number;
+  batch_progress?: {
+    total_batches: number;
+    completed_batches: number;
+    total_activities: number;
+    total_races_added: number;
+    current_batch?: number;
+  };
 }
 
 interface ParkrunAthlete {
@@ -1308,13 +1316,33 @@ export default function Admin() {
                         ⚠️
                       </div>
                     )}
+                    {athlete.batch_progress && athlete.sync_status === 'in_progress' && (
+                      <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: '#64748b' }}>
+                        Batch {athlete.batch_progress.completed_batches}/{athlete.batch_progress.total_batches}
+                        {athlete.batch_progress.current_batch && ` (processing #${athlete.batch_progress.current_batch})`}
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="date-cell">
                   {formatDate(athlete.last_synced_at)}
                 </td>
-                <td className="number-cell">{athlete.total_activities_count}</td>
-                <td className="number-cell">{athlete.race_count}</td>
+                <td className="number-cell">
+                  {athlete.total_activities_count}
+                  {athlete.batch_progress && athlete.sync_status === 'in_progress' && (
+                    <div style={{ fontSize: '0.7rem', color: '#0ea5e9' }}>
+                      +{athlete.batch_progress.total_activities}
+                    </div>
+                  )}
+                </td>
+                <td className="number-cell">
+                  {athlete.race_count}
+                  {athlete.batch_progress && athlete.sync_status === 'in_progress' && athlete.batch_progress.total_races_added > 0 && (
+                    <div style={{ fontSize: '0.7rem', color: '#22c55e' }}>
+                      +{athlete.batch_progress.total_races_added}
+                    </div>
+                  )}
+                </td>
                 <td>
                   <input
                     type="checkbox"
