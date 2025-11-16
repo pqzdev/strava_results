@@ -1376,7 +1376,7 @@ export default function Admin() {
                           title="WOOD-8: Batched full sync (recommended for large athletes)"
                           style={{ marginRight: '4px' }}
                         >
-                          📦 Batched
+                          🔄 Refresh
                         </button>
                         <button
                           onClick={() => triggerSync(athlete.id)}

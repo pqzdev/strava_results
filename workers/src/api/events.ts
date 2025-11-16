@@ -89,7 +89,7 @@ export async function getEventStats(request: Request, env: Env): Promise<Respons
 
       // Parse distances, format them to display names, then deduplicate
       const distancesArray = row.distances ? row.distances.split(',').map((d: string) => parseFloat(d)).filter((d: number) => !isNaN(d)) : [];
-      const formattedDistances = distancesArray.map(meters => formatDistance(meters));
+      const formattedDistances = distancesArray.map((meters: number) => formatDistance(meters));
       const uniqueDistances = [...new Set(formattedDistances)];
 
       return {
