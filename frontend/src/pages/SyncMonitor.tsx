@@ -10,6 +10,8 @@ interface Athlete {
   sync_error?: string;
   total_activities_count: number;
   last_synced_at?: number;
+  sync_session_id?: string;
+  current_batch_number?: number;
 }
 
 interface SyncLog {
@@ -21,6 +23,34 @@ interface SyncLog {
   created_at: number;
 }
 
+// WOOD-8: Batch progress types
+interface SyncBatch {
+  id: number;
+  batch_number: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  activities_fetched: number;
+  races_added: number;
+  races_removed: number;
+  started_at?: number;
+  completed_at?: number;
+  error_message?: string;
+}
+
+interface BatchProgress {
+  session_id: string;
+  summary: {
+    total_batches: number;
+    completed_batches: number;
+    failed_batches: number;
+    total_activities: number;
+    total_races_added: number;
+    total_races_removed: number;
+    current_batch?: number;
+    estimated_progress: number;
+  };
+  batches: SyncBatch[];
+}
+
 export default function SyncMonitor() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -29,6 +59,7 @@ export default function SyncMonitor() {
 
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [logs, setLogs] = useState<SyncLog[]>([]);
+  const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null); // WOOD-8
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
@@ -118,6 +149,44 @@ export default function SyncMonitor() {
 
     return () => clearInterval(interval);
   }, [sessionId, athlete?.sync_status]);
+
+  // WOOD-8: Fetch batch progress if session_id is provided
+  useEffect(() => {
+    // Use athlete's session_id if available, otherwise use URL param
+    const effectiveSessionId = athlete?.sync_session_id || sessionId;
+    if (!effectiveSessionId) return;
+
+    const fetchBatchProgress = async () => {
+      try {
+        const currentAthleteId = parseInt(
+          localStorage.getItem('strava_athlete_id') || '0'
+        );
+
+        const response = await fetch(
+          `/api/admin/batched-sync/${effectiveSessionId}/progress?admin_strava_id=${currentAthleteId}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setBatchProgress(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch batch progress:', err);
+      }
+    };
+
+    // Initial fetch
+    fetchBatchProgress();
+
+    // Poll every 2 seconds while sync is in progress
+    const interval = setInterval(() => {
+      if (athlete?.sync_status === 'in_progress') {
+        fetchBatchProgress();
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [athlete?.sync_session_id, sessionId, athlete?.sync_status]);
 
   const formatDate = (timestamp?: number) => {
     if (!timestamp) return 'Never';
@@ -242,6 +311,117 @@ export default function SyncMonitor() {
           </div>
         )}
       </div>
+
+      {/* WOOD-8: Batch Progress Section */}
+      {batchProgress && (
+        <div className="status-card" style={{ marginTop: '2rem' }}>
+          <div className="status-header">
+            <h3>📦 Batch Progress</h3>
+            <span style={{ fontSize: '0.9rem', color: '#64748b' }}>
+              Session: {batchProgress.session_id.slice(-8)}
+            </span>
+          </div>
+
+          {/* Progress Bar */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>
+                {batchProgress.summary.completed_batches} / {batchProgress.summary.total_batches} batches completed
+              </span>
+              <span style={{ fontSize: '0.9rem', color: '#64748b' }}>
+                {Math.round(batchProgress.summary.estimated_progress * 100)}%
+              </span>
+            </div>
+            <div style={{
+              width: '100%',
+              height: '8px',
+              backgroundColor: '#e5e7eb',
+              borderRadius: '4px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: `${batchProgress.summary.estimated_progress * 100}%`,
+                height: '100%',
+                backgroundColor: '#0ea5e9',
+                transition: 'width 0.3s ease'
+              }}></div>
+            </div>
+          </div>
+
+          {/* Summary Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div style={{ padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+              <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.25rem' }}>Total Activities</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>{batchProgress.summary.total_activities.toLocaleString()}</div>
+            </div>
+            <div style={{ padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+              <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.25rem' }}>Races Added</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#22c55e' }}>+{batchProgress.summary.total_races_added.toLocaleString()}</div>
+            </div>
+            {batchProgress.summary.total_races_removed > 0 && (
+              <div style={{ padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+                <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.25rem' }}>Races Removed</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#ef4444' }}>-{batchProgress.summary.total_races_removed.toLocaleString()}</div>
+              </div>
+            )}
+            {batchProgress.summary.current_batch && (
+              <div style={{ padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+                <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.25rem' }}>Current Batch</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#0ea5e9' }}>#{batchProgress.summary.current_batch}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Batch List */}
+          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            {batchProgress.batches.map((batch) => (
+              <div
+                key={batch.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0.75rem',
+                  marginBottom: '0.5rem',
+                  backgroundColor: batch.status === 'processing' ? '#eff6ff' : '#f8fafc',
+                  borderLeft: `4px solid ${
+                    batch.status === 'completed' ? '#22c55e' :
+                    batch.status === 'processing' ? '#0ea5e9' :
+                    batch.status === 'failed' ? '#ef4444' :
+                    '#94a3b8'
+                  }`,
+                  borderRadius: '4px'
+                }}
+              >
+                <div style={{ fontSize: '1.25rem', marginRight: '1rem' }}>
+                  {batch.status === 'completed' ? '✅' :
+                   batch.status === 'processing' ? '⏳' :
+                   batch.status === 'failed' ? '❌' :
+                   batch.status === 'cancelled' ? '🚫' : '⏸️'}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
+                    Batch #{batch.batch_number}
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: '#64748b', textTransform: 'uppercase' }}>
+                      {batch.status}
+                    </span>
+                  </div>
+                  {batch.status === 'completed' && (
+                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                      {batch.activities_fetched} activities, {batch.races_added} races added
+                      {batch.races_removed > 0 && `, ${batch.races_removed} removed`}
+                    </div>
+                  )}
+                  {batch.error_message && (
+                    <div style={{ fontSize: '0.85rem', color: '#ef4444', marginTop: '0.25rem' }}>
+                      Error: {batch.error_message}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Sync Logs Section */}
       {sessionId && logs.length > 0 && (

@@ -7,12 +7,21 @@ CREATE TABLE IF NOT EXISTS athletes (
     firstname TEXT NOT NULL,
     lastname TEXT NOT NULL,
     profile_photo TEXT,
-    access_token TEXT NOT NULL,
-    refresh_token TEXT NOT NULL,
-    token_expiry INTEGER NOT NULL, -- Unix timestamp
+    access_token TEXT,  -- Nullable for manual submission athletes
+    refresh_token TEXT, -- Nullable for manual submission athletes
+    token_expiry INTEGER, -- Unix timestamp, nullable
     created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-    last_synced_at INTEGER -- Last successful activity fetch
+    last_synced_at INTEGER, -- Last successful activity fetch
+    is_admin INTEGER DEFAULT 0, -- 0 = false, 1 = true
+    is_hidden INTEGER DEFAULT 0, -- Hide from public results
+    is_blocked INTEGER DEFAULT 0, -- Prevent registration
+    sync_status TEXT DEFAULT 'pending', -- pending, in_progress, completed, error
+    sync_error TEXT, -- Error message if sync failed
+    total_activities_count INTEGER DEFAULT 0, -- Total activities fetched (not just races)
+    current_batch_number INTEGER DEFAULT 0, -- WOOD-8: Current batch being processed
+    total_batches_expected INTEGER, -- WOOD-8: Total number of batches expected
+    sync_session_id TEXT -- WOOD-8: Active sync session ID
 );
 
 -- Create index on strava_id for faster lookups
@@ -57,6 +66,37 @@ CREATE TABLE IF NOT EXISTS sync_logs (
 
 -- Create index on sync timestamps
 CREATE INDEX IF NOT EXISTS idx_sync_logs_started ON sync_logs(sync_started_at DESC);
+
+-- WOOD-8: Sync batches table: track individual batch jobs for handling large activity datasets
+CREATE TABLE IF NOT EXISTS sync_batches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- Association
+    athlete_id INTEGER NOT NULL,
+    sync_session_id TEXT NOT NULL,  -- Links all batches in a sync
+    batch_number INTEGER NOT NULL,
+    -- Pagination state
+    before_timestamp INTEGER,       -- Pagination cursor (where this batch started)
+    after_timestamp INTEGER,        -- For incremental syncs
+    -- Batch results
+    activities_fetched INTEGER DEFAULT 0,
+    races_added INTEGER DEFAULT 0,
+    races_removed INTEGER DEFAULT 0,
+    -- Status tracking
+    status TEXT NOT NULL,           -- 'pending', 'processing', 'completed', 'failed', 'cancelled'
+    started_at INTEGER,
+    completed_at INTEGER,
+    error_message TEXT,
+    -- Metadata
+    strava_rate_limit_15min INTEGER,
+    strava_rate_limit_daily INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    FOREIGN KEY (athlete_id) REFERENCES athletes(id) ON DELETE CASCADE
+);
+
+-- Indexes for efficient batch queries
+CREATE INDEX IF NOT EXISTS idx_sync_batches_session ON sync_batches(sync_session_id, batch_number);
+CREATE INDEX IF NOT EXISTS idx_sync_batches_athlete_status ON sync_batches(athlete_id, status);
+CREATE INDEX IF NOT EXISTS idx_sync_batches_pending ON sync_batches(status, created_at) WHERE status = 'pending';
 
 -- Parkrun results table: stores parkrun results for the club
 CREATE TABLE IF NOT EXISTS parkrun_results (

@@ -843,6 +843,47 @@ export default function Admin() {
     }
   };
 
+  // WOOD-8: Trigger batched sync for large athletes
+  const triggerBatchedSync = async (athleteId: number, fullSync: boolean = true) => {
+    setSyncing((prev) => new Set(prev).add(athleteId));
+
+    try {
+      const response = await fetch(
+        `/api/admin/athletes/${athleteId}/batched-sync`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            admin_strava_id: currentAthleteId,
+            full_sync: fullSync
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to start batched sync');
+      }
+
+      const data = await response.json();
+
+      // Show success message
+      const athlete = athletes.find(a => a.id === athleteId);
+      const athleteName = athlete ? `${athlete.firstname} ${athlete.lastname}` : `Athlete ${athleteId}`;
+      alert(`✅ ${fullSync ? 'Full' : 'Incremental'} batched sync started for ${athleteName}\n\nSession ID: ${data.session_id}\n\nThe sync will process in batches of 1,000 activities. Check the Sync Dashboard for progress.`);
+
+      // Refresh athletes to show updated state
+      await fetchAthletes();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to start batched sync');
+    } finally {
+      setSyncing((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(athleteId);
+        return newSet;
+      });
+    }
+  };
+
   const stopSync = async (athleteId: number) => {
     try {
       const response = await fetch(
@@ -1327,14 +1368,26 @@ export default function Admin() {
                         ⏹️ Stop
                       </button>
                     ) : (
-                      <button
-                        onClick={() => triggerSync(athlete.id)}
-                        disabled={syncing.has(athlete.id)}
-                        className="button button-sync"
-                        title="Queue athlete for full sync (high priority)"
-                      >
-                        🚀 Queue
-                      </button>
+                      <>
+                        <button
+                          onClick={() => triggerBatchedSync(athlete.id, true)}
+                          disabled={syncing.has(athlete.id)}
+                          className="button button-sync"
+                          title="WOOD-8: Batched full sync (recommended for large athletes)"
+                          style={{ marginRight: '4px' }}
+                        >
+                          📦 Batched
+                        </button>
+                        <button
+                          onClick={() => triggerSync(athlete.id)}
+                          disabled={syncing.has(athlete.id)}
+                          className="button button-sync"
+                          title="Legacy: Queue athlete for full sync (high priority)"
+                          style={{ fontSize: '0.85em', padding: '4px 8px' }}
+                        >
+                          🚀 Queue
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={() =>
