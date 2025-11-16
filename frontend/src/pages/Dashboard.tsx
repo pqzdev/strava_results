@@ -358,7 +358,7 @@ export default function Dashboard() {
       <div className="container">
         <div className="dashboard-header">
           <h1>Race Results</h1>
-          <p className="subtitle">View and filter race activities from all club members</p>
+          <p className="subtitle">View and filter race activities (public activities tagged as a race on Strava) from all club members</p>
         </div>
 
         <RaceFilters
