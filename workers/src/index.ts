@@ -170,6 +170,11 @@ export default {
         return getAdminSyncLogs(request, env);
       }
 
+      // Get sync status (queue stats)
+      if (path === '/api/admin/sync-status' && request.method === 'GET') {
+        return getAdminSyncStatus(request, env);
+      }
+
       // Check if user is admin
       if (path === '/api/admin/check' && request.method === 'GET') {
         return checkAdmin(request, env);

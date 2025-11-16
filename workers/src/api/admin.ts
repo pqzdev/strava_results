@@ -681,8 +681,16 @@ export async function triggerBatchedAthleteSync(
     );
   } catch (error) {
     console.error('[WOOD-8] Error triggering batched sync:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = error instanceof Error ? error.stack : String(error);
+    console.error('[WOOD-8] Error details:', errorDetails);
+
     return new Response(
-      JSON.stringify({ error: 'Failed to trigger batched sync' }),
+      JSON.stringify({
+        error: 'Failed to trigger batched sync',
+        details: errorMessage,
+        hint: 'Check if migration 0023 has been applied to the database'
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
