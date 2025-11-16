@@ -288,7 +288,9 @@ export async function getQueueStats(env: Env): Promise<{
 }> {
   const now = Date.now();
   const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
+  const twentyFourHoursAgoUnix = Math.floor(twentyFourHoursAgo / 1000);
 
+  // Get legacy queue stats
   const stats = await env.DB.prepare(`
     SELECT
       COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
@@ -300,12 +302,22 @@ export async function getQueueStats(env: Env): Promise<{
     WHERE created_at > ?
   `).bind(twentyFourHoursAgo, twentyFourHoursAgo, twentyFourHoursAgo).first();
 
+  // Get batched sync stats (WOOD-8)
+  const batchedStats = await env.DB.prepare(`
+    SELECT
+      COUNT(DISTINCT CASE WHEN a.sync_status = 'in_progress' THEN a.sync_session_id END) as processing,
+      COUNT(DISTINCT CASE WHEN sb.status = 'completed' AND sb.completed_at > ? THEN sb.sync_session_id END) as completed_24h
+    FROM athletes a
+    LEFT JOIN sync_batches sb ON a.id = sb.athlete_id AND sb.completed_at > ?
+    WHERE a.sync_session_id IS NOT NULL OR sb.sync_session_id IS NOT NULL
+  `).bind(twentyFourHoursAgoUnix, twentyFourHoursAgoUnix).first();
+
   return {
     pending: Number(stats?.pending) || 0,
-    processing: Number(stats?.processing) || 0,
-    completed_24h: Number(stats?.completed_24h) || 0,
+    processing: (Number(stats?.processing) || 0) + (Number(batchedStats?.processing) || 0),
+    completed_24h: (Number(stats?.completed_24h) || 0) + (Number(batchedStats?.completed_24h) || 0),
     failed_24h: Number(stats?.failed_24h) || 0,
-    total_queued: Number(stats?.total_queued) || 0,
+    total_queued: (Number(stats?.total_queued) || 0) + (Number(batchedStats?.processing) || 0) + (Number(batchedStats?.completed_24h) || 0),
   };
 }
 

@@ -534,7 +534,7 @@ export async function checkAdmin(request: Request, env: Env): Promise<Response> 
 }
 
 /**
- * GET /api/admin/sync-status - Get sync queue status
+ * GET /api/admin/sync-status - Get sync queue status (includes both legacy queue and batched syncs)
  */
 export async function getAdminSyncStatus(request: Request, env: Env): Promise<Response> {
   try {
@@ -554,10 +554,56 @@ export async function getAdminSyncStatus(request: Request, env: Env): Promise<Re
       );
     }
 
-    const status = await getSyncQueueStatus(env);
+    // Get legacy queue status
+    const queueStatus = await getSyncQueueStatus(env);
+
+    // Get batched sync sessions (WOOD-8)
+    const batchedSyncs = await env.DB.prepare(`
+      SELECT
+        a.id as athlete_id,
+        a.strava_id,
+        a.firstname,
+        a.lastname,
+        a.sync_session_id,
+        sb.batch_type,
+        COUNT(*) as total_batches,
+        SUM(CASE WHEN sb.status = 'completed' THEN 1 ELSE 0 END) as completed_batches,
+        SUM(CASE WHEN sb.status = 'completed' THEN sb.activities_fetched ELSE 0 END) as activities_synced,
+        MIN(sb.created_at) as started_at
+      FROM athletes a
+      JOIN sync_batches sb ON a.sync_session_id = sb.sync_session_id
+      WHERE a.sync_status = 'in_progress'
+        AND a.sync_session_id IS NOT NULL
+      GROUP BY a.id, a.strava_id, a.firstname, a.lastname, a.sync_session_id, sb.batch_type
+      ORDER BY MIN(sb.created_at) DESC
+    `).all();
+
+    // Combine batched syncs into the active list
+    const batchedActive = (batchedSyncs.results || []).map((sync: any) => ({
+      id: `batch-${sync.sync_session_id}`,
+      athlete_id: sync.athlete_id,
+      strava_id: sync.strava_id,
+      first_name: sync.firstname,
+      last_name: sync.lastname,
+      job_type: `batched_${sync.batch_type}`,
+      status: 'processing',
+      started_at: sync.started_at * 1000,
+      activities_synced: sync.activities_synced,
+      total_activities_expected: null,
+      error_message: null,
+      created_at: sync.started_at * 1000,
+      completed_at: null,
+    }));
+
+    // Merge with legacy queue status
+    const combinedStatus = {
+      active: [...queueStatus.active, ...batchedActive],
+      pending: queueStatus.pending,
+      recent: queueStatus.recent,
+    };
 
     return new Response(
-      JSON.stringify(status),
+      JSON.stringify(combinedStatus),
       {
         status: 200,
         headers: {
