@@ -2703,8 +2703,8 @@ export default function Admin() {
                 {syncQueueStatus.active.length === 0 ? (
                   <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No active syncs</p>
                 ) : (
-                  <div className="athletes-table-container">
-                    <table className="athletes-table">
+                  <div className="admin-table-container">
+                    <table className="admin-table">
                       <thead>
                         <tr>
                           <th>Sync ID</th>
@@ -2731,11 +2731,11 @@ export default function Admin() {
 
                           return (
                             <tr key={job.id}>
-                              <td>{job.id}</td>
+                              <td className="number-cell">{job.id}</td>
                               <td>
                                 {job.first_name} {job.last_name}
                               </td>
-                              <td>{job.strava_id}</td>
+                              <td className="strava-link">{job.strava_id}</td>
                               <td>{job.job_type}</td>
                               <td>
                                 <span
@@ -2744,13 +2744,13 @@ export default function Admin() {
                                   {job.status}
                                 </span>
                               </td>
-                              <td>
+                              <td className="date-cell">
                                 {startTime
                                   ? startTime.toLocaleString()
                                   : '-'}
                               </td>
-                              <td>{durationText}</td>
-                              <td>
+                              <td className="number-cell">{durationText}</td>
+                              <td className="number-cell">
                                 {job.total_activities_expected
                                   ? `${job.activities_synced} / ${job.total_activities_expected}`
                                   : `${job.activities_synced} activities`}
@@ -2792,8 +2792,8 @@ export default function Admin() {
                 {syncQueueStatus.recent.length === 0 ? (
                   <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No recent syncs</p>
                 ) : (
-                  <div className="athletes-table-container">
-                    <table className="athletes-table">
+                  <div className="admin-table-container">
+                    <table className="admin-table">
                       <thead>
                         <tr>
                           <th>Sync ID</th>
@@ -2822,11 +2822,11 @@ export default function Admin() {
 
                           return (
                             <tr key={job.id}>
-                              <td>{job.id}</td>
+                              <td className="number-cell">{job.id}</td>
                               <td>
                                 {job.first_name} {job.last_name}
                               </td>
-                              <td>{job.strava_id}</td>
+                              <td className="strava-link">{job.strava_id}</td>
                               <td>{job.job_type}</td>
                               <td>
                                 <span
@@ -2835,19 +2835,19 @@ export default function Admin() {
                                   {job.status}
                                 </span>
                               </td>
-                              <td>
+                              <td className="date-cell">
                                 {startTime
                                   ? startTime.toLocaleString()
                                   : '-'}
                               </td>
-                              <td>
+                              <td className="date-cell">
                                 {endTime
                                   ? endTime.toLocaleString()
                                   : '-'}
                               </td>
-                              <td>{durationText}</td>
-                              <td>{job.activities_synced || 0}</td>
-                              <td>-</td>
+                              <td className="number-cell">{durationText}</td>
+                              <td className="number-cell">{job.activities_synced || 0}</td>
+                              <td className="number-cell">-</td>
                               <td>
                                 {job.error_message && (
                                   <span style={{ color: '#dc2626', fontSize: '0.85rem' }}>

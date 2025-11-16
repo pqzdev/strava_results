@@ -80,8 +80,13 @@
   font-size: 0.875rem;
 }
 
+.admin-table tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+
 .admin-table tbody tr:hover {
-  background: var(--gray-50);
+  background: #e5e7eb;
+  transition: background 0.15s ease;
 }
 
 .athlete-cell {
@@ -122,21 +127,31 @@
   text-transform: uppercase;
 }
 
+.status-badge.completed,
 .status-completed {
   background: #d1fae5;
   color: #065f46;
 }
 
+.status-badge.synced {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.syncing,
+.status-badge.processing,
 .status-in-progress {
   background: #dbeafe;
   color: #1e40af;
 }
 
+.status-badge.error,
 .status-error {
   background: #fee2e2;
   color: #991b1b;
 }
 
+.status-badge.pending,
 .status-pending {
   background: #fef3c7;
   color: #92400e;
@@ -170,13 +185,31 @@
   gap: 0.5rem;
 }
 
+.action-button,
 .button {
-  padding: 0.5rem;
+  padding: 0.5rem 1rem;
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
   transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.action-button:hover,
+.button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.action-button.delete {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.action-button.delete:hover {
+  background: #fecaca;
 }
 
 .button:disabled {
