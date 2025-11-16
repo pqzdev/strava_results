@@ -860,15 +860,17 @@ export async function getAthletes(env: Env): Promise<Response> {
   try {
     const result = await env.DB.prepare(
       `SELECT
-        strava_id,
-        firstname,
-        lastname,
-        profile_photo,
-        created_at,
-        last_synced_at,
-        (SELECT COUNT(*) FROM races WHERE athlete_id = athletes.id) as race_count
-      FROM athletes
-      ORDER BY lastname, firstname`
+        a.strava_id,
+        a.firstname,
+        a.lastname,
+        a.profile_photo,
+        a.created_at,
+        a.last_synced_at,
+        COALESCE(COUNT(r.id), 0) as race_count
+      FROM athletes a
+      LEFT JOIN races r ON r.athlete_id = a.id
+      GROUP BY a.id
+      ORDER BY a.lastname, a.firstname`
     ).all();
 
     return new Response(JSON.stringify({ athletes: result.results }), {

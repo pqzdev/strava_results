@@ -39,11 +39,13 @@ export interface BatchResult {
 
 /**
  * WOOD-8: Batch size configuration
+ * Reduced to stay within Cloudflare Workers' 50 subrequest limit
+ * Each activity can require multiple subrequests (DB queries, ML predictions, etc.)
  */
 export const BATCH_SIZES = {
-  INCREMENTAL: 1000,  // New activities only, fast
-  FULL_SYNC: 1000,    // All activities, moderate
-  INITIAL_SYNC: 500,  // First time, cautious (more ML predictions)
+  INCREMENTAL: 50,   // New activities only, ~2-3 subrequests per activity
+  FULL_SYNC: 50,     // All activities, ~2-3 subrequests per activity
+  INITIAL_SYNC: 25,  // First time, more ML predictions (~4-5 subrequests per activity)
 };
 
 /**
@@ -185,20 +187,24 @@ export async function completeBatch(
 
 /**
  * WOOD-8: Get all batches for a sync session
+ * Limits to most recent batches to reduce row reads
  */
 export async function getSessionBatches(
   sessionId: string,
-  env: Env
+  env: Env,
+  limit: number = 100
 ): Promise<SyncBatch[]> {
   const result = await env.DB.prepare(
     `SELECT * FROM sync_batches
      WHERE sync_session_id = ?
-     ORDER BY batch_number ASC`
+     ORDER BY batch_number DESC
+     LIMIT ?`
   )
-    .bind(sessionId)
+    .bind(sessionId, limit)
     .all<SyncBatch>();
 
-  return result.results || [];
+  // Reverse to get chronological order (oldest to newest)
+  return (result.results || []).reverse();
 }
 
 /**
