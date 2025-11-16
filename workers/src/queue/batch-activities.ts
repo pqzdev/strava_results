@@ -173,8 +173,9 @@ export async function insertRaceOptimized(
   if (persistedIsHidden !== null && persistedIsHidden !== undefined) {
     isHidden = persistedIsHidden;
   } else {
-    // Auto-detect parkruns using ML
-    const isParkrun = await isParkrunActivity(activity);
+    // WOOD-8: Temporarily disable ML to reduce subrequests
+    // Use fallback detection only to avoid HTTP calls to ML API
+    const isParkrun = fallbackParkrunDetection(activity);
     isHidden = isParkrun ? 1 : 0;
 
     if (isParkrun) {
