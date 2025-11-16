@@ -598,7 +598,6 @@ export async function getAdminSyncStatus(request: Request, env: Env): Promise<Re
     // Merge with legacy queue status
     const combinedStatus = {
       active: [...queueStatus.active, ...batchedActive],
-      pending: queueStatus.pending,
       recent: queueStatus.recent,
     };
 

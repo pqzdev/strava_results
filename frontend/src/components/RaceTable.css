@@ -184,9 +184,23 @@
   max-width: 100%;
 }
 
+.event-badge-clickable {
+  transition: all 0.2s;
+}
+
+.event-badge-clickable:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
 .no-event {
   color: #adb5bd;
   font-style: italic;
+}
+
+.no-event-clickable:hover {
+  color: #667eea;
 }
 
 @media (max-width: 768px) {
