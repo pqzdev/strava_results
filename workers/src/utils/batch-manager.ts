@@ -40,16 +40,16 @@ export interface BatchResult {
 /**
  * WOOD-8: Batch size configuration
  * Sized to stay within Cloudflare Workers' 50 subrequest limit
- * With ML disabled (rules-based detection only):
- * - Setup: ~10 subrequests
+ * Subrequest breakdown:
+ * - Setup (batch management, athlete queries, token, Strava API): ~12
  * - Each activity INSERT: 1 subrequest
- * - Batch queries (event mappings, existing races): ~2-3 subrequests
- * - Total for 35 activities: ~48 subrequests (safe margin)
+ * - Batch queries (event mappings, existing races): ~3
+ * - Total for 30 activities: ~12 + 30 + 3 = 45 subrequests (safe margin)
  */
 export const BATCH_SIZES = {
-  INCREMENTAL: 35,   // New activities only, rules-based detection
-  FULL_SYNC: 35,     // All activities, rules-based detection
-  INITIAL_SYNC: 30,  // First time, slightly more conservative
+  INCREMENTAL: 30,   // New activities only
+  FULL_SYNC: 30,     // All activities
+  INITIAL_SYNC: 25,  // First time, more conservative
 };
 
 /**

@@ -150,7 +150,11 @@ export async function insertRaceOptimized(
   let description = activity.description || null;
   let rawResponse = null;
 
-  // Only fetch detailed activity if no polyline available
+  // WOOD-8: Temporarily disable detailed activity fetching to reduce subrequests
+  // Each fetchDetailedActivity is 1 HTTP call to Strava, which counts as a subrequest
+  // With 35 activities per batch, this could be 35 HTTP calls, exceeding the 50 limit
+  // TODO: Re-enable in batches of activities that need it
+  /*
   if (!polyline && accessToken) {
     const detailed = await fetchDetailedActivity(activity.id, accessToken);
 
@@ -166,6 +170,7 @@ export async function insertRaceOptimized(
       rawResponse = detailed.rawResponse;
     }
   }
+  */
 
   let isHidden = 0;
 

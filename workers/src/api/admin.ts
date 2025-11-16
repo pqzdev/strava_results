@@ -656,11 +656,11 @@ export async function triggerBatchedAthleteSync(
       await cancelSession(currentStatus.sync_session_id, env);
     }
 
-    // Initiate new batched sync
-    const fullSync = body.full_sync || false;
-    const sessionId = await initiateBatchedSync(athleteId, fullSync, env, ctx);
+    // Initiate new two-phase batched sync (discovery + enrichment)
+    const fullSync = body.full_sync !== false; // Default to full sync
+    const sessionId = await initiateDiscoverySync(athleteId, fullSync, env);
 
-    console.log(`[WOOD-8] Initiated ${fullSync ? 'FULL' : 'incremental'} batched sync for ${athlete.firstname} ${athlete.lastname} (session: ${sessionId})`);
+    console.log(`[WOOD-8] Initiated ${fullSync ? 'FULL' : 'incremental'} discovery sync for ${athlete.firstname} ${athlete.lastname} (session: ${sessionId})`);
 
     return new Response(
       JSON.stringify({
@@ -742,4 +742,60 @@ export async function getBatchedSyncProgress(
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
+}
+
+/**
+ * WOOD-8: Initiate discovery sync (Phase 1 of two-phase sync)
+ * Creates first discovery batch to find races
+ */
+async function initiateDiscoverySync(
+  athleteId: number,
+  fullSync: boolean,
+  env: Env
+): Promise<string> {
+  const sessionId = `discovery_${Date.now()}_${athleteId}`;
+  const now = Math.floor(Date.now() / 1000);
+
+  // Update athlete status
+  await env.DB.prepare(
+    `UPDATE athletes
+     SET sync_status = 'in_progress',
+         sync_error = NULL,
+         sync_session_id = ?,
+         current_batch_number = 1,
+         total_batches_expected = NULL
+     WHERE id = ?`
+  )
+    .bind(sessionId, athleteId)
+    .run();
+
+  // Create first discovery batch
+  // For full sync: no after_timestamp, start from oldest
+  // For incremental: use last_synced_at as after_timestamp
+  const athlete = await env.DB.prepare(
+    `SELECT last_synced_at FROM athletes WHERE id = ?`
+  )
+    .bind(athleteId)
+    .first<{ last_synced_at: number | null }>();
+
+  const afterTimestamp = fullSync ? undefined : (athlete?.last_synced_at || undefined);
+
+  await env.DB.prepare(
+    `INSERT INTO sync_batches (
+      athlete_id, sync_session_id, batch_number,
+      before_timestamp, after_timestamp, status, batch_type
+    ) VALUES (?, ?, ?, ?, ?, 'pending', 'discovery')`
+  )
+    .bind(
+      athleteId,
+      sessionId,
+      1,
+      null, // Will be set during pagination
+      afterTimestamp || null
+    )
+    .run();
+
+  console.log(`[WOOD-8] Created discovery session ${sessionId} for athlete ${athleteId}`);
+
+  return sessionId;
 }
