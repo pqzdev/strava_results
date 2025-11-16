@@ -2,6 +2,8 @@
 import { Env } from '../types';
 import { syncAthlete, getSyncQueueStatus, stopSync } from '../queue/sync-queue';
 import { getSyncLogs } from '../utils/sync-logger';
+import { initiateBatchedSync } from '../queue/batch-processor';
+import { getSessionSummary, getSessionBatches, cancelSession } from '../utils/batch-manager';
 
 /**
  * Check if a user is an admin
@@ -602,6 +604,132 @@ export async function stopSyncJob(request: Request, env: Env): Promise<Response>
     return new Response(
       JSON.stringify({ error: 'Failed to stop sync' }),
       { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  }
+}
+
+/**
+ * WOOD-8: POST /api/admin/athletes/:id/batched-sync - Trigger batched sync for athlete
+ * Uses new batched sync architecture for handling large activity datasets
+ */
+export async function triggerBatchedAthleteSync(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  athleteId: number
+): Promise<Response> {
+  try {
+    const body = await request.json() as { admin_strava_id: number; full_sync?: boolean };
+
+    if (!body.admin_strava_id || !(await isAdmin(body.admin_strava_id, env))) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get athlete
+    const athlete = await env.DB.prepare(
+      'SELECT strava_id, firstname, lastname FROM athletes WHERE id = ?'
+    )
+      .bind(athleteId)
+      .first<{ strava_id: number; firstname: string; lastname: string }>();
+
+    if (!athlete) {
+      return new Response(
+        JSON.stringify({ error: 'Athlete not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Cancel any existing in-progress sync
+    const currentStatus = await env.DB.prepare(
+      'SELECT sync_status, sync_session_id FROM athletes WHERE id = ?'
+    )
+      .bind(athleteId)
+      .first<{ sync_status: string; sync_session_id: string }>();
+
+    if (currentStatus?.sync_status === 'in_progress' && currentStatus.sync_session_id) {
+      console.log(`[WOOD-8] Cancelling existing sync session ${currentStatus.sync_session_id}`);
+      await cancelSession(currentStatus.sync_session_id, env);
+    }
+
+    // Initiate new batched sync
+    const fullSync = body.full_sync || false;
+    const sessionId = await initiateBatchedSync(athleteId, fullSync, env, ctx);
+
+    console.log(`[WOOD-8] Initiated ${fullSync ? 'FULL' : 'incremental'} batched sync for ${athlete.firstname} ${athlete.lastname} (session: ${sessionId})`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `${fullSync ? 'Full' : 'Incremental'} batched sync initiated`,
+        session_id: sessionId,
+        athlete: {
+          id: athleteId,
+          strava_id: athlete.strava_id,
+          name: `${athlete.firstname} ${athlete.lastname}`,
+        }
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('[WOOD-8] Error triggering batched sync:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to trigger batched sync' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
+/**
+ * WOOD-8: GET /api/admin/batched-sync/:sessionId/progress - Get batch progress
+ */
+export async function getBatchedSyncProgress(
+  request: Request,
+  env: Env,
+  sessionId: string
+): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const adminStravaId = parseInt(url.searchParams.get('admin_strava_id') || '0');
+
+    if (!adminStravaId || !(await isAdmin(adminStravaId, env))) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get session summary and batches
+    const summary = await getSessionSummary(sessionId, env);
+    const batches = await getSessionBatches(sessionId, env);
+
+    return new Response(
+      JSON.stringify({
+        session_id: sessionId,
+        summary,
+        batches,
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('[WOOD-8] Error fetching batch progress:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to fetch batch progress' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }
