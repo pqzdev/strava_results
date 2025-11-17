@@ -36,6 +36,9 @@ interface ParkrunAthlete {
   is_hidden: number;
   run_count: number;
   top_events?: Array<{ event_name: string; count: number }>;
+  has_left_club?: number;
+  last_club_run_date?: string | null;
+  last_individual_run_date?: string | null;
 }
 
 interface EventSuggestion {
@@ -2161,6 +2164,12 @@ export default function Admin() {
           </div>
           <div className="stat-label">Visible</div>
         </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: '#ef4444' }}>
+            {parkrunAthletes.filter((a) => a.has_left_club === 1).length}
+          </div>
+          <div className="stat-label">Left Club 🚪</div>
+        </div>
       </div>
 
       <div className="admin-table-container">
@@ -2185,6 +2194,18 @@ export default function Admin() {
                 <td>
                   <div className="athlete-cell">
                     <span>{athlete.athlete_name}</span>
+                    {athlete.has_left_club === 1 && (
+                      <span
+                        title="Left Woodstock parkrun group"
+                        style={{
+                          marginLeft: '0.5rem',
+                          fontSize: '1.1rem',
+                          color: '#ef4444',
+                        }}
+                      >
+                        🚪
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="number-cell">{athlete.run_count}</td>

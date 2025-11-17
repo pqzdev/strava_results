@@ -168,6 +168,72 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
         )
         .run();
 
+      // Check if athlete has left the club
+      // Logic: If most recent individual run is > 2 weeks after most recent club run, they've left
+      const athleteNameToUse = athleteName || 'Unknown';
+
+      // Get most recent club run (data_source='club' or NULL for old data)
+      const lastClubRun = await env.DB.prepare(
+        `SELECT MAX(date) as last_date
+         FROM parkrun_results
+         WHERE athlete_name = ?
+           AND (data_source = 'club' OR data_source IS NULL)
+           AND parkrun_athlete_id = ?`
+      )
+        .bind(athleteNameToUse, parkrunAthleteId)
+        .first<{ last_date: string | null }>();
+
+      // Get most recent individual run
+      const lastIndividualRun = await env.DB.prepare(
+        `SELECT MAX(date) as last_date
+         FROM parkrun_results
+         WHERE athlete_name = ?
+           AND data_source = 'individual'
+           AND parkrun_athlete_id = ?`
+      )
+        .bind(athleteNameToUse, parkrunAthleteId)
+        .first<{ last_date: string | null }>();
+
+      let hasLeftClub = false;
+      const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
+      if (lastClubRun?.last_date && lastIndividualRun?.last_date) {
+        const clubDate = new Date(lastClubRun.last_date).getTime();
+        const individualDate = new Date(lastIndividualRun.last_date).getTime();
+
+        // If individual runs are more than 2 weeks after last club run, they've left
+        if (individualDate - clubDate > TWO_WEEKS_MS) {
+          hasLeftClub = true;
+        }
+      }
+
+      // Update parkrun_athletes table with dates and left status
+      await env.DB.prepare(
+        `INSERT INTO parkrun_athletes
+         (athlete_name, has_left_club, last_club_run_date, last_individual_run_date,
+          left_club_detected_at, is_hidden)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(athlete_name) DO UPDATE SET
+           last_club_run_date = excluded.last_club_run_date,
+           last_individual_run_date = excluded.last_individual_run_date,
+           has_left_club = excluded.has_left_club,
+           left_club_detected_at = excluded.left_club_detected_at,
+           is_hidden = CASE
+             WHEN excluded.has_left_club = 1 THEN 1
+             ELSE is_hidden
+           END,
+           updated_at = strftime('%s', 'now')`
+      )
+        .bind(
+          athleteNameToUse,
+          hasLeftClub ? 1 : 0,
+          lastClubRun?.last_date || null,
+          lastIndividualRun?.last_date || null,
+          hasLeftClub ? scrapeCompletedTime : null,
+          hasLeftClub ? 1 : 0 // Auto-hide if they left
+        )
+        .run();
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -178,6 +244,9 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
           new_results_added: imported,
           duplicates_skipped: duplicatesSkipped,
           errors,
+          has_left_club: hasLeftClub,
+          last_club_run_date: lastClubRun?.last_date || null,
+          last_individual_run_date: lastIndividualRun?.last_date || null,
         }),
         {
           headers: {
