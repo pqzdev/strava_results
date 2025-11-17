@@ -32,14 +32,14 @@
 
   const CONFIG = {
     clubNum: parseInt(urlParams.get('clubNum') || '19959'), // Woodstock Runners
-    startDate: urlParams.get('startDate') || '2024-01-01', // Start of 2024
+    startDate: urlParams.get('startDate') || '2022-01-01', // Default: Start of 2022
     endDate: urlParams.get('endDate') || new Date().toISOString().split('T')[0], // Today
     delayBetweenRequests: 2000, // 2 seconds (be respectful)
     clubName: 'Woodstock Runners', // Exact club name to filter
     maxFibonacciWait: 34, // Maximum fibonacci backoff in seconds (matches server-side)
     batchSize: 10, // Upload to API every 10 dates (matches server-side)
-    apiEndpoint: urlParams.get('apiEndpoint') || '', // API endpoint to POST results
-    autoUpload: urlParams.get('autoUpload') === 'true', // Auto-upload to API
+    apiEndpoint: urlParams.get('apiEndpoint') || 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import', // API endpoint to POST results
+    autoUpload: urlParams.get('autoUpload') !== 'false', // Auto-upload by default (disable with autoUpload=false)
     replaceMode: urlParams.get('replaceMode') === 'true', // Replace all existing data on first upload
   };
 
