@@ -39,6 +39,7 @@ interface ParkrunAthlete {
   has_left_club?: number;
   last_club_run_date?: string | null;
   last_individual_run_date?: string | null;
+  parkrun_athlete_id?: string | null;
 }
 
 interface EventSuggestion {
@@ -2336,7 +2337,17 @@ export default function Admin() {
               <tr key={athlete.athlete_name}>
                 <td>
                   <div className="athlete-cell">
-                    <span>{athlete.athlete_name}</span>
+                    {athlete.parkrun_athlete_id ? (
+                      <a
+                        href={`https://www.parkrun.com.au/parkrunner/${athlete.parkrun_athlete_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {athlete.athlete_name}
+                      </a>
+                    ) : (
+                      <span>{athlete.athlete_name}</span>
+                    )}
                     {athlete.has_left_club === 1 && (
                       <span
                         title="Left Woodstock parkrun group"
