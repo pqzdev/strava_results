@@ -2117,12 +2117,14 @@ export default function Admin() {
               window.open('http://homeassistant11.local:8123', '_blank');
               alert(
                 '✅ Opening Home Assistant...\n\n' +
-                'To trigger remote scraping:\n' +
-                '1. Go to Settings → Automations & Scenes → Scripts\n' +
-                '2. Find "[Parkrun] Remote Scrape"\n' +
-                '3. Click "Run"\n\n' +
-                `The scraper will run from your Home Assistant and scrape data from ${parkrunStartDate} to ${parkrunEndDate}.\n\n` +
-                'You can check progress in HA notifications and logs at /config/logs/parkrun-scraper.log'
+                'NEW: Python Proxy Approach\n\n' +
+                'The parkrun scraper now uses a residential IP proxy:\n\n' +
+                '1. Start proxy: Settings → Scripts → [Parkrun] Start Proxy Server\n' +
+                '2. Check status: [Parkrun] Check Proxy Status\n' +
+                '3. Configure Cloudflare Tunnel to expose port 8765\n' +
+                '4. Update Workers with PARKRUN_PROXY_URL env var\n\n' +
+                'See PARKRUN_PROXY_INTEGRATION.md for full setup guide.\n\n' +
+                'Old Node.js scraper approach has been replaced.'
               );
             }}
             className="button"
@@ -2136,7 +2138,7 @@ export default function Admin() {
               fontWeight: 500,
             }}
           >
-            ☁️ Remote Scrape
+            ☁️ Proxy Setup
           </button>
         </div>
         <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
