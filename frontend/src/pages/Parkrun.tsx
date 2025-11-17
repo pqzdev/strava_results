@@ -449,7 +449,19 @@ export default function Parkrun() {
                         <div className="event-number">Event #{result.event_number}</div>
                       )}
                     </td>
-                    <td className="athlete-name">{result.athlete_name}</td>
+                    <td className="athlete-name">
+                      {result.parkrun_athlete_id ? (
+                        <a
+                          href={`https://www.parkrun.com.au/parkrunner/${result.parkrun_athlete_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {result.athlete_name}
+                        </a>
+                      ) : (
+                        result.athlete_name
+                      )}
+                    </td>
                     <td className="position">{result.position}</td>
                     <td className="position">{result.gender_position || '-'}</td>
                     <td className="time">{formatTime(result.time_seconds)}</td>
