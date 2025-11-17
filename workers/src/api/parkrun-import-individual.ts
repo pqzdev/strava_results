@@ -98,6 +98,16 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
           eventName = eventName.replace(/\s+parkrun$/i, '');
           eventName = eventName.trim();
 
+          // Normalize specific event names
+          // "Presint 18" should always be "Presint 18, Putrajaya"
+          if (eventName === 'Presint 18') {
+            eventName = 'Presint 18, Putrajaya';
+          }
+          // "Albert Melbourne" should always be "Albert, Melbourne"
+          if (eventName === 'Albert Melbourne') {
+            eventName = 'Albert, Melbourne';
+          }
+
           const timeSeconds = parseTimeToSeconds(timeString);
 
           // Check if this result already exists (unique on: parkrun_athlete_id + event_name + date)

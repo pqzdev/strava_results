@@ -106,6 +106,16 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
           eventName = eventName.replace(/\s+parkrun$/i, '');  // "Name parkrun" → "Name"
           eventName = eventName.trim();
 
+          // Normalize specific event names
+          // "Presint 18" should always be "Presint 18, Putrajaya"
+          if (eventName === 'Presint 18') {
+            eventName = 'Presint 18, Putrajaya';
+          }
+          // "Albert Melbourne" should always be "Albert, Melbourne"
+          if (eventName === 'Albert Melbourne') {
+            eventName = 'Albert, Melbourne';
+          }
+
           // Extract event number from event name (e.g., "Event name #123" -> 123)
           const eventNumberMatch = eventName.match(/#(\d+)/);
           const eventNumber = eventNumberMatch ? parseInt(eventNumberMatch[1]) : 0;
