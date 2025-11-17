@@ -148,6 +148,10 @@
       if (eventName === 'Presint 18') {
         eventName = 'Presint 18, Putrajaya';
       }
+      // "Albert Melbourne" should always be "Albert, Melbourne"
+      if (eventName === 'Albert Melbourne') {
+        eventName = 'Albert, Melbourne';
+      }
 
       // Skip if not an event name (like "Consolidated club report")
       if (!eventName || eventName.toLowerCase().includes('consolidated') || eventName.toLowerCase().includes('report')) {
