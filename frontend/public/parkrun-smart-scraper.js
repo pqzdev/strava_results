@@ -173,7 +173,7 @@
 
       // Get all rows from the table body
       const tbody = resultsTable.querySelector('tbody') || resultsTable;
-      const rows = Array.from(tbody.querySelectorAll('tr')).slice(1); // Skip header row
+      const rows = Array.from(tbody.querySelectorAll(':scope > tr')).slice(1); // Skip header row
 
       let clubMembersFound = 0;
 
