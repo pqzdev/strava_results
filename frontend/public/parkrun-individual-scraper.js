@@ -226,8 +226,8 @@
       return false;
     }
 
-    // Use the individual athlete import endpoint
-    const url = new URL(CONFIG.apiEndpoint.replace('/import', '/import-individual'));
+    // Use the API endpoint directly (already set to import-individual by Admin UI)
+    const url = new URL(CONFIG.apiEndpoint);
 
     console.log(`\n📤 Uploading to ${url.toString()}...`);
     console.log(`   Athlete ID: ${parkrunId}`);
