@@ -44,6 +44,42 @@ export default function RaceFilters({
 
   const getDefaultDateTo = () => new Date().toISOString().split('T')[0];
 
+  // Get active filters for display
+  const getActiveFilters = () => {
+    const active: { label: string; count?: number }[] = [];
+
+    if (filters.athletes.length > 0) {
+      active.push({ label: 'Athletes', count: filters.athletes.length });
+    }
+
+    if (filters.events.length > 0) {
+      active.push({ label: 'Events', count: filters.events.length });
+    }
+
+    if (filters.distances.length > 0) {
+      active.push({ label: 'Distances', count: filters.distances.length });
+    }
+
+    if (filters.activityName) {
+      active.push({ label: 'Name' });
+    }
+
+    // Check if date range is filtered (not showing all available dates)
+    const defaultFrom = earliestDate || '';
+    const defaultTo = getDefaultDateTo();
+    const isDateFiltered =
+      (filters.dateFrom && filters.dateFrom !== defaultFrom) ||
+      (filters.dateTo && filters.dateTo !== defaultTo);
+
+    if (isDateFiltered) {
+      active.push({ label: 'Date Range' });
+    }
+
+    return active;
+  };
+
+  const activeFilters = getActiveFilters();
+
   const handleDateFromChange = (value: string) => {
     let dateFrom = value;
     // Enforce minimum date to earliest available data
@@ -78,7 +114,19 @@ export default function RaceFilters({
   return (
     <div className="race-filters">
       <div className="filters-header" onClick={() => setIsExpanded(!isExpanded)}>
-        <h3 className="filters-title">Filters</h3>
+        <div className="filters-header-content">
+          <h3 className="filters-title">Filters</h3>
+          {!isExpanded && activeFilters.length > 0 && (
+            <div className="active-filters-pills">
+              {activeFilters.map((filter) => (
+                <span key={filter.label} className="filter-pill">
+                  {filter.label}
+                  {filter.count && <span className="filter-count">{filter.count}</span>}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
         <button className="filters-toggle" type="button" aria-label={isExpanded ? 'Collapse filters' : 'Expand filters'}>
           {isExpanded ? '▼' : '▶'}
         </button>
