@@ -989,7 +989,8 @@ export default function Admin() {
   const triggerIndividualScraping = async (mode: 'new' | 'all') => {
     try {
       // Fetch list of athletes to scrape
-      const response = await fetch(`${window.location.origin}/api/parkrun/athletes-to-scrape?mode=${mode}`);
+      const workerDomain = 'https://strava-club-workers.pedroqueiroz.workers.dev';
+      const response = await fetch(`${workerDomain}/api/parkrun/athletes-to-scrape?mode=${mode}`);
       const data = await response.json();
 
       if (!data.athletes || data.athletes.length === 0) {
@@ -1002,16 +1003,18 @@ export default function Admin() {
       const firstAthlete = data.athletes[0];
       const totalAthletes = data.athletes.length;
 
-      // Build the individual athlete URL with parameters
-      // Use worker domain, not frontend domain
-      const workerDomain = 'https://strava-club-workers.pedroqueiroz.workers.dev';
+      // Build the individual athlete URL with batch scraper parameters
       const apiEndpoint = `${workerDomain}/api/parkrun/import-individual`;
+      const athletesApiEndpoint = `${workerDomain}/api/parkrun/athletes-to-scrape`;
       const athleteUrl = new URL(`https://www.parkrun.com.au/parkrunner/${firstAthlete.parkrun_athlete_id}/all/`);
       athleteUrl.searchParams.set('apiEndpoint', apiEndpoint);
-      athleteUrl.searchParams.set('autoUpload', 'true');
+      athleteUrl.searchParams.set('athletesApiEndpoint', athletesApiEndpoint);
+      athleteUrl.searchParams.set('mode', mode);
+      athleteUrl.searchParams.set('autoNavigate', 'true');
+      athleteUrl.searchParams.set('delay', '3000');
 
-      // Fetch the individual scraper script
-      const scriptResponse = await fetch(`${window.location.origin}/parkrun-individual-scraper.js`);
+      // Fetch the BATCH individual scraper script
+      const scriptResponse = await fetch(`${window.location.origin}/parkrun-individual-batch-browser.js`);
       const scriptText = await scriptResponse.text();
 
       // Copy script to clipboard
@@ -1027,17 +1030,19 @@ export default function Admin() {
 
       // Show instructions
       alert(
-        `✅ Script copied to clipboard!\n\n` +
-        `Scraping athlete 1 of ${totalAthletes}: ${firstAthlete.athlete_name}\n\n` +
+        `✅ Batch scraper copied to clipboard!\n\n` +
+        `Will automatically scrape ${totalAthletes} athlete${totalAthletes > 1 ? 's' : ''}!\n\n` +
         `Next steps:\n` +
         `1. Go to the parkrun tab that just opened\n` +
         `2. Press F12 to open console\n` +
         `3. Paste the script (Ctrl+V or Cmd+V)\n` +
         `4. Press Enter\n\n` +
-        (totalAthletes > 1
-          ? `After this completes, repeat for the remaining ${totalAthletes - 1} athletes.\n` +
-            `You can get the full list from: ${window.location.origin}/api/parkrun/athletes-to-scrape?mode=${mode}`
-          : `This is the only athlete to scrape.`)
+        `The script will automatically:\n` +
+        `- Scrape athlete 1 of ${totalAthletes}\n` +
+        `- Upload results\n` +
+        `- Navigate to athlete 2\n` +
+        `- Repeat until all ${totalAthletes} athletes are done!\n\n` +
+        `Just paste once and let it run!`
       );
 
     } catch (err) {
