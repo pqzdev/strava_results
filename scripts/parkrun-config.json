@@ -1,0 +1,10 @@
+{
+  "apiEndpoint": "https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import",
+  "clubNumber": "19959",
+  "startDate": "2022-01-01",
+  "endDate": "2025-11-17",
+  "replaceMode": false,
+  "headless": true,
+  "timeout": 600000,
+  "executablePath": "/usr/bin/chromium-browser"
+}
