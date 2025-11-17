@@ -19,6 +19,7 @@ export async function fetchViaParkrunProxy(
   proxyBaseUrl: string,
   options?: {
     timeout?: number; // Timeout in milliseconds (default: 30000)
+    authToken?: string; // Authentication token for proxy
   }
 ): Promise<string> {
   // Validate it's a parkrun URL
@@ -37,10 +38,17 @@ export async function fetchViaParkrunProxy(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+    const headers: Record<string, string> = {
+      'Accept': 'text/html',
+    };
+
+    // Add authentication if token provided
+    if (options?.authToken) {
+      headers['Authorization'] = `Bearer ${options.authToken}`;
+    }
+
     const response = await fetch(proxyUrl, {
-      headers: {
-        'Accept': 'text/html',
-      },
+      headers,
       signal: controller.signal,
     });
 
@@ -86,14 +94,16 @@ export async function fetchViaParkrunProxy(
  *
  * @param clubNum - Parkrun club number (e.g., '19959' for Woodstock Runners)
  * @param proxyBaseUrl - Your Cloudflare Tunnel proxy endpoint
+ * @param authToken - Optional authentication token for proxy
  * @returns HTML content of the club history page
  */
 export async function fetchParkrunClubHistory(
   clubNum: string,
-  proxyBaseUrl: string
+  proxyBaseUrl: string,
+  authToken?: string
 ): Promise<string> {
   const url = `https://www.parkrun.com.au/results/clubhistory/?clubNum=${clubNum}`;
-  return fetchViaParkrunProxy(url, proxyBaseUrl);
+  return fetchViaParkrunProxy(url, proxyBaseUrl, { authToken });
 }
 
 /**
@@ -101,12 +111,14 @@ export async function fetchParkrunClubHistory(
  *
  * @param athleteId - Parkrun athlete ID
  * @param proxyBaseUrl - Your Cloudflare Tunnel proxy endpoint
+ * @param authToken - Optional authentication token for proxy
  * @returns HTML content of the athlete history page
  */
 export async function fetchParkrunAthleteHistory(
   athleteId: string,
-  proxyBaseUrl: string
+  proxyBaseUrl: string,
+  authToken?: string
 ): Promise<string> {
   const url = `https://www.parkrun.com.au/parkrunner/${athleteId}/all/`;
-  return fetchViaParkrunProxy(url, proxyBaseUrl);
+  return fetchViaParkrunProxy(url, proxyBaseUrl, { authToken });
 }
