@@ -2395,6 +2395,119 @@ export default function Admin() {
                 </div>
               )}
             </div>
+
+            <div style={{
+              marginTop: '2rem',
+              padding: '1rem',
+              backgroundColor: '#f0fdf4',
+              border: '2px solid #10b981',
+              borderRadius: '8px',
+            }}>
+              <p style={{
+                fontSize: '0.9rem',
+                fontWeight: 700,
+                color: '#065f46',
+                marginBottom: '0.5rem',
+              }}>
+                ⚠️ Bookmarklet Limitation
+              </p>
+              <p style={{
+                fontSize: '0.85rem',
+                color: '#047857',
+                lineHeight: '1.6',
+                marginBottom: '0.75rem',
+              }}>
+                Due to browser security, bookmarklets cannot automatically persist across full page navigations.
+                You will need to click the bookmark again on each new athlete page.
+              </p>
+              <p style={{
+                fontSize: '0.85rem',
+                color: '#047857',
+                lineHeight: '1.6',
+                marginBottom: '0.75rem',
+              }}>
+                <strong>For true auto-injection</strong>, use the Tampermonkey version below instead.
+              </p>
+            </div>
+
+            <div style={{
+              marginTop: '1.5rem',
+              paddingTop: '1.5rem',
+              borderTop: '2px solid #e5e7eb',
+            }}>
+              <h4 style={{
+                fontSize: '1rem',
+                fontWeight: 700,
+                color: '#10b981',
+                marginBottom: '0.75rem',
+              }}>
+                🚀 Tampermonkey Version (Recommended for Auto-Injection)
+              </h4>
+
+              <div style={{
+                backgroundColor: '#f0fdf4',
+                padding: '1rem',
+                borderRadius: '6px',
+                marginBottom: '1rem',
+                border: '1px solid #10b981',
+              }}>
+                <p style={{
+                  fontSize: '0.85rem',
+                  color: '#047857',
+                  lineHeight: '1.6',
+                  marginBottom: '0.75rem',
+                }}>
+                  For fully automatic scraping across page navigations, install the Tampermonkey userscript:
+                </p>
+                <ol style={{
+                  fontSize: '0.85rem',
+                  color: '#047857',
+                  margin: '0',
+                  paddingLeft: '1.5rem',
+                  lineHeight: '1.8',
+                }}>
+                  <li>Install <a
+                    href="https://www.tampermonkey.net/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#2563eb', textDecoration: 'underline' }}
+                  >Tampermonkey browser extension</a></li>
+                  <li>Click the button below to download the userscript</li>
+                  <li>Tampermonkey will prompt you to install it</li>
+                  <li>Navigate to any parkrun athlete page</li>
+                  <li>Run <code style={{
+                    backgroundColor: '#d1fae5',
+                    padding: '0.2rem 0.4rem',
+                    borderRadius: '3px',
+                    fontSize: '0.8rem',
+                    fontFamily: 'monospace',
+                  }}>startParkrunBatchScraper()</code> in the console</li>
+                  <li>The script will automatically run on every page navigation!</li>
+                </ol>
+              </div>
+
+              <button
+                onClick={() => {
+                  const userscriptUrl = `${window.location.origin}/parkrun-batch-tampermonkey.user.js`;
+                  window.open(userscriptUrl, '_blank');
+                }}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  color: 'white',
+                  backgroundColor: '#10b981',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+              >
+                📥 Download Tampermonkey Userscript
+              </button>
+            </div>
           </div>
         )}
       </div>

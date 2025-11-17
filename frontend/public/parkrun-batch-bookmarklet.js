@@ -111,55 +111,82 @@
   };
   document.head.appendChild(script);
 
-  // Install the auto-injector if not already installed
-  if (!window.parkrunAutoInjectorInstalled) {
-    installAutoInjector();
-  }
+  // Inject the scraper script immediately
+  const config = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
+  const currentUrl = new URL(window.location.href);
+  currentUrl.searchParams.set('apiEndpoint', config.apiEndpoint);
+  currentUrl.searchParams.set('athletesApiEndpoint', config.athletesApiEndpoint);
+  currentUrl.searchParams.set('mode', config.mode);
+  currentUrl.searchParams.set('delay', config.delay.toString());
+  currentUrl.searchParams.set('autoNavigate', 'true');
+  window.history.replaceState({}, '', currentUrl.toString());
 
-  function installAutoInjector() {
-    window.parkrunAutoInjectorInstalled = true;
+  const script = document.createElement('script');
+  script.src = SCRIPT_URL;
+  script.onload = function() {
+    console.log('✅ Batch scraper script loaded and executing...');
+  };
+  script.onerror = function() {
+    console.error('❌ Failed to load scraper script from:', SCRIPT_URL);
+  };
+  document.head.appendChild(script);
 
-    // Check every 2 seconds if we're on a new parkrun page that needs scraping
-    setInterval(function() {
-      const config = sessionStorage.getItem(STORAGE_KEY);
-      if (!config) {
-        // Config was cleared, stop checking
-        return;
-      }
+  // Install auto-loader that runs on each page navigation
+  installAutoLoader();
 
-      // Check if we're on a parkrun athlete page
-      if (window.location.hostname.includes('parkrun.com') &&
-          window.location.pathname.match(/\/parkrunner\/\d+/)) {
+  function installAutoLoader() {
+    // Inject a persistent script into sessionStorage that will auto-run on navigation
+    const autoLoaderScript = `
+(function checkAndLoadScraper() {
+  const STORAGE_KEY = 'parkrun_batch_scraper_config';
+  const EXECUTED_KEY = 'parkrun_scraper_executed_on_page';
+  const SCRIPT_URL = 'https://woodstock-results.pages.dev/parkrun-individual-batch-browser.js';
 
-        const currentPageUrl = window.location.href.split('?')[0];
-        const executedOnPage = sessionStorage.getItem(EXECUTED_KEY);
+  const config = sessionStorage.getItem(STORAGE_KEY);
+  if (!config) return;
 
-        // If this is a new page we haven't scraped yet, re-run the bookmarklet
-        if (executedOnPage !== currentPageUrl) {
-          console.log('🔄 New parkrun page detected, auto-running scraper...');
+  const currentPageUrl = window.location.href.split('?')[0];
+  const executedOnPage = sessionStorage.getItem(EXECUTED_KEY);
 
-          // Create and execute a new script tag with the bookmarklet code
-          const bookmarkletScript = document.createElement('script');
-          bookmarkletScript.src = SCRIPT_URL;
-          bookmarkletScript.setAttribute('data-auto-injected', 'true');
+  if (executedOnPage === currentPageUrl) return;
 
-          // Mark page as executed before injecting to prevent double-execution
-          sessionStorage.setItem(EXECUTED_KEY, currentPageUrl);
+  sessionStorage.setItem(EXECUTED_KEY, currentPageUrl);
 
-          // Build URL with query parameters
-          const parsedConfig = JSON.parse(config);
-          const currentUrl = new URL(window.location.href);
-          currentUrl.searchParams.set('apiEndpoint', parsedConfig.apiEndpoint);
-          currentUrl.searchParams.set('athletesApiEndpoint', parsedConfig.athletesApiEndpoint);
-          currentUrl.searchParams.set('mode', parsedConfig.mode);
-          currentUrl.searchParams.set('delay', parsedConfig.delay.toString());
-          currentUrl.searchParams.set('autoNavigate', 'true');
-          window.history.replaceState({}, '', currentUrl.toString());
+  const parsedConfig = JSON.parse(config);
+  const currentUrl = new URL(window.location.href);
+  currentUrl.searchParams.set('apiEndpoint', parsedConfig.apiEndpoint);
+  currentUrl.searchParams.set('athletesApiEndpoint', parsedConfig.athletesApiEndpoint);
+  currentUrl.searchParams.set('mode', parsedConfig.mode);
+  currentUrl.searchParams.set('delay', parsedConfig.delay.toString());
+  currentUrl.searchParams.set('autoNavigate', 'true');
+  window.history.replaceState({}, '', currentUrl.toString());
 
-          document.head.appendChild(bookmarkletScript);
+  const script = document.createElement('script');
+  script.src = SCRIPT_URL;
+  document.head.appendChild(script);
+})();
+`;
+
+    // Store the auto-loader in sessionStorage
+    sessionStorage.setItem('parkrun_auto_loader_script', autoLoaderScript);
+
+    // Listen for navigation events (won't survive page reload, but good for SPA navigation)
+    let lastUrl = window.location.href;
+    new MutationObserver(() => {
+      const url = window.location.href;
+      if (url !== lastUrl) {
+        lastUrl = url;
+        const script = sessionStorage.getItem('parkrun_auto_loader_script');
+        if (script) {
+          eval(script);
         }
       }
-    }, 2000);
+    }).observe(document, {subtree: true, childList: true});
+
+    console.log('✅ Auto-loader installed');
+    console.log('⚠️  IMPORTANT: The script will auto-run ONLY if you keep this browser tab active.');
+    console.log('   For fully automatic operation across navigations, you need to click the bookmarklet on each page.');
+    console.log('   Alternatively, install the Tampermonkey browser extension for true auto-injection.');
   }
 
 })();
