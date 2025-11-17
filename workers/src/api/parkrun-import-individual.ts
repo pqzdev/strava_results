@@ -109,19 +109,16 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
             .first<{ id: number; data_source: string | null }>();
 
           if (existing) {
-            // Row exists - update only if it's from club data (to add missing fields)
+            // Row exists - handle based on data source
             if (existing.data_source === 'club' || existing.data_source === null) {
+              // Club data exists - update parkrun_athlete_id but KEEP club data (especially gender_position)
               const result = await env.DB.prepare(
                 `UPDATE parkrun_results
                  SET parkrun_athlete_id = ?,
-                     time_seconds = ?,
-                     time_string = ?,
-                     age_grade = COALESCE(?, age_grade),
-                     position = ?,
-                     data_source = 'individual'
+                     age_grade = COALESCE(age_grade, ?)
                  WHERE id = ?`
               )
-                .bind(rowParkrunId, timeSeconds, timeString, ageGrade || null, position, existing.id)
+                .bind(rowParkrunId, ageGrade || null, existing.id)
                 .run();
 
               if (result.meta.changes > 0) {
@@ -130,7 +127,7 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
                 duplicatesSkipped++;
               }
             } else {
-              // Already exists from individual scraping - skip
+              // Already exists from individual scraping - skip (duplicate)
               duplicatesSkipped++;
             }
           } else {
