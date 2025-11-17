@@ -149,6 +149,49 @@ export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl,
     setIsExecuting(true);
 
     try {
+      // Special handling for parkrun scraper commands (frontend-only)
+      if (command.endpoint === '/parkrun-individual-scraper') {
+        const parkrunId = formValues['parkrunAthleteId'];
+        const scraperUrl = `https://www.parkrun.com.au/parkrunner/${parkrunId}/all/?apiEndpoint=${encodeURIComponent(`${apiUrl}/api/parkrun/import-individual`)}&autoUpload=true`;
+        window.open(scraperUrl, '_blank');
+        setResponse({ message: `Opened athlete page for ${parkrunId}. The scraper script will run automatically.` });
+        setIsExecuting(false);
+        return;
+      }
+
+      if (command.endpoint === '/parkrun-batch-scraper') {
+        const mode = formValues['mode'] || 'new';
+        const delay = formValues['delay'] || 3000;
+
+        // Get first athlete from the list
+        const athletesUrl = `${apiUrl}/api/parkrun/athletes-to-scrape?mode=${mode}`;
+        const athletesRes = await fetch(athletesUrl);
+        const athletesData = await athletesRes.json();
+
+        if (!athletesData.athletes || athletesData.athletes.length === 0) {
+          setError(`No athletes to scrape in mode="${mode}"`);
+          setIsExecuting(false);
+          return;
+        }
+
+        const firstAthlete = athletesData.athletes[0];
+        const scraperUrl = new URL(`https://www.parkrun.com.au/parkrunner/${firstAthlete.parkrun_athlete_id}/all/`);
+        scraperUrl.searchParams.set('apiEndpoint', `${apiUrl}/api/parkrun/import-individual`);
+        scraperUrl.searchParams.set('athletesApiEndpoint', `${apiUrl}/api/parkrun/athletes-to-scrape`);
+        scraperUrl.searchParams.set('mode', mode);
+        scraperUrl.searchParams.set('delay', delay.toString());
+        scraperUrl.searchParams.set('autoNavigate', 'true');
+
+        window.open(scraperUrl.toString(), '_blank');
+        setResponse({
+          message: `Starting batch scrape for ${athletesData.count} athletes. Check the new browser tab.`,
+          athletes_count: athletesData.count
+        });
+        setIsExecuting(false);
+        return;
+      }
+
+      // Normal API command execution
       const endpoint = buildEndpoint();
       const body = buildRequestBody();
 

@@ -308,8 +308,79 @@ export const API_COMMANDS: ApiCommand[] = [
   // ========================================
   // PARKRUN SPECIFIC
   // ========================================
-  // Note: No parkrun-specific admin commands yet
-  // The /api/parkrun/detect endpoint does not exist
+  {
+    id: 'parkrun-scrape-single',
+    category: 'parkrun',
+    name: 'Scrape Single Athlete',
+    description: 'Open individual athlete page to scrape their parkrun history',
+    endpoint: '/parkrun-individual-scraper', // This will be a special frontend-only command
+    method: 'GET',
+    parameters: [
+      {
+        name: 'parkrunAthleteId',
+        type: 'text',
+        label: 'Parkrun Athlete ID',
+        required: true,
+        placeholder: '7796495',
+        description: 'The athlete\'s parkrun ID (A-number)',
+      },
+    ],
+    successMessage: 'Opening athlete page for scraping',
+  },
+  {
+    id: 'parkrun-scrape-batch',
+    category: 'parkrun',
+    name: 'Scrape All Athletes (Batch)',
+    description: 'Automatically scrape all athletes\' parkrun histories in sequence',
+    endpoint: '/parkrun-batch-scraper', // This will be a special frontend-only command
+    method: 'GET',
+    parameters: [
+      {
+        name: 'mode',
+        type: 'select',
+        label: 'Scraping Mode',
+        required: true,
+        default: 'new',
+        options: [
+          { value: 'new', label: 'New Only (Never Scraped)' },
+          { value: 'all', label: 'All Athletes (Refresh)' },
+        ],
+        description: 'Which athletes to scrape',
+      },
+      {
+        name: 'delay',
+        type: 'number',
+        label: 'Delay Between Athletes (ms)',
+        default: 3000,
+        description: 'Wait time between each athlete page',
+        validation: { min: 1000, max: 30000 },
+      },
+    ],
+    confirmMessage: 'This will automatically navigate through all athlete pages to scrape their parkrun histories. This may take a long time. Continue?',
+    successMessage: 'Starting batch scraping',
+  },
+  {
+    id: 'parkrun-athletes-to-scrape',
+    category: 'parkrun',
+    name: 'View Athletes To Scrape',
+    description: 'See list of athletes that need parkrun scraping',
+    endpoint: '/api/parkrun/athletes-to-scrape',
+    method: 'GET',
+    parameters: [
+      {
+        name: 'mode',
+        type: 'select',
+        label: 'Mode',
+        default: 'new',
+        options: [
+          { value: 'new', label: 'New Only' },
+          { value: 'all', label: 'All Athletes' },
+        ],
+        description: 'Filter athletes',
+      },
+    ],
+    successMessage: 'Athletes list retrieved successfully',
+  },
 
   // ========================================
   // ADMIN OPERATIONS
