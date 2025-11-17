@@ -112,31 +112,79 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
 
           const timeSeconds = parseTimeToSeconds(timeString);
 
-          // Insert into database
-          await env.DB.prepare(
-            `INSERT INTO parkrun_results
-             (athlete_name, parkrun_athlete_id, event_name, event_number, position, gender_position, time_seconds,
-              time_string, age_grade, age_category, date, club_name)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(athlete_name, event_name, event_number, date) DO NOTHING`
-          )
-            .bind(
-              athleteName,
-              parkrunId || null,
-              eventName.replace(/#\d+/, '').trim(), // Remove event number from name
-              eventNumber,
-              position,
-              genderPosition,
-              timeSeconds,
-              timeString,
-              ageGrade || null,
-              ageCategory || null,
-              date,
-              'Woodstock'
-            )
-            .run();
+          // Check if record exists with this parkrun_athlete_id
+          const existing = parkrunId
+            ? await env.DB.prepare(
+                `SELECT id, data_source FROM parkrun_results
+                 WHERE parkrun_athlete_id = ? AND event_name = ? AND date = ?`
+              )
+                .bind(parkrunId, eventName.replace(/#\d+/, '').trim(), date)
+                .first<{ id: number; data_source: string | null }>()
+            : null;
 
-          imported++;
+          if (existing) {
+            // Update existing record - club data takes precedence (has gender_position)
+            await env.DB.prepare(
+              `UPDATE parkrun_results
+               SET athlete_name = ?,
+                   parkrun_athlete_id = ?,
+                   event_number = ?,
+                   position = ?,
+                   gender_position = ?,
+                   time_seconds = ?,
+                   time_string = ?,
+                   age_grade = ?,
+                   age_category = ?,
+                   club_name = ?,
+                   data_source = 'club'
+               WHERE id = ?`
+            )
+              .bind(
+                athleteName,
+                parkrunId || null,
+                eventNumber,
+                position,
+                genderPosition,
+                timeSeconds,
+                timeString,
+                ageGrade || null,
+                ageCategory || null,
+                'Woodstock',
+                existing.id
+              )
+              .run();
+            imported++;
+          } else {
+            // Insert new record
+            await env.DB.prepare(
+              `INSERT INTO parkrun_results
+               (athlete_name, parkrun_athlete_id, event_name, event_number, position, gender_position, time_seconds,
+                time_string, age_grade, age_category, date, club_name, data_source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'club')
+               ON CONFLICT(athlete_name, event_name, event_number, date) DO UPDATE SET
+                 parkrun_athlete_id = excluded.parkrun_athlete_id,
+                 gender_position = excluded.gender_position,
+                 age_category = excluded.age_category,
+                 club_name = excluded.club_name,
+                 data_source = 'club'`
+            )
+              .bind(
+                athleteName,
+                parkrunId || null,
+                eventName.replace(/#\d+/, '').trim(), // Remove event number from name
+                eventNumber,
+                position,
+                genderPosition,
+                timeSeconds,
+                timeString,
+                ageGrade || null,
+                ageCategory || null,
+                date,
+                'Woodstock'
+              )
+              .run();
+            imported++;
+          }
         } catch (error) {
           console.error('Error importing row:', error);
           errors++;
