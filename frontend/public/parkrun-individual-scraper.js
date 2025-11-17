@@ -129,14 +129,28 @@
     const eventLink = eventCell.querySelector('a');
     let eventName = eventLink ? eventLink.textContent.trim() : eventCell.textContent.trim();
 
-    // Normalize specific event names
-    // "Presint 18" should always be "Presint 18, Putrajaya"
-    if (eventName === 'Presint 18') {
-      eventName = 'Presint 18, Putrajaya';
+    // Remove "parkrun " prefix (e.g., "parkrun Ogród Saski, Lublin" → "Ogród Saski, Lublin")
+    if (eventName.startsWith('parkrun ')) {
+      eventName = eventName.substring(8); // Remove "parkrun " (8 characters)
     }
-    // "Albert Melbourne" should always be "Albert, Melbourne"
-    if (eventName === 'Albert Melbourne') {
-      eventName = 'Albert, Melbourne';
+
+    // Remove "parkrun de " prefix (e.g., "parkrun de Montsouris" → "Montsouris")
+    if (eventName.startsWith('parkrun de ')) {
+      eventName = eventName.substring(11); // Remove "parkrun de " (11 characters)
+    }
+
+    eventName = eventName.trim();
+
+    // Apply event name mappings (matches database table)
+    const eventNameMappings = {
+      'Albert Melbourne': 'Albert, Melbourne',
+      'Bushy Park': 'Bushy',
+      'Kingsway': 'Kingsway, Gloucester',
+      'Presint 18': 'Presint 18, Putrajaya'
+    };
+
+    if (eventNameMappings[eventName]) {
+      eventName = eventNameMappings[eventName];
     }
 
     // Date (from span.format-date)
