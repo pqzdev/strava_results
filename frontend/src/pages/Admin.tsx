@@ -2116,6 +2116,77 @@ export default function Admin() {
       </div>
 
       <div className="admin-header" style={{ marginTop: '3rem' }}>
+        <h2>Individual Athlete History</h2>
+        <p className="subtitle">Scrape complete parkrun history for individual athletes (including pre-club results)</p>
+      </div>
+
+      <div className="parkrun-sync-section" style={{ marginBottom: '2rem' }}>
+        <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#666' }}>
+          Individual scraping captures each athlete's complete parkrun history from their personal page,
+          including runs from before they joined Woodstock Runners.
+        </p>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => {
+              const confirmed = window.confirm(
+                'This will scrape parkrun history for athletes who haven\'t been scraped yet.\n\n' +
+                'This opens individual athlete pages and may take several minutes.\n\n' +
+                'Continue?'
+              );
+              if (confirmed) {
+                alert('Individual scraping not yet implemented in UI.\n\nTo run manually:\n' +
+                      '1. Use scripts/parkrun-individual-batch.js\n' +
+                      '2. Or scrape via browser console on individual athlete pages\n\n' +
+                      'See docs/PARKRUN_INDIVIDUAL_SCRAPING.md for details.');
+              }
+            }}
+            className="button"
+            style={{
+              padding: '0.5rem 1.5rem',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
+          >
+            📥 Scrape New Athletes
+          </button>
+          <button
+            onClick={() => {
+              const confirmed = window.confirm(
+                'This will RE-SCRAPE parkrun history for ALL athletes.\n\n' +
+                'This may take a long time if you have many athletes.\n\n' +
+                'Continue?'
+              );
+              if (confirmed) {
+                alert('Full refresh not yet implemented in UI.\n\nTo run manually:\n' +
+                      '1. Use: node scripts/parkrun-individual-batch.js config.json all\n\n' +
+                      'See docs/PARKRUN_INDIVIDUAL_SCRAPING.md for details.');
+              }
+            }}
+            className="button"
+            style={{
+              padding: '0.5rem 1.5rem',
+              backgroundColor: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
+          >
+            🔄 Full Refresh (All Athletes)
+          </button>
+        </div>
+        <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f0f9ff', borderRadius: '8px', fontSize: '0.85rem' }}>
+          <strong>ℹ️ Note:</strong> Individual scraping automatically detects athletes who have left the club
+          (runs on personal page but not in club results for 2+ weeks) and marks them with 🚪 icon.
+        </div>
+      </div>
+
+      <div className="admin-header" style={{ marginTop: '3rem' }}>
         <h2>Parkrun Athletes</h2>
         <p className="subtitle">Manage visibility of parkrun athletes</p>
       </div>
