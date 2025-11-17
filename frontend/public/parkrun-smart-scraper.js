@@ -37,7 +37,7 @@
     delayBetweenRequests: 2000, // 2 seconds (be respectful)
     clubName: 'Woodstock Runners', // Exact club name to filter
     maxFibonacciWait: 34, // Maximum fibonacci backoff in seconds (matches server-side)
-    batchSize: 10, // Upload to API every 10 dates (matches server-side)
+    batchSize: 3, // Upload to API every 3 dates (reduced to avoid D1 query limits)
     apiEndpoint: urlParams.get('apiEndpoint') || 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import', // API endpoint to POST results
     autoUpload: urlParams.get('autoUpload') !== 'false', // Auto-upload by default (disable with autoUpload=false)
     replaceMode: urlParams.get('replaceMode') === 'true', // Replace all existing data on first upload
