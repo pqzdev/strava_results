@@ -35,11 +35,12 @@ async function main() {
     await log('Testing if Home Assistant can access parkrun.com', 'INFO');
     await log('', 'INFO');
 
-    // Launch browser
+    // Launch browser - use system chromium for Alpine Linux
     await log('📦 Launching Chromium...', 'INFO');
     browser = await chromium.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      executablePath: '/usr/bin/chromium-browser',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
     });
 
     const context = await browser.newContext({

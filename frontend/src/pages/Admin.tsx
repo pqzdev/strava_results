@@ -2098,7 +2098,7 @@ export default function Admin() {
             className="button"
             style={{
               padding: '0.5rem 1.5rem',
-              backgroundColor: '#fc4c02',
+              backgroundColor: '#6366f1',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
@@ -2106,7 +2106,33 @@ export default function Admin() {
               fontWeight: 500,
             }}
           >
-            🏃 Sync Parkrun Data
+            🖥️ Manual Scraping
+          </button>
+          <button
+            onClick={() => {
+              window.open('http://homeassistant11.local:8123', '_blank');
+              alert(
+                '✅ Opening Home Assistant...\n\n' +
+                'To trigger remote scraping:\n' +
+                '1. Go to Settings → Automations & Scenes → Scripts\n' +
+                '2. Find "[Parkrun] Remote Scrape"\n' +
+                '3. Click "Run"\n\n' +
+                `The scraper will run from your Home Assistant and scrape data from ${parkrunStartDate} to ${parkrunEndDate}.\n\n` +
+                'You can check progress in HA notifications and logs at /config/logs/parkrun-scraper.log'
+              );
+            }}
+            className="button"
+            style={{
+              padding: '0.5rem 1.5rem',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
+          >
+            ☁️ Remote Scrape
           </button>
         </div>
         <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
