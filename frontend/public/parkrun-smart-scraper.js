@@ -190,7 +190,7 @@
 
         // Extract parkrun ID from the runner name link (e.g., https://www.parkrun.com.au/lakeview/parkrunner/6125390)
         let parkrunId = '';
-        const nameLink = cells[2]?.querySelector('a');
+        const nameLink = cells[2]?.querySelector(':scope > a');
         if (nameLink) {
           const href = nameLink.getAttribute('href') || '';
           // Extract ID from URL - it's the last part after /parkrunner/
