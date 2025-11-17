@@ -568,8 +568,12 @@ export async function getAdminSyncStatus(request: Request, env: Env): Promise<Re
         sb.batch_type,
         COUNT(*) as total_batches,
         SUM(CASE WHEN sb.status = 'completed' THEN 1 ELSE 0 END) as completed_batches,
+        SUM(CASE WHEN sb.status = 'pending' THEN 1 ELSE 0 END) as pending_batches,
+        SUM(CASE WHEN sb.status = 'processing' THEN 1 ELSE 0 END) as processing_batches,
+        SUM(CASE WHEN sb.status = 'failed' THEN 1 ELSE 0 END) as failed_batches,
         SUM(CASE WHEN sb.status = 'completed' THEN sb.activities_fetched ELSE 0 END) as activities_synced,
-        MIN(sb.created_at) as started_at
+        MIN(sb.created_at) as started_at,
+        MAX(sb.completed_at) as last_batch_completed_at
       FROM athletes a
       JOIN sync_batches sb ON a.sync_session_id = sb.sync_session_id
       WHERE a.sync_status = 'in_progress'
@@ -578,22 +582,54 @@ export async function getAdminSyncStatus(request: Request, env: Env): Promise<Re
       ORDER BY MIN(sb.created_at) DESC
     `).all();
 
-    // Combine batched syncs into the active list
-    const batchedActive = (batchedSyncs.results || []).map((sync: any) => ({
-      id: `batch-${sync.sync_session_id}`,
-      athlete_id: sync.athlete_id,
-      strava_id: sync.strava_id,
-      first_name: sync.firstname,
-      last_name: sync.lastname,
-      job_type: `batched_${sync.batch_type}`,
-      status: 'processing',
-      started_at: sync.started_at * 1000,
-      activities_synced: sync.activities_synced,
-      total_activities_expected: null,
-      error_message: null,
-      created_at: sync.started_at * 1000,
-      completed_at: null,
-    }));
+    // Combine batched syncs into the active list with health check
+    const currentTime = Math.floor(Date.now() / 1000);
+    const STALL_THRESHOLD_SECONDS = 600; // 10 minutes without progress
+
+    const batchedActive = (batchedSyncs.results || []).map((sync: any) => {
+      // Check if sync is stalled (no pending batches, but also no recent completion)
+      const isStalled =
+        sync.pending_batches === 0 &&
+        sync.processing_batches === 0 &&
+        sync.completed_batches > 0 &&
+        sync.completed_batches < sync.total_batches &&
+        (currentTime - (sync.last_batch_completed_at || sync.started_at)) > STALL_THRESHOLD_SECONDS;
+
+      // For enrichment syncs, check if there are races still needing enrichment
+      let warning = null;
+      if (isStalled && sync.batch_type === 'enrichment') {
+        warning = 'Sync appears stalled: no pending batches but sync not complete. System will auto-create missing batches.';
+      } else if (isStalled) {
+        warning = 'Sync appears stalled: no active batches and no recent progress';
+      }
+
+      return {
+        id: `batch-${sync.sync_session_id}`,
+        athlete_id: sync.athlete_id,
+        strava_id: sync.strava_id,
+        first_name: sync.firstname,
+        last_name: sync.lastname,
+        job_type: `batched_${sync.batch_type}`,
+        status: isStalled ? 'stalled' : 'processing',
+        started_at: sync.started_at * 1000,
+        activities_synced: sync.activities_synced,
+        total_activities_expected: null,
+        error_message: null,
+        created_at: sync.started_at * 1000,
+        completed_at: null,
+        // Health monitoring fields
+        health: {
+          total_batches: sync.total_batches,
+          completed_batches: sync.completed_batches,
+          pending_batches: sync.pending_batches,
+          processing_batches: sync.processing_batches,
+          failed_batches: sync.failed_batches,
+          is_stalled: isStalled,
+          warning: warning,
+          last_activity_at: (sync.last_batch_completed_at || sync.started_at) * 1000,
+        }
+      };
+    });
 
     // Merge with legacy queue status
     const combinedStatus = {

@@ -5,6 +5,7 @@ import { handleAuthorize, handleCallback, handleDisconnect } from './auth/oauth'
 import { syncAllAthletes } from './cron/sync';
 import { syncAthlete } from './queue/sync-queue';
 import { processPendingBatches } from './cron/batch-processor-cron';
+import { healthCheckBatchedSyncs } from './cron/sync-health-monitor';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin, getAdminSyncStatus, stopSyncJob, triggerBatchedAthleteSync, getBatchedSyncProgress } from './api/admin';
 import { getReviewActivities, updateActivity } from './api/admin-review';
@@ -590,9 +591,13 @@ export default {
         await processNextQueuedJob(env, ctx);
 
       } else if (event.cron === '* * * * *') {
-        // WOOD-8: Batch processor: Process pending batches
+        // WOOD-8: Batch processor: Process pending batches + health check
         console.log('[WOOD-8] Batch processor cron: Processing pending batches...');
         await processPendingBatches(env, ctx);
+
+        // Run health check every minute to fix stalled syncs
+        console.log('[WOOD-8] Running health check...');
+        await healthCheckBatchedSyncs(env);
 
       } else {
         console.warn('Unknown cron schedule:', event.cron);

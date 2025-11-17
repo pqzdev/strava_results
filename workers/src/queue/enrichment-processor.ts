@@ -22,8 +22,13 @@ export async function processEnrichmentBatch(
 
   // 1. Get batch record
   const batch = await getBatch(sessionId, batchNumber, env);
-  if (!batch || batch.status !== 'pending') {
-    console.log(`[Enrichment] Batch ${batchNumber} not found or not pending, skipping`);
+  if (!batch) {
+    console.log(`[Enrichment] Batch ${batchNumber} not found for session ${sessionId}, skipping`);
+    return;
+  }
+
+  if (batch.status !== 'pending') {
+    console.log(`[Enrichment] Batch ${batchNumber} has status '${batch.status}', skipping`);
     return;
   }
 
@@ -248,5 +253,40 @@ async function checkEnrichmentComplete(
     );
   } else {
     console.log(`[Enrichment] Session ${sessionId}: ${pendingCount} races still need enrichment, ${pendingBatchCount} batches pending`);
+
+    // CRITICAL FIX: If there are races that need enrichment but no pending batches, create more batches!
+    if (pendingCount > 0 && pendingBatchCount === 0) {
+      console.log(`[Enrichment] Creating additional batches to process remaining ${pendingCount} races`);
+
+      // Find the highest batch number for this session
+      const maxBatch = await env.DB.prepare(
+        `SELECT MAX(batch_number) as max_batch FROM sync_batches
+         WHERE sync_session_id = ?`
+      )
+        .bind(sessionId)
+        .first<{ max_batch: number | null }>();
+
+      const nextBatchNumber = (maxBatch?.max_batch || 0) + 1;
+      const batchSize = 15;
+      const batchesNeeded = Math.ceil(pendingCount / batchSize);
+
+      // Create new batches
+      for (let i = 0; i < batchesNeeded; i++) {
+        await env.DB.prepare(
+          `INSERT INTO sync_batches (
+            athlete_id, sync_session_id, batch_number, status, batch_type
+          ) VALUES (?, ?, ?, 'pending', 'enrichment')`
+        )
+          .bind(athleteId, sessionId, nextBatchNumber + i)
+          .run();
+
+        console.log(`[Enrichment] Created batch ${nextBatchNumber + i} for session ${sessionId}`);
+      }
+
+      await logSyncProgress(env, athleteId, sessionId, 'info',
+        `Created ${batchesNeeded} additional enrichment batch(es) to process ${pendingCount} remaining races`,
+        { pendingCount, batchesNeeded, nextBatchNumber }
+      );
+    }
   }
 }
