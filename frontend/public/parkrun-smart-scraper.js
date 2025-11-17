@@ -178,7 +178,7 @@
       let clubMembersFound = 0;
 
       for (const row of rows) {
-        const cells = Array.from(row.querySelectorAll('td'));
+        const cells = Array.from(row.querySelectorAll(':scope > td'));
         if (cells.length < 5) continue; // Need exactly 5 columns: Pos | Gender Pos | Name | Club | Time
 
         // Column structure: [0] Overall Position | [1] Gender Position | [2] Name | [3] Club | [4] Time
