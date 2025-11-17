@@ -98,14 +98,25 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
           eventName = eventName.replace(/\s+parkrun$/i, '');
           eventName = eventName.trim();
 
-          // Normalize specific event names
-          // "Presint 18" should always be "Presint 18, Putrajaya"
-          if (eventName === 'Presint 18') {
-            eventName = 'Presint 18, Putrajaya';
+          // Remove "parkrun " prefix (e.g., "parkrun Ogród Saski, Lublin" → "Ogród Saski, Lublin")
+          if (eventName.startsWith('parkrun ')) {
+            eventName = eventName.substring(8); // Remove "parkrun " (8 characters)
           }
-          // "Albert Melbourne" should always be "Albert, Melbourne"
-          if (eventName === 'Albert Melbourne') {
-            eventName = 'Albert, Melbourne';
+
+          // Remove "parkrun de " prefix (e.g., "parkrun de Montsouris" → "Montsouris")
+          if (eventName.startsWith('parkrun de ')) {
+            eventName = eventName.substring(11); // Remove "parkrun de " (11 characters)
+          }
+
+          eventName = eventName.trim();
+
+          // Apply database-driven event name mappings
+          const mappingResult = await env.DB.prepare(
+            `SELECT to_name FROM parkrun_event_name_mappings WHERE from_name = ?`
+          ).bind(eventName).first<{ to_name: string }>();
+
+          if (mappingResult) {
+            eventName = mappingResult.to_name;
           }
 
           const timeSeconds = parseTimeToSeconds(timeString);
