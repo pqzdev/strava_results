@@ -1,0 +1,7 @@
+{
+  "apiEndpoint": "https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import-individual",
+  "dbPath": "./database/club.sqlite",
+  "headless": true,
+  "delayBetweenAthletes": 3000,
+  "timeout": 300000
+}
