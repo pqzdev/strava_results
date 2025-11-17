@@ -953,7 +953,9 @@ export default function Admin() {
 
   const triggerParkrunSync = async () => {
     // Build the parkrun URL with parameters
-    const apiEndpoint = `${window.location.origin}/api/parkrun/import${replaceExistingData ? '?replace=true' : ''}`;
+    // Use worker domain, not frontend domain
+    const workerDomain = 'https://strava-club-workers.pedroqueiroz.workers.dev';
+    const apiEndpoint = `${workerDomain}/api/parkrun/import${replaceExistingData ? '?replace=true' : ''}`;
     const parkrunUrl = new URL('https://www.parkrun.com/results/consolidatedclub/');
     parkrunUrl.searchParams.set('clubNum', '19959');
     parkrunUrl.searchParams.set('startDate', parkrunStartDate);
@@ -1001,7 +1003,9 @@ export default function Admin() {
       const totalAthletes = data.athletes.length;
 
       // Build the individual athlete URL with parameters
-      const apiEndpoint = `${window.location.origin}/api/parkrun/import-individual`;
+      // Use worker domain, not frontend domain
+      const workerDomain = 'https://strava-club-workers.pedroqueiroz.workers.dev';
+      const apiEndpoint = `${workerDomain}/api/parkrun/import-individual`;
       const athleteUrl = new URL(`https://www.parkrun.com.au/parkrunner/${firstAthlete.parkrun_athlete_id}/all/`);
       athleteUrl.searchParams.set('apiEndpoint', apiEndpoint);
       athleteUrl.searchParams.set('autoUpload', 'true');
