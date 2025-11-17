@@ -1,0 +1,385 @@
+// API endpoint for importing individual athlete parkrun results
+
+import { Env } from '../types';
+
+interface CSVRow {
+  [key: string]: string;
+}
+
+/**
+ * Parse time string (MM:SS or HH:MM:SS) to seconds
+ */
+function parseTimeToSeconds(timeStr: string): number {
+  const parts = timeStr.split(':').map(Number);
+  if (parts.length === 2) {
+    // MM:SS
+    return parts[0] * 60 + parts[1];
+  } else if (parts.length === 3) {
+    // HH:MM:SS
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return 0;
+}
+
+/**
+ * POST /api/parkrun/import-individual - Import individual athlete parkrun results from CSV
+ *
+ * Expected CSV format from individual athlete page:
+ * Parkrun ID,parkrunner,Event,Date,Run Number,Pos,Time,Age Grade,PB,Data Source
+ *
+ * Note: Individual pages don't include gender position, only overall position
+ */
+export async function importIndividualParkrunCSV(request: Request, env: Env): Promise<Response> {
+  try {
+    const formData = await request.formData();
+    const fileEntry = formData.get('file');
+    const parkrunAthleteId = formData.get('parkrun_athlete_id');
+    const athleteName = formData.get('athlete_name');
+
+    if (!fileEntry || typeof fileEntry === 'string') {
+      return new Response(
+        JSON.stringify({ error: 'No file provided' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+
+    if (!parkrunAthleteId || typeof parkrunAthleteId !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'parkrun_athlete_id is required' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+
+    const file = fileEntry as File;
+    const csvText = await file.text();
+    const rows = parseCSV(csvText);
+
+    let imported = 0;
+    let duplicatesSkipped = 0;
+    let errors = 0;
+
+    const scrapeStartTime = Math.floor(Date.now() / 1000);
+
+    try {
+      for (const row of rows) {
+        try {
+          // Parse CSV row
+          const date = parseParkrunDate(row.Date || row.date);
+          let eventName = row.Event || row.event;
+          const position = parseInt(row.Pos || row.pos || row.Position || '0');
+          const timeString = row.Time || row.time;
+          const ageGrade = row['Age Grade'] || row.ageGrade || row['age grade'];
+          const runNumber = parseInt(row['Run Number'] || row.runNumber || row['run number'] || '0');
+
+          // Get athlete info from row or form data
+          const rowAthleteName = row.parkrunner || row.Parkrunner || athleteName;
+          const rowParkrunId = row['Parkrun ID'] || row.parkrunId || parkrunAthleteId;
+
+          if (!date || !eventName || !timeString || !rowAthleteName) {
+            console.warn('Skipping invalid row:', row);
+            errors++;
+            continue;
+          }
+
+          // Normalize event name: remove " parkrun" from middle or end
+          eventName = eventName.replace(/\s+parkrun,/i, ',');
+          eventName = eventName.replace(/\s+parkrun$/i, '');
+          eventName = eventName.trim();
+
+          const timeSeconds = parseTimeToSeconds(timeString);
+
+          // Insert into database with data_source = 'individual'
+          // Use ON CONFLICT to handle duplicates gracefully
+          const result = await env.DB.prepare(
+            `INSERT INTO parkrun_results
+             (athlete_name, parkrun_athlete_id, event_name, event_number, position,
+              time_seconds, time_string, age_grade, date, data_source)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'individual')
+             ON CONFLICT(athlete_name, event_name, event_number, date) DO UPDATE SET
+               parkrun_athlete_id = COALESCE(parkrun_athlete_id, excluded.parkrun_athlete_id),
+               time_seconds = excluded.time_seconds,
+               time_string = excluded.time_string,
+               age_grade = COALESCE(excluded.age_grade, age_grade),
+               position = excluded.position
+             WHERE data_source = 'club'`
+          )
+            .bind(
+              rowAthleteName,
+              rowParkrunId || null,
+              eventName,
+              runNumber,
+              position,
+              timeSeconds,
+              timeString,
+              ageGrade || null,
+              date
+            )
+            .run();
+
+          // Check if it was actually inserted (changes > 0) or was a duplicate
+          if (result.meta.changes > 0) {
+            imported++;
+          } else {
+            duplicatesSkipped++;
+          }
+
+        } catch (error) {
+          console.error('Error importing row:', error);
+          errors++;
+        }
+      }
+
+      // Update or create athlete scraping log
+      const scrapeCompletedTime = Math.floor(Date.now() / 1000);
+
+      await env.DB.prepare(
+        `INSERT INTO parkrun_athlete_scraping_log
+         (parkrun_athlete_id, athlete_name, last_scraped_at, scrape_count,
+          total_results_found, new_results_added, status)
+         VALUES (?, ?, ?, 1, ?, ?, 'success')
+         ON CONFLICT(parkrun_athlete_id) DO UPDATE SET
+           athlete_name = excluded.athlete_name,
+           last_scraped_at = excluded.last_scraped_at,
+           scrape_count = scrape_count + 1,
+           total_results_found = excluded.total_results_found,
+           new_results_added = excluded.new_results_added,
+           status = 'success',
+           error_message = NULL,
+           updated_at = excluded.last_scraped_at`
+      )
+        .bind(
+          parkrunAthleteId,
+          athleteName || 'Unknown',
+          scrapeCompletedTime,
+          rows.length,
+          imported
+        )
+        .run();
+
+      // Check if athlete has left the club
+      // Logic: If most recent individual run is > 2 weeks after most recent club run, they've left
+      const athleteNameToUse = athleteName || 'Unknown';
+
+      // Get most recent club run (data_source='club' or NULL for old data)
+      const lastClubRun = await env.DB.prepare(
+        `SELECT MAX(date) as last_date
+         FROM parkrun_results
+         WHERE athlete_name = ?
+           AND (data_source = 'club' OR data_source IS NULL)
+           AND parkrun_athlete_id = ?`
+      )
+        .bind(athleteNameToUse, parkrunAthleteId)
+        .first<{ last_date: string | null }>();
+
+      // Get most recent individual run
+      const lastIndividualRun = await env.DB.prepare(
+        `SELECT MAX(date) as last_date
+         FROM parkrun_results
+         WHERE athlete_name = ?
+           AND data_source = 'individual'
+           AND parkrun_athlete_id = ?`
+      )
+        .bind(athleteNameToUse, parkrunAthleteId)
+        .first<{ last_date: string | null }>();
+
+      let hasLeftClub = false;
+      const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
+      if (lastClubRun?.last_date && lastIndividualRun?.last_date) {
+        const clubDate = new Date(lastClubRun.last_date).getTime();
+        const individualDate = new Date(lastIndividualRun.last_date).getTime();
+
+        // If individual runs are more than 2 weeks after last club run, they've left
+        if (individualDate - clubDate > TWO_WEEKS_MS) {
+          hasLeftClub = true;
+        }
+      }
+
+      // Update parkrun_athletes table with dates and left status
+      await env.DB.prepare(
+        `INSERT INTO parkrun_athletes
+         (athlete_name, has_left_club, last_club_run_date, last_individual_run_date,
+          left_club_detected_at, is_hidden)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(athlete_name) DO UPDATE SET
+           last_club_run_date = excluded.last_club_run_date,
+           last_individual_run_date = excluded.last_individual_run_date,
+           has_left_club = excluded.has_left_club,
+           left_club_detected_at = excluded.left_club_detected_at,
+           is_hidden = CASE
+             WHEN excluded.has_left_club = 1 THEN 1
+             ELSE is_hidden
+           END,
+           updated_at = strftime('%s', 'now')`
+      )
+        .bind(
+          athleteNameToUse,
+          hasLeftClub ? 1 : 0,
+          lastClubRun?.last_date || null,
+          lastIndividualRun?.last_date || null,
+          hasLeftClub ? scrapeCompletedTime : null,
+          hasLeftClub ? 1 : 0 // Auto-hide if they left
+        )
+        .run();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Individual athlete parkrun data imported successfully',
+          parkrun_athlete_id: parkrunAthleteId,
+          athlete_name: athleteName,
+          total_results: rows.length,
+          new_results_added: imported,
+          duplicates_skipped: duplicatesSkipped,
+          errors,
+          has_left_club: hasLeftClub,
+          last_club_run_date: lastClubRun?.last_date || null,
+          last_individual_run_date: lastIndividualRun?.last_date || null,
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+
+    } catch (error) {
+      // Update athlete scraping log with failure
+      await env.DB.prepare(
+        `INSERT INTO parkrun_athlete_scraping_log
+         (parkrun_athlete_id, athlete_name, last_scraped_at, status, error_message)
+         VALUES (?, ?, ?, 'failed', ?)
+         ON CONFLICT(parkrun_athlete_id) DO UPDATE SET
+           last_scraped_at = excluded.last_scraped_at,
+           status = 'failed',
+           error_message = excluded.error_message,
+           updated_at = excluded.last_scraped_at`
+      )
+        .bind(
+          parkrunAthleteId,
+          athleteName || 'Unknown',
+          Math.floor(Date.now() / 1000),
+          error instanceof Error ? error.message : 'Unknown error'
+        )
+        .run();
+
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('Error importing individual parkrun CSV:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to import individual parkrun data',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  }
+}
+
+/**
+ * Parse CSV text into array of objects
+ */
+function parseCSV(csvText: string): CSVRow[] {
+  const lines = csvText.trim().split('\n');
+  if (lines.length < 2) return [];
+
+  const headers = parseCSVLine(lines[0]);
+  const rows: CSVRow[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    const row: CSVRow = {};
+
+    headers.forEach((header, index) => {
+      row[header] = values[index] || '';
+    });
+
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+/**
+ * Parse a single CSV line, properly handling quoted fields
+ */
+function parseCSVLine(line: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < line.length) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        i += 2;
+        continue;
+      } else {
+        inQuotes = !inQuotes;
+        i++;
+        continue;
+      }
+    }
+
+    if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+      i++;
+      continue;
+    }
+
+    current += char;
+    i++;
+  }
+
+  values.push(current.trim());
+  return values;
+}
+
+/**
+ * Parse parkrun date format to ISO 8601
+ */
+function parseParkrunDate(dateStr: string): string {
+  if (!dateStr) return '';
+
+  // Try DD/MM/YYYY format
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[2];
+    return `${year}-${month}-${day}`;
+  }
+
+  // Try YYYY-MM-DD format (already ISO)
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return dateStr;
+  }
+
+  return dateStr;
+}

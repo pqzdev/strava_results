@@ -23,7 +23,7 @@
 
 (async function() {
   console.clear();
-  console.log('🏃 Parkrun Smart Scraper v4.0');
+  console.log('🏃 Parkrun Smart Scraper v4.1');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   // ========== CONFIGURATION ==========
@@ -188,6 +188,18 @@
         const club = cells[3]?.textContent.trim() || '';
         const time = cells[4]?.textContent.trim() || '';
 
+        // Extract parkrun ID from the runner name link (e.g., https://www.parkrun.com.au/lakeview/parkrunner/6125390)
+        let parkrunId = '';
+        const nameLink = cells[2]?.querySelector('a');
+        if (nameLink) {
+          const href = nameLink.getAttribute('href') || '';
+          // Extract ID from URL - it's the last part after /parkrunner/
+          const match = href.match(/\/parkrunner\/(\d+)/);
+          if (match) {
+            parkrunId = match[1];
+          }
+        }
+
         // Skip if we don't have essential data
         if (!runnerName || !time) continue;
 
@@ -204,6 +216,7 @@
           Event: eventName,
           Pos: position,
           parkrunner: runnerName,
+          'Parkrun ID': parkrunId,
           Time: time,
           'Gender Pos': genderPosition,
         };

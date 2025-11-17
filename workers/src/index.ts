@@ -10,6 +10,8 @@ import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, sto
 import { getReviewActivities, updateActivity } from './api/admin-review';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate, getParkrunWeeklySummary } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
+import { importIndividualParkrunCSV } from './api/parkrun-import-individual';
+import { getAthletesToScrape } from './api/parkrun-athletes-to-scrape';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames, getEventStats, renameEvent } from './api/events';
 import { backfillPolylines } from './api/polyline-backfill';
 import { handleRawResponseBackfill } from './api/raw-response-backfill';
@@ -386,6 +388,14 @@ export default {
 
       if (path === '/api/parkrun/import' && request.method === 'POST') {
         return importParkrunCSV(request, env);
+      }
+
+      if (path === '/api/parkrun/import-individual' && request.method === 'POST') {
+        return importIndividualParkrunCSV(request, env);
+      }
+
+      if (path === '/api/parkrun/athletes-to-scrape' && request.method === 'GET') {
+        return getAthletesToScrape(request, env);
       }
 
       if (path === '/api/parkrun/athletes' && request.method === 'GET') {
