@@ -70,7 +70,7 @@
   console.log(`   Parkrun ID: ${parkrunId}`);
   console.log(`   Name: ${athleteName || 'Unknown'}`);
   console.log(`   API Endpoint: ${CONFIG.apiEndpoint || 'None (manual copy)'}`);
-  console.log(`   Auto-upload: ${CONFIG.autoUpload ? 'Yes' : 'No'}\n');
+  console.log(`   Auto-upload: ${CONFIG.autoUpload ? 'Yes' : 'No'}\n`);
 
   // ========== FIND AND PARSE RESULTS TABLE ==========
 
