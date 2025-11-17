@@ -143,14 +143,14 @@
       eventName = eventName.replace(/\s+parkrun$/i, '');  // "Name parkrun" → "Name"
       eventName = eventName.trim();
 
-      // Remove "parkrun " prefix (e.g., "parkrun Ogród Saski, Lublin" → "Ogród Saski, Lublin")
-      if (eventName.startsWith('parkrun ')) {
-        eventName = eventName.substring(8); // Remove "parkrun " (8 characters)
-      }
-
-      // Remove "parkrun de " prefix (e.g., "parkrun de Montsouris" → "Montsouris")
+      // Remove "parkrun de " prefix FIRST (e.g., "parkrun de Montsouris" → "Montsouris")
+      // Must check this BEFORE "parkrun " to avoid leaving "de " prefix
       if (eventName.startsWith('parkrun de ')) {
         eventName = eventName.substring(11); // Remove "parkrun de " (11 characters)
+      }
+      // Remove "parkrun " prefix (e.g., "parkrun Ogród Saski, Lublin" → "Ogród Saski, Lublin")
+      else if (eventName.startsWith('parkrun ')) {
+        eventName = eventName.substring(8); // Remove "parkrun " (8 characters)
       }
 
       eventName = eventName.trim();

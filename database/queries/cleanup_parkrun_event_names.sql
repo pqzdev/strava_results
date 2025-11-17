@@ -52,20 +52,21 @@ SET event_name = (
 )
 WHERE event_name IN (SELECT from_name FROM parkrun_event_name_mappings);
 
--- ========== STEP 3: Remove "parkrun " prefix ==========
+-- ========== STEP 3: Remove "parkrun de " prefix FIRST ==========
+
+-- Update events with "parkrun de " prefix (that aren't in the mappings table)
+-- MUST do this BEFORE removing "parkrun " to avoid leaving "de " prefix
+UPDATE parkrun_results
+SET event_name = REPLACE(event_name, 'parkrun de ', '')
+WHERE event_name LIKE 'parkrun de %'
+  AND event_name NOT IN (SELECT from_name FROM parkrun_event_name_mappings);
+
+-- ========== STEP 4: Remove "parkrun " prefix ==========
 
 -- Update events with "parkrun " prefix (that aren't in the mappings table)
 UPDATE parkrun_results
 SET event_name = REPLACE(event_name, 'parkrun ', '')
 WHERE event_name LIKE 'parkrun %'
-  AND event_name NOT IN (SELECT from_name FROM parkrun_event_name_mappings);
-
--- ========== STEP 4: Remove "parkrun de " prefix ==========
-
--- Update events with "parkrun de " prefix (that aren't in the mappings table)
-UPDATE parkrun_results
-SET event_name = REPLACE(event_name, 'parkrun de ', '')
-WHERE event_name LIKE 'parkrun de %'
   AND event_name NOT IN (SELECT from_name FROM parkrun_event_name_mappings);
 
 -- ========== STEP 5: Verify changes ==========
