@@ -100,39 +100,63 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
 
           const timeSeconds = parseTimeToSeconds(timeString);
 
-          // Insert into database with data_source = 'individual'
-          // Use ON CONFLICT to handle duplicates gracefully
-          const result = await env.DB.prepare(
-            `INSERT INTO parkrun_results
-             (athlete_name, parkrun_athlete_id, event_name, event_number, position,
-              time_seconds, time_string, age_grade, date, data_source)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'individual')
-             ON CONFLICT(athlete_name, event_name, event_number, date) DO UPDATE SET
-               parkrun_athlete_id = COALESCE(parkrun_athlete_id, excluded.parkrun_athlete_id),
-               time_seconds = excluded.time_seconds,
-               time_string = excluded.time_string,
-               age_grade = COALESCE(excluded.age_grade, age_grade),
-               position = excluded.position
-             WHERE data_source = 'club'`
+          // Check if this result already exists (unique on: parkrun_athlete_id + event_name + date)
+          const existing = await env.DB.prepare(
+            `SELECT id, data_source FROM parkrun_results
+             WHERE parkrun_athlete_id = ? AND event_name = ? AND date = ?`
           )
-            .bind(
-              rowAthleteName,
-              rowParkrunId || null,
-              eventName,
-              runNumber,
-              position,
-              timeSeconds,
-              timeString,
-              ageGrade || null,
-              date
-            )
-            .run();
+            .bind(rowParkrunId, eventName, date)
+            .first<{ id: number; data_source: string | null }>();
 
-          // Check if it was actually inserted (changes > 0) or was a duplicate
-          if (result.meta.changes > 0) {
-            imported++;
+          if (existing) {
+            // Row exists - update only if it's from club data (to add missing fields)
+            if (existing.data_source === 'club' || existing.data_source === null) {
+              const result = await env.DB.prepare(
+                `UPDATE parkrun_results
+                 SET parkrun_athlete_id = ?,
+                     time_seconds = ?,
+                     time_string = ?,
+                     age_grade = COALESCE(?, age_grade),
+                     position = ?,
+                     data_source = 'individual'
+                 WHERE id = ?`
+              )
+                .bind(rowParkrunId, timeSeconds, timeString, ageGrade || null, position, existing.id)
+                .run();
+
+              if (result.meta.changes > 0) {
+                imported++;
+              } else {
+                duplicatesSkipped++;
+              }
+            } else {
+              // Already exists from individual scraping - skip
+              duplicatesSkipped++;
+            }
           } else {
-            duplicatesSkipped++;
+            // New row - insert it
+            const result = await env.DB.prepare(
+              `INSERT INTO parkrun_results
+               (athlete_name, parkrun_athlete_id, event_name, event_number, position,
+                time_seconds, time_string, age_grade, date, data_source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'individual')`
+            )
+              .bind(
+                rowAthleteName,
+                rowParkrunId,
+                eventName,
+                runNumber,
+                position,
+                timeSeconds,
+                timeString,
+                ageGrade || null,
+                date
+              )
+              .run();
+
+            if (result.meta.changes > 0) {
+              imported++;
+            }
           }
 
         } catch (error) {
