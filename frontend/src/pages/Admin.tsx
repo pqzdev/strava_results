@@ -984,6 +984,64 @@ export default function Admin() {
     }
   };
 
+  const triggerIndividualScraping = async (mode: 'new' | 'all') => {
+    try {
+      // Fetch list of athletes to scrape
+      const response = await fetch(`${window.location.origin}/api/parkrun/athletes-to-scrape?mode=${mode}`);
+      const data = await response.json();
+
+      if (!data.athletes || data.athletes.length === 0) {
+        alert(mode === 'new'
+          ? 'No new athletes to scrape. All athletes have already been scraped!'
+          : 'No athletes found with parkrun IDs.');
+        return;
+      }
+
+      const firstAthlete = data.athletes[0];
+      const totalAthletes = data.athletes.length;
+
+      // Build the individual athlete URL with parameters
+      const apiEndpoint = `${window.location.origin}/api/parkrun/import-individual`;
+      const athleteUrl = new URL(`https://www.parkrun.com.au/parkrunner/${firstAthlete.parkrun_athlete_id}/all/`);
+      athleteUrl.searchParams.set('apiEndpoint', apiEndpoint);
+      athleteUrl.searchParams.set('autoUpload', 'true');
+
+      // Fetch the individual scraper script
+      const scriptResponse = await fetch(`${window.location.origin}/parkrun-individual-scraper.js`);
+      const scriptText = await scriptResponse.text();
+
+      // Copy script to clipboard
+      await navigator.clipboard.writeText(scriptText);
+
+      // Open athlete's page in new tab
+      const athleteTab = window.open(athleteUrl.toString(), '_blank');
+
+      if (!athleteTab) {
+        alert('Please allow popups to use the individual scraping feature.');
+        return;
+      }
+
+      // Show instructions
+      alert(
+        `✅ Script copied to clipboard!\n\n` +
+        `Scraping athlete 1 of ${totalAthletes}: ${firstAthlete.athlete_name}\n\n` +
+        `Next steps:\n` +
+        `1. Go to the parkrun tab that just opened\n` +
+        `2. Press F12 to open console\n` +
+        `3. Paste the script (Ctrl+V or Cmd+V)\n` +
+        `4. Press Enter\n\n` +
+        (totalAthletes > 1
+          ? `After this completes, repeat for the remaining ${totalAthletes - 1} athletes.\n` +
+            `You can get the full list from: ${window.location.origin}/api/parkrun/athletes-to-scrape?mode=${mode}`
+          : `This is the only athlete to scrape.`)
+      );
+
+    } catch (err) {
+      alert('Failed to load athletes or scraper script. Please try again.');
+      console.error(err);
+    }
+  };
+
   const getSyncStatusBadge = (status: string) => {
     const statusClasses: Record<string, string> = {
       completed: 'status-completed',
@@ -2127,19 +2185,7 @@ export default function Admin() {
         </p>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           <button
-            onClick={() => {
-              const confirmed = window.confirm(
-                'This will scrape parkrun history for athletes who haven\'t been scraped yet.\n\n' +
-                'This opens individual athlete pages and may take several minutes.\n\n' +
-                'Continue?'
-              );
-              if (confirmed) {
-                alert('Individual scraping not yet implemented in UI.\n\nTo run manually:\n' +
-                      '1. Use scripts/parkrun-individual-batch.js\n' +
-                      '2. Or scrape via browser console on individual athlete pages\n\n' +
-                      'See docs/PARKRUN_INDIVIDUAL_SCRAPING.md for details.');
-              }
-            }}
+            onClick={() => triggerIndividualScraping('new')}
             className="button"
             style={{
               padding: '0.5rem 1.5rem',
@@ -2154,18 +2200,7 @@ export default function Admin() {
             📥 Scrape New Athletes
           </button>
           <button
-            onClick={() => {
-              const confirmed = window.confirm(
-                'This will RE-SCRAPE parkrun history for ALL athletes.\n\n' +
-                'This may take a long time if you have many athletes.\n\n' +
-                'Continue?'
-              );
-              if (confirmed) {
-                alert('Full refresh not yet implemented in UI.\n\nTo run manually:\n' +
-                      '1. Use: node scripts/parkrun-individual-batch.js config.json all\n\n' +
-                      'See docs/PARKRUN_INDIVIDUAL_SCRAPING.md for details.');
-              }
-            }}
+            onClick={() => triggerIndividualScraping('all')}
             className="button"
             style={{
               padding: '0.5rem 1.5rem',
