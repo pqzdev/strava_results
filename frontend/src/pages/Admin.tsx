@@ -204,6 +204,7 @@ export default function Admin() {
   const [showBookmarkletInstructions, setShowBookmarkletInstructions] = useState(false);
   const [bookmarkletDelay, setBookmarkletDelay] = useState(3000);
   const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
+  const [selectedParkrunAthleteId, setSelectedParkrunAthleteId] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [parkrunSortField, setParkrunSortField] = useState<ParkrunSortField>('runs');
@@ -987,71 +988,6 @@ export default function Admin() {
       setShowParkrunInstructions(true);
     } catch (err) {
       alert('Failed to load scraper script. Please try again.');
-    }
-  };
-
-  const triggerIndividualScraping = async (mode: 'new' | 'all') => {
-    try {
-      // Fetch list of athletes to scrape
-      const workerDomain = 'https://strava-club-workers.pedroqueiroz.workers.dev';
-      const response = await fetch(`${workerDomain}/api/parkrun/athletes-to-scrape?mode=${mode}`);
-      const data = await response.json();
-
-      if (!data.athletes || data.athletes.length === 0) {
-        alert(mode === 'new'
-          ? 'No new athletes to scrape. All athletes have already been scraped!'
-          : 'No athletes found with parkrun IDs.');
-        return;
-      }
-
-      const firstAthlete = data.athletes[0];
-      const totalAthletes = data.athletes.length;
-
-      // Build the individual athlete URL with batch scraper parameters
-      const apiEndpoint = `${workerDomain}/api/parkrun/import-individual`;
-      const athletesApiEndpoint = `${workerDomain}/api/parkrun/athletes-to-scrape`;
-      const athleteUrl = new URL(`https://www.parkrun.com.au/parkrunner/${firstAthlete.parkrun_athlete_id}/all/`);
-      athleteUrl.searchParams.set('apiEndpoint', apiEndpoint);
-      athleteUrl.searchParams.set('athletesApiEndpoint', athletesApiEndpoint);
-      athleteUrl.searchParams.set('mode', mode);
-      athleteUrl.searchParams.set('autoNavigate', 'true');
-      athleteUrl.searchParams.set('delay', '3000');
-
-      // Fetch the BATCH individual scraper script
-      const scriptResponse = await fetch(`${window.location.origin}/parkrun-individual-batch-browser.js`);
-      const scriptText = await scriptResponse.text();
-
-      // Copy script to clipboard
-      await navigator.clipboard.writeText(scriptText);
-
-      // Open athlete's page in new tab
-      const athleteTab = window.open(athleteUrl.toString(), '_blank');
-
-      if (!athleteTab) {
-        alert('Please allow popups to use the individual scraping feature.');
-        return;
-      }
-
-      // Show instructions
-      alert(
-        `✅ Batch scraper copied to clipboard!\n\n` +
-        `Will automatically scrape ${totalAthletes} athlete${totalAthletes > 1 ? 's' : ''}!\n\n` +
-        `Next steps:\n` +
-        `1. Go to the parkrun tab that just opened\n` +
-        `2. Press F12 to open console\n` +
-        `3. Paste the script (Ctrl+V or Cmd+V)\n` +
-        `4. Press Enter\n\n` +
-        `The script will automatically:\n` +
-        `- Scrape athlete 1 of ${totalAthletes}\n` +
-        `- Upload results\n` +
-        `- Navigate to athlete 2\n` +
-        `- Repeat until all ${totalAthletes} athletes are done!\n\n` +
-        `Just paste once and let it run!`
-      );
-
-    } catch (err) {
-      alert('Failed to load athletes or scraper script. Please try again.');
-      console.error(err);
     }
   };
 
@@ -2072,251 +2008,6 @@ export default function Admin() {
             <p className="subtitle">Automatically scrape and import parkrun results</p>
           </div>
 
-          {/* Parkrun Batch Scraper Bookmarklet */}
-          <div style={{
-            marginBottom: '2rem',
-            backgroundColor: '#fef3c7',
-            borderRadius: '8px',
-            border: '2px solid #f59e0b',
-            overflow: 'hidden',
-          }}>
-            <button
-              onClick={() => setShowBookmarkletInstructions(!showBookmarkletInstructions)}
-              style={{
-                width: '100%',
-                padding: '1rem 1.5rem',
-                backgroundColor: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                fontSize: '1rem',
-                fontWeight: 700,
-                color: '#92400e',
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                🔖 Parkrun Batch Scraper Bookmarklet
-              </span>
-              <span style={{ fontSize: '1.2rem' }}>
-                {showBookmarkletInstructions ? '▼' : '▶'}
-              </span>
-            </button>
-
-            {showBookmarkletInstructions && (
-              <div style={{ padding: '0 1.5rem 1.5rem 1.5rem' }}>
-                <p style={{
-                  fontSize: '0.9rem',
-                  color: '#78350f',
-                  marginBottom: '1rem',
-                  lineHeight: '1.6',
-                }}>
-                  The bookmarklet allows you to scrape all athletes' parkrun histories automatically.
-                  It persists across page navigations using sessionStorage, solving the issue where
-                  "the script is gone and it stops running" when moving to the next athlete.
-                </p>
-
-                <div style={{
-                  backgroundColor: '#fffbeb',
-                  padding: '1rem',
-                  borderRadius: '6px',
-                  marginBottom: '1rem',
-                  border: '1px solid #fbbf24',
-                }}>
-                  <p style={{
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: '#92400e',
-                    marginBottom: '0.5rem',
-                  }}>
-                    📋 Installation Instructions:
-                  </p>
-                  <ol style={{
-                    fontSize: '0.85rem',
-                    color: '#78350f',
-                    margin: '0',
-                    paddingLeft: '1.5rem',
-                    lineHeight: '1.8',
-                  }}>
-                    <li>Set your preferred delay below (default: 3000ms)</li>
-                    <li>Click the "Copy Bookmarklet Code" button</li>
-                    <li>Create a new bookmark in your browser (Ctrl+D or Cmd+D)</li>
-                    <li>Name it "Parkrun Batch Scraper"</li>
-                    <li>Paste the code as the bookmark URL</li>
-                    <li>Save the bookmark</li>
-                  </ol>
-                </div>
-
-                <div style={{
-                  backgroundColor: '#fffbeb',
-                  padding: '1rem',
-                  borderRadius: '6px',
-                  marginBottom: '1rem',
-                  border: '1px solid #fbbf24',
-                }}>
-                  <label style={{
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: '#92400e',
-                    display: 'block',
-                    marginBottom: '0.5rem',
-                  }}>
-                    ⏱️ Delay Between Athletes (milliseconds):
-                  </label>
-                  <input
-                    type="number"
-                    min="1000"
-                    max="30000"
-                    step="500"
-                    value={bookmarkletDelay}
-                    onChange={(e) => setBookmarkletDelay(parseInt(e.target.value) || 3000)}
-                    style={{
-                      width: '150px',
-                      padding: '0.5rem',
-                      fontSize: '0.9rem',
-                      border: '1px solid #fbbf24',
-                      borderRadius: '4px',
-                      backgroundColor: 'white',
-                    }}
-                  />
-                  <span style={{
-                    marginLeft: '0.5rem',
-                    fontSize: '0.85rem',
-                    color: '#78350f',
-                  }}>
-                    (Recommended: 3000-5000ms)
-                  </span>
-                </div>
-
-                <div style={{
-                  backgroundColor: '#fffbeb',
-                  padding: '1rem',
-                  borderRadius: '6px',
-                  marginBottom: '1rem',
-                  border: '1px solid #fbbf24',
-                }}>
-                  <p style={{
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: '#92400e',
-                    marginBottom: '0.5rem',
-                  }}>
-                    🚀 How to Use:
-                  </p>
-                  <ol style={{
-                    fontSize: '0.85rem',
-                    color: '#78350f',
-                    margin: '0',
-                    paddingLeft: '1.5rem',
-                    lineHeight: '1.8',
-                  }}>
-                    <li>Navigate to any parkrun athlete's page (e.g., <a
-                      href="https://www.parkrun.com.au/parkrunner/7796495/all/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color: '#2563eb',
-                        textDecoration: 'underline',
-                      }}
-                    >
-                      parkrun.com.au/parkrunner/7796495/all/
-                    </a>)</li>
-                    <li>Click the "Parkrun Batch Scraper" bookmarklet</li>
-                    <li>Choose mode: OK = New athletes only, Cancel = All athletes (refresh)</li>
-                    <li>The scraper will automatically cycle through all athletes with your configured delay</li>
-                  </ol>
-                </div>
-
-                <div style={{
-                  backgroundColor: '#fffbeb',
-                  padding: '1rem',
-                  borderRadius: '6px',
-                  marginBottom: '1rem',
-                  border: '1px solid #fbbf24',
-                }}>
-                  <p style={{
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: '#92400e',
-                    marginBottom: '0.5rem',
-                  }}>
-                    🛑 How to Stop:
-                  </p>
-                  <p style={{
-                    fontSize: '0.85rem',
-                    color: '#78350f',
-                    margin: '0',
-                    lineHeight: '1.8',
-                  }}>
-                    Open browser console (F12) and run: <code style={{
-                      backgroundColor: '#fef3c7',
-                      padding: '0.2rem 0.4rem',
-                      borderRadius: '3px',
-                      fontSize: '0.8rem',
-                      fontFamily: 'monospace',
-                    }}>sessionStorage.removeItem('parkrun_batch_scraper_config')</code>
-                  </p>
-                </div>
-
-                <div>
-                  <button
-                    onClick={() => {
-                      const bookmarkletCode = `javascript:(function(){if(!window.location.hostname.includes('parkrun.com')){alert('⚠️ This bookmarklet only works on parkrun.com pages');return}if(!window.location.pathname.match(/\\/parkrunner\\/\\d+/)){alert('⚠️ Please navigate to an athlete\\'s results page first:\\nhttps://www.parkrun.com.au/parkrunner/[ID]/all/');return}const STORAGE_KEY='parkrun_batch_scraper_config';const SCRIPT_URL='https://woodstock-results.pages.dev/parkrun-individual-batch-browser.js';const storedConfig=sessionStorage.getItem(STORAGE_KEY);if(!storedConfig){const mode=confirm('Scraping Mode:\\n\\nOK = New athletes only\\nCancel = All athletes (refresh)')?'new':'all';const delay=${bookmarkletDelay};const apiEndpoint='https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import-individual';const athletesApiEndpoint='https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/athletes-to-scrape';const config={mode,delay,apiEndpoint,athletesApiEndpoint,active:true};sessionStorage.setItem(STORAGE_KEY,JSON.stringify(config));console.log('✅ Parkrun Batch Scraper activated!');console.log('Configuration:',config);console.log('\\nThe scraper will now run on each parkrun athlete page.');console.log('To stop, run: sessionStorage.removeItem("parkrun_batch_scraper_config")')}const config=JSON.parse(sessionStorage.getItem(STORAGE_KEY));const currentUrl=new URL(window.location.href);currentUrl.searchParams.set('apiEndpoint',config.apiEndpoint);currentUrl.searchParams.set('athletesApiEndpoint',config.athletesApiEndpoint);currentUrl.searchParams.set('mode',config.mode);currentUrl.searchParams.set('delay',config.delay.toString());currentUrl.searchParams.set('autoNavigate','true');window.history.replaceState({},'',currentUrl.toString());const script=document.createElement('script');script.src=SCRIPT_URL;script.onload=function(){console.log('✅ Batch scraper script loaded and executing...')};script.onerror=function(){console.error('❌ Failed to load scraper script from:',SCRIPT_URL);alert('Failed to load scraper script. Check console for details.')};document.head.appendChild(script)})();`;
-
-                      navigator.clipboard.writeText(bookmarkletCode).then(() => {
-                        setBookmarkletCopied(true);
-                        setTimeout(() => setBookmarkletCopied(false), 5000);
-                      }).catch(() => {
-                        console.log('Bookmarklet code:', bookmarkletCode);
-                      });
-                    }}
-                    style={{
-                      padding: '0.75rem 1.5rem',
-                      fontSize: '0.95rem',
-                      fontWeight: 600,
-                      color: 'white',
-                      backgroundColor: bookmarkletCopied ? '#10b981' : '#f59e0b',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s',
-                    }}
-                    onMouseOver={(e) => !bookmarkletCopied && (e.currentTarget.style.backgroundColor = '#d97706')}
-                    onMouseOut={(e) => !bookmarkletCopied && (e.currentTarget.style.backgroundColor = '#f59e0b')}
-                  >
-                    {bookmarkletCopied ? '✅ Copied to Clipboard!' : `📋 Copy Bookmarklet Code (Delay: ${bookmarkletDelay}ms)`}
-                  </button>
-
-                  {bookmarkletCopied && (
-                    <div style={{
-                      marginTop: '1rem',
-                      padding: '1rem',
-                      backgroundColor: '#d1fae5',
-                      border: '1px solid #10b981',
-                      borderRadius: '6px',
-                      fontSize: '0.85rem',
-                      color: '#065f46',
-                      lineHeight: '1.6',
-                    }}>
-                      <strong>✅ Bookmarklet copied!</strong>
-                      <br />
-                      Delay: {bookmarkletDelay}ms
-                      <br /><br />
-                      <strong>Next steps:</strong>
-                      <ol style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.5rem' }}>
-                        <li>Create a new bookmark (Ctrl+D or Cmd+D)</li>
-                        <li>Name it "Parkrun Batch Scraper"</li>
-                        <li>Paste the code as the URL</li>
-                        <li>Save the bookmark</li>
-                      </ol>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
       <div className="parkrun-sync-section" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div style={{ flex: '1', minWidth: '200px' }}>
@@ -2464,41 +2155,294 @@ export default function Admin() {
         <p className="subtitle">Scrape complete parkrun history for individual athletes (including pre-club results)</p>
       </div>
 
+      {/* Parkrun Batch Scraper Bookmarklet */}
+      <div style={{
+        marginBottom: '2rem',
+        backgroundColor: '#fef3c7',
+        borderRadius: '8px',
+        border: '2px solid #f59e0b',
+        overflow: 'hidden',
+      }}>
+        <button
+          onClick={() => setShowBookmarkletInstructions(!showBookmarkletInstructions)}
+          style={{
+            width: '100%',
+            padding: '1rem 1.5rem',
+            backgroundColor: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '1rem',
+            fontWeight: 700,
+            color: '#92400e',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            🔖 Batch Scraper Bookmarklet (Recommended)
+          </span>
+          <span style={{ fontSize: '1.2rem' }}>
+            {showBookmarkletInstructions ? '▼' : '▶'}
+          </span>
+        </button>
+
+        {showBookmarkletInstructions && (
+          <div style={{ padding: '0 1.5rem 1.5rem 1.5rem' }}>
+            <p style={{
+              fontSize: '0.9rem',
+              color: '#78350f',
+              marginBottom: '1rem',
+              lineHeight: '1.6',
+            }}>
+              The bookmarklet allows you to scrape all athletes' parkrun histories automatically.
+              It persists across page navigations using sessionStorage.
+            </p>
+
+            <div style={{
+              backgroundColor: '#fffbeb',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #fbbf24',
+            }}>
+              <p style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#92400e',
+                marginBottom: '0.5rem',
+              }}>
+                📋 Installation Instructions:
+              </p>
+              <ol style={{
+                fontSize: '0.85rem',
+                color: '#78350f',
+                margin: '0',
+                paddingLeft: '1.5rem',
+                lineHeight: '1.8',
+              }}>
+                <li>Set your preferred delay below (default: 3000ms)</li>
+                <li>Click the "Copy Bookmarklet Code" button</li>
+                <li>Create a new bookmark in your browser (Ctrl+D or Cmd+D)</li>
+                <li>Name it "Parkrun Batch Scraper"</li>
+                <li>Paste the code as the bookmark URL</li>
+                <li>Save the bookmark</li>
+              </ol>
+            </div>
+
+            <div style={{
+              backgroundColor: '#fffbeb',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #fbbf24',
+            }}>
+              <label style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#92400e',
+                display: 'block',
+                marginBottom: '0.5rem',
+              }}>
+                ⏱️ Delay Between Athletes (milliseconds):
+              </label>
+              <input
+                type="number"
+                min="1000"
+                max="30000"
+                step="500"
+                value={bookmarkletDelay}
+                onChange={(e) => setBookmarkletDelay(parseInt(e.target.value) || 3000)}
+                style={{
+                  width: '150px',
+                  padding: '0.5rem',
+                  fontSize: '0.9rem',
+                  border: '1px solid #fbbf24',
+                  borderRadius: '4px',
+                  backgroundColor: 'white',
+                }}
+              />
+              <span style={{
+                marginLeft: '0.5rem',
+                fontSize: '0.85rem',
+                color: '#78350f',
+              }}>
+                (Recommended: 3000-5000ms)
+              </span>
+            </div>
+
+            <div style={{
+              backgroundColor: '#fffbeb',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #fbbf24',
+            }}>
+              <p style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#92400e',
+                marginBottom: '0.5rem',
+              }}>
+                🚀 How to Use:
+              </p>
+              <ol style={{
+                fontSize: '0.85rem',
+                color: '#78350f',
+                margin: '0',
+                paddingLeft: '1.5rem',
+                lineHeight: '1.8',
+              }}>
+                <li>Navigate to any parkrun athlete's page (e.g., <a
+                  href="https://www.parkrun.com.au/parkrunner/7796495/all/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: '#2563eb',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  parkrun.com.au/parkrunner/7796495/all/
+                </a>)</li>
+                <li>Click the "Parkrun Batch Scraper" bookmarklet</li>
+                <li>Choose mode: OK = New athletes only, Cancel = All athletes (refresh)</li>
+                <li>The scraper will automatically cycle through all athletes with your configured delay</li>
+              </ol>
+            </div>
+
+            <div style={{
+              backgroundColor: '#fffbeb',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #fbbf24',
+            }}>
+              <p style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#92400e',
+                marginBottom: '0.5rem',
+              }}>
+                🛑 How to Stop:
+              </p>
+              <p style={{
+                fontSize: '0.85rem',
+                color: '#78350f',
+                margin: '0',
+                lineHeight: '1.8',
+              }}>
+                Open browser console (F12) and run: <code style={{
+                  backgroundColor: '#fef3c7',
+                  padding: '0.2rem 0.4rem',
+                  borderRadius: '3px',
+                  fontSize: '0.8rem',
+                  fontFamily: 'monospace',
+                }}>sessionStorage.removeItem('parkrun_batch_scraper_config')</code>
+              </p>
+            </div>
+
+            <div>
+              <button
+                onClick={() => {
+                  const bookmarkletCode = `javascript:(function(){if(!window.location.hostname.includes('parkrun.com')){alert('⚠️ This bookmarklet only works on parkrun.com pages');return}if(!window.location.pathname.match(/\\/parkrunner\\/\\d+/)){alert('⚠️ Please navigate to an athlete\\'s results page first:\\nhttps://www.parkrun.com.au/parkrunner/[ID]/all/');return}const STORAGE_KEY='parkrun_batch_scraper_config';const SCRIPT_URL='https://woodstock-results.pages.dev/parkrun-individual-batch-browser.js';const storedConfig=sessionStorage.getItem(STORAGE_KEY);if(!storedConfig){const mode=confirm('Scraping Mode:\\n\\nOK = New athletes only\\nCancel = All athletes (refresh)')?'new':'all';const delay=${bookmarkletDelay};const apiEndpoint='https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import-individual';const athletesApiEndpoint='https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/athletes-to-scrape';const config={mode,delay,apiEndpoint,athletesApiEndpoint,active:true};sessionStorage.setItem(STORAGE_KEY,JSON.stringify(config));console.log('✅ Parkrun Batch Scraper activated!');console.log('Configuration:',config);console.log('\\nThe scraper will now run on each parkrun athlete page.');console.log('To stop, run: sessionStorage.removeItem("parkrun_batch_scraper_config")')}const config=JSON.parse(sessionStorage.getItem(STORAGE_KEY));const currentUrl=new URL(window.location.href);currentUrl.searchParams.set('apiEndpoint',config.apiEndpoint);currentUrl.searchParams.set('athletesApiEndpoint',config.athletesApiEndpoint);currentUrl.searchParams.set('mode',config.mode);currentUrl.searchParams.set('delay',config.delay.toString());currentUrl.searchParams.set('autoNavigate','true');window.history.replaceState({},'',currentUrl.toString());const script=document.createElement('script');script.src=SCRIPT_URL;script.onload=function(){console.log('✅ Batch scraper script loaded and executing...')};script.onerror=function(){console.error('❌ Failed to load scraper script from:',SCRIPT_URL);alert('Failed to load scraper script. Check console for details.')};document.head.appendChild(script)})();`;
+
+                  navigator.clipboard.writeText(bookmarkletCode).then(() => {
+                    setBookmarkletCopied(true);
+                    setTimeout(() => setBookmarkletCopied(false), 5000);
+                  }).catch(() => {
+                    console.log('Bookmarklet code:', bookmarkletCode);
+                  });
+                }}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  color: 'white',
+                  backgroundColor: bookmarkletCopied ? '#10b981' : '#f59e0b',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                }}
+                onMouseOver={(e) => !bookmarkletCopied && (e.currentTarget.style.backgroundColor = '#d97706')}
+                onMouseOut={(e) => !bookmarkletCopied && (e.currentTarget.style.backgroundColor = '#f59e0b')}
+              >
+                {bookmarkletCopied ? '✅ Copied to Clipboard!' : `📋 Copy Bookmarklet Code (Delay: ${bookmarkletDelay}ms)`}
+              </button>
+
+              {bookmarkletCopied && (
+                <div style={{
+                  marginTop: '1rem',
+                  padding: '1rem',
+                  backgroundColor: '#d1fae5',
+                  border: '1px solid #10b981',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  color: '#065f46',
+                  lineHeight: '1.6',
+                }}>
+                  <strong>✅ Bookmarklet copied!</strong>
+                  <br />
+                  Delay: {bookmarkletDelay}ms
+                  <br /><br />
+                  <strong>Next steps:</strong>
+                  <ol style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.5rem' }}>
+                    <li>Create a new bookmark (Ctrl+D or Cmd+D)</li>
+                    <li>Name it "Parkrun Batch Scraper"</li>
+                    <li>Paste the code as the URL</li>
+                    <li>Save the bookmark</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="parkrun-sync-section" style={{ marginBottom: '2rem' }}>
         <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#666' }}>
-          Individual scraping captures each athlete's complete parkrun history from their personal page,
-          including runs from before they joined Woodstock Runners.
+          Or scrape a single athlete's complete parkrun history from their personal page (including runs from before they joined Woodstock Runners):
         </p>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1', minWidth: '200px' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              Parkrun Athlete ID
+            </label>
+            <input
+              type="text"
+              value={selectedParkrunAthleteId}
+              onChange={(e) => setSelectedParkrunAthleteId(e.target.value)}
+              placeholder="e.g., 7796495"
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+              }}
+            />
+          </div>
           <button
-            onClick={() => triggerIndividualScraping('new')}
+            onClick={() => {
+              if (!selectedParkrunAthleteId) {
+                return;
+              }
+              const apiUrl = window.location.origin;
+              const scraperUrl = `https://www.parkrun.com.au/parkrunner/${selectedParkrunAthleteId}/all/?apiEndpoint=${encodeURIComponent(`${apiUrl}/api/parkrun/import-individual`)}&autoUpload=true`;
+              window.open(scraperUrl, '_blank');
+            }}
+            disabled={!selectedParkrunAthleteId}
             className="button"
             style={{
               padding: '0.5rem 1.5rem',
-              backgroundColor: '#10b981',
+              backgroundColor: selectedParkrunAthleteId ? '#6366f1' : '#9ca3af',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              cursor: 'pointer',
+              cursor: selectedParkrunAthleteId ? 'pointer' : 'not-allowed',
               fontWeight: 500,
             }}
           >
-            📥 Scrape New Athletes
-          </button>
-          <button
-            onClick={() => triggerIndividualScraping('all')}
-            className="button"
-            style={{
-              padding: '0.5rem 1.5rem',
-              backgroundColor: '#f59e0b',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 500,
-            }}
-          >
-            🔄 Full Refresh (All Athletes)
+            🏃 Scrape Single Athlete
           </button>
         </div>
         <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f0f9ff', borderRadius: '8px', fontSize: '0.85rem' }}>
