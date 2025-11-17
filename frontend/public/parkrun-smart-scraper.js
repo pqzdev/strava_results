@@ -143,6 +143,12 @@
       eventName = eventName.replace(/\s+parkrun$/i, '');  // "Name parkrun" → "Name"
       eventName = eventName.trim();
 
+      // Normalize specific event names
+      // "Presint 18" should always be "Presint 18, Putrajaya"
+      if (eventName === 'Presint 18') {
+        eventName = 'Presint 18, Putrajaya';
+      }
+
       // Skip if not an event name (like "Consolidated club report")
       if (!eventName || eventName.toLowerCase().includes('consolidated') || eventName.toLowerCase().includes('report')) {
         continue;
