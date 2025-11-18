@@ -283,13 +283,19 @@ export default function Admin() {
 
   const fetchParkrunAthletes = async () => {
     try {
+      console.log('🔍 Fetching parkrun athletes from /api/parkrun/athletes');
       const response = await fetch('/api/parkrun/athletes');
 
       if (!response.ok) {
+        console.error('❌ Parkrun athletes fetch failed:', response.status, response.statusText);
         throw new Error('Failed to fetch parkrun athletes');
       }
 
       const data = await response.json();
+      console.log('✅ Parkrun athletes loaded:', data.athletes?.length || 0, 'athletes');
+      if (data.athletes && data.athletes.length > 0) {
+        console.log('Sample athlete:', data.athletes[0]);
+      }
       setParkrunAthletes(data.athletes || []);
     } catch (err) {
       console.error('Error fetching parkrun athletes:', err);
