@@ -192,6 +192,7 @@ export default function Admin() {
   const [analyzingEvents, setAnalyzingEvents] = useState(false);
   const [editingEventName, setEditingEventName] = useState<{ [key: number]: string }>({});
   const [showParkrunInstructions, setShowParkrunInstructions] = useState(false);
+  const [showIndividualScraper, setShowIndividualScraper] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [parkrunSortField, setParkrunSortField] = useState<ParkrunSortField>('runs');
@@ -2075,100 +2076,114 @@ export default function Admin() {
         )}
       </div>
 
-      <div className="admin-header" style={{ marginTop: '2rem' }}>
-        <h2>Individual Athlete History</h2>
-        <p className="subtitle">Scrape complete parkrun history for individual athletes (including pre-club results)</p>
-      </div>
-
-      {/* Parkrun Batch Scraper - Tampermonkey */}
+      {/* Individual Athlete Batch Scraper - Tampermonkey */}
       <div style={{
         marginBottom: '2rem',
         backgroundColor: '#f0fdf4',
         borderRadius: '8px',
         border: '2px solid #10b981',
-        padding: '1.5rem',
+        overflow: 'hidden',
       }}>
-        <h4 style={{
-          fontSize: '1.1rem',
-          fontWeight: 700,
-          color: '#065f46',
-          marginBottom: '1rem',
-        }}>
-          🏃 Individual Athlete Batch Scraper
-        </h4>
-
-        <p style={{
-          fontSize: '0.9rem',
-          color: '#047857',
-          lineHeight: '1.6',
-          marginBottom: '1rem',
-        }}>
-          Automatically scrape all athletes' complete parkrun histories with a single click.
-          The script adds a purple floating button to parkrun pages.
-        </p>
-
-        <div style={{
-          backgroundColor: 'white',
-          padding: '1rem',
-          borderRadius: '6px',
-          marginBottom: '1rem',
-          border: '1px solid #10b981',
-        }}>
-          <p style={{
-            fontSize: '0.85rem',
-            fontWeight: 600,
-            color: '#065f46',
-            marginBottom: '0.5rem',
-          }}>
-            📋 Installation:
-          </p>
-          <ol style={{
-            fontSize: '0.85rem',
-            color: '#047857',
-            margin: '0',
-            paddingLeft: '1.5rem',
-            lineHeight: '1.8',
-          }}>
-            <li>Install <a
-              href="https://www.tampermonkey.net/"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#2563eb', textDecoration: 'underline' }}
-            >Tampermonkey browser extension</a></li>
-            <li>Click the button below to download the userscript</li>
-            <li>Tampermonkey will prompt you to install it</li>
-            <li>Navigate to any parkrun athlete page (e.g., <a
-              href="https://www.parkrun.com.au/parkrunner/7796495/all/"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#2563eb', textDecoration: 'underline' }}
-            >parkrun.com.au/parkrunner/7796495/all/</a>)</li>
-            <li>Click the purple "🏃 Start Batch Scraper" button that appears</li>
-            <li>Choose scraping mode and the script will automatically cycle through all athletes!</li>
-          </ol>
-        </div>
-
         <button
-          onClick={() => {
-            const userscriptUrl = `${window.location.origin}/parkrun-batch-tampermonkey.user.js`;
-            window.open(userscriptUrl, '_blank');
-          }}
+          onClick={() => setShowIndividualScraper(!showIndividualScraper)}
           style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '0.95rem',
-            fontWeight: 600,
-            color: 'white',
-            backgroundColor: '#10b981',
+            width: '100%',
+            padding: '1rem 1.5rem',
+            backgroundColor: 'transparent',
             border: 'none',
-            borderRadius: '6px',
             cursor: 'pointer',
-            transition: 'background-color 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '1rem',
+            fontWeight: 700,
+            color: '#065f46',
           }}
-          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
-          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
         >
-          📥 Download Individual Athlete Scraper
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            🏃 Individual Athlete Batch Scraper
+          </span>
+          <span style={{ fontSize: '1.2rem' }}>
+            {showIndividualScraper ? '▼' : '▶'}
+          </span>
         </button>
+
+        {showIndividualScraper && (
+          <div style={{ padding: '0 1.5rem 1.5rem 1.5rem' }}>
+            <p style={{
+              fontSize: '0.9rem',
+              color: '#047857',
+              lineHeight: '1.6',
+              marginBottom: '1rem',
+            }}>
+              Automatically scrape all athletes' complete parkrun histories with a single click.
+              The script adds a purple floating button to parkrun pages.
+            </p>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #10b981',
+            }}>
+              <p style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#065f46',
+                marginBottom: '0.5rem',
+              }}>
+                📋 Installation:
+              </p>
+              <ol style={{
+                fontSize: '0.85rem',
+                color: '#047857',
+                margin: '0',
+                paddingLeft: '1.5rem',
+                lineHeight: '1.8',
+              }}>
+                <li>Install <a
+                  href="https://www.tampermonkey.net/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#2563eb', textDecoration: 'underline' }}
+                >Tampermonkey browser extension</a></li>
+                <li>Click the button below to download the userscript</li>
+                <li>Tampermonkey will prompt you to install it</li>
+                <li>Navigate to any parkrun athlete page (e.g., <a
+                  href="https://www.parkrun.com.au/parkrunner/7796495/all/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#2563eb', textDecoration: 'underline' }}
+                >parkrun.com.au/parkrunner/7796495/all/</a>)</li>
+                <li>Click the purple "🏃 Start Batch Scraper" button that appears</li>
+                <li>Choose scraping mode and the script will automatically cycle through all athletes!</li>
+              </ol>
+            </div>
+
+            <button
+              onClick={() => {
+                const userscriptUrl = `${window.location.origin}/parkrun-batch-tampermonkey.user.js`;
+                window.open(userscriptUrl, '_blank');
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                color: 'white',
+                backgroundColor: '#10b981',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+            >
+              📥 Download Individual Athlete Scraper
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="admin-header" style={{ marginTop: '3rem' }}>

@@ -269,9 +269,17 @@ export async function getParkrunStats(request: Request, env: Env): Promise<Respo
 export async function getParkrunAthletes(request: Request, env: Env): Promise<Response> {
   try {
     // Get all unique athlete names from parkrun results with run counts and left status
+    // Get parkrun_athlete_id from parkrun_results (it's only in results table, not athletes table)
     const athleteResults = await env.DB.prepare(
-      `SELECT DISTINCT pr.athlete_name, pa.id, pa.is_hidden, pa.has_left_club,
-              pa.last_club_run_date, pa.last_individual_run_date, pa.parkrun_athlete_id, COUNT(pr.id) as run_count
+      `SELECT DISTINCT
+              pr.athlete_name,
+              pa.id,
+              pa.is_hidden,
+              pa.has_left_club,
+              pa.last_club_run_date,
+              pa.last_individual_run_date,
+              (SELECT parkrun_athlete_id FROM parkrun_results WHERE athlete_name = pr.athlete_name AND parkrun_athlete_id IS NOT NULL LIMIT 1) as parkrun_athlete_id,
+              COUNT(pr.id) as run_count
        FROM parkrun_results pr
        LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
        GROUP BY pr.athlete_name
