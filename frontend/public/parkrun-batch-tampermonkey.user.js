@@ -4,9 +4,9 @@
 // @version      1.0
 // @description  Automatically scrapes parkrun individual athlete histories across page navigations
 // @author       Woodstock Results
-// @match        https://www.parkrun.com/parkrunner/*/all/
-// @match        https://www.parkrun.com.au/parkrunner/*/all/
-// @match        https://www.parkrun.co.uk/parkrunner/*/all/
+// @match        https://www.parkrun.com/parkrunner/*/all/*
+// @match        https://www.parkrun.com.au/parkrunner/*/all/*
+// @match        https://www.parkrun.co.uk/parkrunner/*/all/*
 // @grant        none
 // @run-at       document-end
 // ==/UserScript==
@@ -14,12 +14,15 @@
 (function() {
     'use strict';
 
+    console.log('🔍 Tampermonkey: Parkrun Batch Scraper script loaded on:', window.location.href);
+
     const STORAGE_KEY = 'parkrun_batch_scraper_config';
     const EXECUTED_KEY = 'parkrun_scraper_executed_on_page';
     const SCRIPT_URL = 'https://woodstock-results.pages.dev/parkrun-individual-batch-browser.js';
 
     // Check if scraper is configured
     const storedConfig = sessionStorage.getItem(STORAGE_KEY);
+    console.log('🔍 Tampermonkey: Config found:', !!storedConfig);
 
     if (!storedConfig) {
         // Not configured - show setup prompt
@@ -66,10 +69,15 @@
     const currentPageUrl = window.location.href.split('?')[0];
     const executedOnPage = sessionStorage.getItem(EXECUTED_KEY);
 
+    console.log('🔍 Tampermonkey: Current page URL:', currentPageUrl);
+    console.log('🔍 Tampermonkey: Last executed on:', executedOnPage);
+
     if (executedOnPage === currentPageUrl) {
-        console.log('⏭️  Scraper already executed on this page, skipping...');
+        console.log('⏭️  Tampermonkey: Scraper already executed on this page, skipping...');
         return;
     }
+
+    console.log('✅ Tampermonkey: New page detected, will inject scraper');
 
     // Mark this page as executed
     sessionStorage.setItem(EXECUTED_KEY, currentPageUrl);
