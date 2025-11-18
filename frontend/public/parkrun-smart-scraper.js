@@ -576,6 +576,7 @@
       totalUploaded = allResults.length;
       console.log(`✅ Final batch uploaded! Total: ${totalUploaded} results`);
       console.log('\n🎉 All done! All data uploaded successfully.');
+      sessionStorage.setItem('parkrun_scraper_completed', 'true');
       return;
     }
     console.log('\n⚠️  Final upload failed, showing full CSV for manual copy...\n');
@@ -583,6 +584,7 @@
     // All results were uploaded in batches
     console.log('\n🎉 All done! All data uploaded successfully in batches.');
     console.log(`   Total uploaded: ${totalUploaded} results across ${Math.ceil(datesProcessed / CONFIG.batchSize)} batches`);
+    sessionStorage.setItem('parkrun_scraper_completed', 'true');
     return;
   }
 

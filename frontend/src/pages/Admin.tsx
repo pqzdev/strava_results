@@ -2151,6 +2151,93 @@ export default function Admin() {
       </div>
 
       <div className="admin-header" style={{ marginTop: '3rem' }}>
+        <h2>Club Results Scraper</h2>
+        <p className="subtitle">Scrape Woodstock Runners club results for a date range</p>
+      </div>
+
+      {/* Club Results Tampermonkey Scraper */}
+      <div style={{
+        marginBottom: '3rem',
+        backgroundColor: '#d1fae5',
+        borderRadius: '8px',
+        border: '2px solid #10b981',
+        padding: '1.5rem',
+      }}>
+        <h3 style={{
+          fontSize: '1.1rem',
+          fontWeight: 700,
+          color: '#065f46',
+          marginBottom: '1rem',
+        }}>
+          🚀 Tampermonkey Club Scraper (Recommended)
+        </h3>
+
+        <div style={{
+          backgroundColor: '#f0fdf4',
+          padding: '1rem',
+          borderRadius: '6px',
+          marginBottom: '1rem',
+          border: '1px solid #10b981',
+        }}>
+          <p style={{
+            fontSize: '0.85rem',
+            color: '#047857',
+            lineHeight: '1.6',
+            marginBottom: '0.75rem',
+          }}>
+            For automated scraping of club results with a floating button:
+          </p>
+          <ol style={{
+            fontSize: '0.85rem',
+            color: '#047857',
+            margin: '0',
+            paddingLeft: '1.5rem',
+            lineHeight: '1.8',
+          }}>
+            <li>Install <a
+              href="https://www.tampermonkey.net/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#2563eb', textDecoration: 'underline' }}
+            >Tampermonkey browser extension</a> (if not already installed)</li>
+            <li>Click the button below to download the userscript</li>
+            <li>Tampermonkey will prompt you to install it</li>
+            <li>Visit the <a
+              href="https://www.parkrun.com/results/consolidatedclub/?clubNum=19959"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#2563eb', textDecoration: 'underline' }}
+            >Woodstock Runners parkrun page</a></li>
+            <li>Click the green floating button "🏃 Scrape Club Results"</li>
+            <li>Enter start/end dates and choose replace mode</li>
+            <li>The script will automatically scrape and upload all results!</li>
+          </ol>
+        </div>
+
+        <button
+          onClick={() => {
+            const userscriptUrl = `${window.location.origin}/parkrun-club-tampermonkey.user.js`;
+            window.open(userscriptUrl, '_blank');
+          }}
+          style={{
+            padding: '0.75rem 1.5rem',
+            fontSize: '0.95rem',
+            fontWeight: 600,
+            color: 'white',
+            backgroundColor: '#10b981',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s',
+          }}
+          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+        >
+          📥 Download Club Scraper Userscript
+        </button>
+      </div>
+
+      <div className="admin-header" style={{ marginTop: '3rem' }}>
         <h2>Individual Athlete History</h2>
         <p className="subtitle">Scrape complete parkrun history for individual athletes (including pre-club results)</p>
       </div>
