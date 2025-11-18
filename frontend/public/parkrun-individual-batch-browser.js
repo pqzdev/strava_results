@@ -165,10 +165,12 @@
     const eventLink = eventCell.querySelector('a');
     let eventName = eventLink ? eventLink.textContent.trim() : eventCell.textContent.trim();
 
-    // Remove "parkrun de " prefix FIRST (e.g., "parkrun de Montsouris" → "Montsouris")
-    // Must check this BEFORE "parkrun " to avoid leaving "de " prefix
+    // Remove language-specific prefixes FIRST (e.g., "parkrun de/du Montsouris" → "Montsouris")
+    // Must check these BEFORE "parkrun " to avoid leaving language prefix
     if (eventName.startsWith('parkrun de ')) {
       eventName = eventName.substring(11); // Remove "parkrun de " (11 characters)
+    } else if (eventName.startsWith('parkrun du ')) {
+      eventName = eventName.substring(11); // Remove "parkrun du " (11 characters)
     }
     // Remove "parkrun " prefix (e.g., "parkrun Ogród Saski, Lublin" → "Ogród Saski, Lublin")
     else if (eventName.startsWith('parkrun ')) {
@@ -177,17 +179,8 @@
 
     eventName = eventName.trim();
 
-    // Apply event name mappings (matches database table)
-    const eventNameMappings = {
-      'Albert Melbourne': 'Albert, Melbourne',
-      'Bushy Park': 'Bushy',
-      'Kingsway': 'Kingsway, Gloucester',
-      'Presint 18': 'Presint 18, Putrajaya'
-    };
-
-    if (eventNameMappings[eventName]) {
-      eventName = eventNameMappings[eventName];
-    }
+    // Note: Event name mappings are handled by the backend database table
+    // (parkrun_event_name_mappings) - no need to duplicate here
 
     // Date (from span.format-date)
     const dateSpan = dateCell.querySelector('span.format-date');

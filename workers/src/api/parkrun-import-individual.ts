@@ -98,10 +98,12 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
           eventName = eventName.replace(/\s+parkrun$/i, '');
           eventName = eventName.trim();
 
-          // Remove "parkrun de " prefix FIRST (e.g., "parkrun de Montsouris" → "Montsouris")
-          // Must check this BEFORE "parkrun " to avoid leaving "de " prefix
+          // Remove language-specific prefixes FIRST (e.g., "parkrun de/du Montsouris" → "Montsouris")
+          // Must check these BEFORE "parkrun " to avoid leaving language prefix
           if (eventName.startsWith('parkrun de ')) {
             eventName = eventName.substring(11); // Remove "parkrun de " (11 characters)
+          } else if (eventName.startsWith('parkrun du ')) {
+            eventName = eventName.substring(11); // Remove "parkrun du " (11 characters)
           }
           // Remove "parkrun " prefix (e.g., "parkrun Ogród Saski, Lublin" → "Ogród Saski, Lublin")
           else if (eventName.startsWith('parkrun ')) {
