@@ -30,6 +30,9 @@ crons = [
 # Environment variables (secrets set via wrangler secret put)
 # STRAVA_CLIENT_ID - set via: wrangler secret put STRAVA_CLIENT_ID
 # STRAVA_CLIENT_SECRET - set via: wrangler secret put STRAVA_CLIENT_SECRET
+# GOOGLE_CLIENT_ID - set via: wrangler secret put GOOGLE_CLIENT_ID
+# GOOGLE_CLIENT_SECRET - set via: wrangler secret put GOOGLE_CLIENT_SECRET
+# PARKRUN_API_KEY - set via: wrangler secret put PARKRUN_API_KEY (for Tampermonkey scraper auth)
 
 [vars]
 STRAVA_REDIRECT_URI = "https://strava-club-workers.pedroqueiroz.workers.dev/auth/callback"

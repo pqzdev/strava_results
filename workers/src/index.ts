@@ -27,6 +27,7 @@ import {
   cleanupOldJobs,
   cancelPendingJobs,
 } from './queue/queue-processor';
+import { requireApiKey } from './middleware/auth';
 
 export default {
   /**
@@ -42,7 +43,7 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
         },
       });
     }
@@ -389,10 +390,14 @@ export default {
       }
 
       if (path === '/api/parkrun/import' && request.method === 'POST') {
+        const authError = await requireApiKey(request, env);
+        if (authError) return authError;
         return importParkrunCSV(request, env);
       }
 
       if (path === '/api/parkrun/import-individual' && request.method === 'POST') {
+        const authError = await requireApiKey(request, env);
+        if (authError) return authError;
         return importIndividualParkrunCSV(request, env);
       }
 
@@ -402,6 +407,8 @@ export default {
       }
 
       if (path === '/api/parkrun/athletes-to-scrape' && request.method === 'GET') {
+        const authError = await requireApiKey(request, env);
+        if (authError) return authError;
         return getAthletesToScrape(request, env);
       }
 

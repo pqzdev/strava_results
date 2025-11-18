@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Parkrun Club Results Scraper
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Scrapes Woodstock Runners parkrun club results - click the floating button to start
+// @version      1.1
+// @description  Scrapes Woodstock Runners parkrun club results - click the floating button to start (requires API key)
 // @author       Woodstock Results
 // @match        https://www.parkrun.com/results/consolidatedclub/*
 // @match        https://www.parkrun.com.au/results/consolidatedclub/*
@@ -16,6 +16,7 @@
 
     const CLUB_NUM = 19959; // Woodstock Runners
     const STORAGE_KEY = 'parkrun_club_scraper_config';
+    const API_KEY_STORAGE = 'parkrun_scraper_api_key';
     const SCRIPT_URL = 'https://woodstock-results.pages.dev/parkrun-smart-scraper.js';
 
     // Add CSS for the floating button
@@ -100,8 +101,25 @@
         return;
     }
 
+    // Get API key from localStorage or prompt user
+    function getApiKey() {
+        let apiKey = localStorage.getItem(API_KEY_STORAGE);
+        if (!apiKey) {
+            apiKey = prompt('Enter your Parkrun API Key:\n\n(This will be stored in your browser for future use)');
+            if (!apiKey) {
+                alert('❌ API Key is required to use the scraper');
+                return null;
+            }
+            localStorage.setItem(API_KEY_STORAGE, apiKey);
+        }
+        return apiKey;
+    }
+
     // Button click handler - start scraper
     button.onclick = function() {
+        const apiKey = getApiKey();
+        if (!apiKey) return;
+
         // Prompt for date range
         const startDateInput = prompt('Start date (YYYY-MM-DD):', getDefaultStartDate());
         const endDateInput = prompt('End date (YYYY-MM-DD):', getDefaultEndDate());
@@ -132,6 +150,7 @@
             endDate: endDateInput,
             replaceMode,
             apiEndpoint: 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import',
+            apiKey: apiKey,
             clubNum: CLUB_NUM,
             active: true
         };
@@ -187,6 +206,7 @@
         currentUrl.searchParams.set('startDate', config.startDate);
         currentUrl.searchParams.set('endDate', config.endDate);
         currentUrl.searchParams.set('apiEndpoint', config.apiEndpoint);
+        currentUrl.searchParams.set('apiKey', config.apiKey);
         currentUrl.searchParams.set('autoUpload', 'true');
         currentUrl.searchParams.set('replaceMode', config.replaceMode.toString());
 
