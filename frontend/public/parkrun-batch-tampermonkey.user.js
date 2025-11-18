@@ -133,6 +133,11 @@
         const currentPageUrl = window.location.href.split('?')[0];
         const executedOnPage = sessionStorage.getItem(EXECUTED_KEY);
 
+        console.log('🔍 Checking execution status:');
+        console.log('   Current page:', currentPageUrl);
+        console.log('   Last executed:', executedOnPage);
+        console.log('   Match?', executedOnPage === currentPageUrl);
+
         if (executedOnPage === currentPageUrl) {
             console.log('⏭️  Scraper already executed on this page, skipping...');
             return;

@@ -191,15 +191,6 @@ export default function Admin() {
   const [syncing, setSyncing] = useState<Set<number>>(new Set());
   const [analyzingEvents, setAnalyzingEvents] = useState(false);
   const [editingEventName, setEditingEventName] = useState<{ [key: number]: string }>({});
-  const [parkrunStartDate, setParkrunStartDate] = useState(() => {
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-    return twoWeeksAgo.toISOString().split('T')[0];
-  });
-  const [parkrunEndDate, setParkrunEndDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
-  const [replaceExistingData, setReplaceExistingData] = useState(false);
   const [showParkrunInstructions, setShowParkrunInstructions] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -949,41 +940,6 @@ export default function Admin() {
       );
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update parkrun athlete');
-    }
-  };
-
-  const triggerParkrunSync = async () => {
-    // Build the parkrun URL with parameters
-    // Use worker domain, not frontend domain
-    const workerDomain = 'https://strava-club-workers.pedroqueiroz.workers.dev';
-    const apiEndpoint = `${workerDomain}/api/parkrun/import${replaceExistingData ? '?replace=true' : ''}`;
-    const parkrunUrl = new URL('https://www.parkrun.com/results/consolidatedclub/');
-    parkrunUrl.searchParams.set('clubNum', '19959');
-    parkrunUrl.searchParams.set('startDate', parkrunStartDate);
-    parkrunUrl.searchParams.set('endDate', parkrunEndDate);
-    parkrunUrl.searchParams.set('apiEndpoint', apiEndpoint);
-    parkrunUrl.searchParams.set('autoUpload', 'true');
-
-    // Fetch the scraper script
-    try {
-      const response = await fetch(`${window.location.origin}/parkrun-smart-scraper.js`);
-      const scriptText = await response.text();
-
-      // Copy script to clipboard
-      await navigator.clipboard.writeText(scriptText);
-
-      // Open parkrun page in new tab
-      const parkrunTab = window.open(parkrunUrl.toString(), '_blank');
-
-      if (!parkrunTab) {
-        alert('Please allow popups to use the automatic parkrun sync feature.');
-        return;
-      }
-
-      // Show instructions section
-      setShowParkrunInstructions(true);
-    } catch (err) {
-      alert('Failed to load scraper script. Please try again.');
     }
   };
 
@@ -2000,240 +1956,120 @@ export default function Admin() {
       {activeTab === 'parkrun' && (
         <div className="tab-content">
           <div className="admin-header">
-            <h2>Parkrun Data Sync</h2>
-            <p className="subtitle">Automatically scrape and import parkrun results</p>
+            <h2>Parkrun Data Scrapers</h2>
+            <p className="subtitle">Use Tampermonkey userscripts to scrape parkrun data</p>
           </div>
 
-      <div className="parkrun-sync-section" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1', minWidth: '200px' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={parkrunStartDate}
-              onChange={(e) => setParkrunStartDate(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-              }}
-            />
-          </div>
-          <div style={{ flex: '1', minWidth: '200px' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-              End Date
-            </label>
-            <input
-              type="date"
-              value={parkrunEndDate}
-              onChange={(e) => setParkrunEndDate(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-              }}
-            />
-          </div>
-          <button
-            onClick={triggerParkrunSync}
-            className="button"
-            style={{
-              padding: '0.5rem 1.5rem',
-              backgroundColor: '#6366f1',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 500,
-            }}
-          >
-            🖥️ Manual Scraping
-          </button>
-          <button
-            onClick={() => {
-              window.open('http://homeassistant11.local:8123', '_blank');
-              alert(
-                '✅ Opening Home Assistant...\n\n' +
-                'NEW: Python Proxy Approach\n\n' +
-                'The parkrun scraper now uses a residential IP proxy:\n\n' +
-                '1. Start proxy: Settings → Scripts → [Parkrun] Start Proxy Server\n' +
-                '2. Check status: [Parkrun] Check Proxy Status\n' +
-                '3. Configure Cloudflare Tunnel to expose port 8765\n' +
-                '4. Update Workers with PARKRUN_PROXY_URL env var\n\n' +
-                'See PARKRUN_PROXY_INTEGRATION.md for full setup guide.\n\n' +
-                'Old Node.js scraper approach has been replaced.'
-              );
-            }}
-            className="button"
-            style={{
-              padding: '0.5rem 1.5rem',
-              backgroundColor: '#10b981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 500,
-            }}
-          >
-            ☁️ Proxy Setup
-          </button>
-        </div>
-        <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <input
-            type="checkbox"
-            id="replaceExistingData"
-            checked={replaceExistingData}
-            onChange={(e) => setReplaceExistingData(e.target.checked)}
-            style={{ cursor: 'pointer' }}
-          />
-          <label htmlFor="replaceExistingData" style={{ cursor: 'pointer', fontSize: '0.9rem' }}>
-            Replace all existing parkrun data (⚠️ This will delete all current parkrun results)
-          </label>
-        </div>
-        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
-          {replaceExistingData
-            ? '⚠️ All existing parkrun data will be deleted and replaced with new results from the date range.'
-            : '✓ New results will be merged with existing data (duplicates skipped automatically).'}
-        </p>
+      {/* Club Results Tampermonkey Scraper */}
+      <div style={{
+        marginBottom: '2rem',
+        backgroundColor: '#f0fdf4',
+        borderRadius: '8px',
+        border: '2px solid #10b981',
+        overflow: 'hidden',
+      }}>
+        <button
+          onClick={() => setShowParkrunInstructions(!showParkrunInstructions)}
+          style={{
+            width: '100%',
+            padding: '1rem 1.5rem',
+            backgroundColor: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '1rem',
+            fontWeight: 700,
+            color: '#065f46',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            🏃 Club Results Scraper
+          </span>
+          <span style={{ fontSize: '1.2rem' }}>
+            {showParkrunInstructions ? '▼' : '▶'}
+          </span>
+        </button>
 
         {showParkrunInstructions && (
-          <div style={{
-            marginTop: '1rem',
-            padding: '1rem',
-            backgroundColor: '#f0f9ff',
-            border: '1px solid #0ea5e9',
-            borderRadius: '8px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-              <div>
-                <h3 style={{ margin: 0, marginBottom: '0.5rem', color: '#0284c7' }}>
-                  ✅ Script Copied to Clipboard!
-                </h3>
-                <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}>
-                  <strong>Next Steps:</strong>
-                </p>
-                <ol style={{ margin: '0.5rem 0', paddingLeft: '1.5rem', fontSize: '0.9rem' }}>
-                  <li>Go to the parkrun tab that just opened</li>
-                  <li>Press <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>F12</kbd> to open the browser console</li>
-                  <li>Paste the script (<kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Ctrl+V</kbd> or <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Cmd+V</kbd>)</li>
-                  <li>Press <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Enter</kbd></li>
-                </ol>
-                <p style={{ margin: '0.5rem 0', fontSize: '0.85rem', color: '#0369a1' }}>
-                  The scraper will automatically fetch all Saturdays from {parkrunStartDate} to {parkrunEndDate},
-                  include special dates (Dec 25, Jan 1), and upload results to your database (~3-4 minutes for 100+ dates).
-                </p>
-              </div>
-              <button
-                onClick={() => setShowParkrunInstructions(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '1.5rem',
-                  cursor: 'pointer',
-                  color: '#666',
-                  padding: '0 0.5rem',
-                }}
-                title="Close instructions"
-              >
-                ×
-              </button>
+          <div style={{ padding: '0 1.5rem 1.5rem 1.5rem' }}>
+            <p style={{
+              fontSize: '0.9rem',
+              color: '#047857',
+              lineHeight: '1.6',
+              marginBottom: '1rem',
+            }}>
+              Scrape Woodstock Runners club results for any date range with a floating green button.
+            </p>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #10b981',
+            }}>
+              <p style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#065f46',
+                marginBottom: '0.5rem',
+              }}>
+                📋 Installation:
+              </p>
+              <ol style={{
+                fontSize: '0.85rem',
+                color: '#047857',
+                margin: '0',
+                paddingLeft: '1.5rem',
+                lineHeight: '1.8',
+              }}>
+                <li>Install <a
+                  href="https://www.tampermonkey.net/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#2563eb', textDecoration: 'underline' }}
+                >Tampermonkey browser extension</a></li>
+                <li>Click the button below to download the userscript</li>
+                <li>Tampermonkey will prompt you to install it</li>
+                <li>Visit the <a
+                  href="https://www.parkrun.com/results/consolidatedclub/?clubNum=19959"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#2563eb', textDecoration: 'underline' }}
+                >Woodstock Runners parkrun page</a></li>
+                <li>Click the green "🏃 Scrape Club Results" button that appears</li>
+                <li>Enter your start/end dates and the script will automatically scrape!</li>
+              </ol>
             </div>
+
+            <button
+              onClick={() => {
+                const userscriptUrl = `${window.location.origin}/parkrun-club-tampermonkey.user.js`;
+                window.open(userscriptUrl, '_blank');
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                color: 'white',
+                backgroundColor: '#10b981',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+            >
+              📥 Download Club Scraper Userscript
+            </button>
           </div>
         )}
       </div>
 
-      <div className="admin-header" style={{ marginTop: '3rem' }}>
-        <h2>Club Results Scraper</h2>
-        <p className="subtitle">Scrape Woodstock Runners club results for a date range</p>
-      </div>
-
-      {/* Club Results Tampermonkey Scraper */}
-      <div style={{
-        marginBottom: '3rem',
-        backgroundColor: '#d1fae5',
-        borderRadius: '8px',
-        border: '2px solid #10b981',
-        padding: '1.5rem',
-      }}>
-        <h3 style={{
-          fontSize: '1.1rem',
-          fontWeight: 700,
-          color: '#065f46',
-          marginBottom: '1rem',
-        }}>
-          🚀 Tampermonkey Club Scraper (Recommended)
-        </h3>
-
-        <div style={{
-          backgroundColor: '#f0fdf4',
-          padding: '1rem',
-          borderRadius: '6px',
-          marginBottom: '1rem',
-          border: '1px solid #10b981',
-        }}>
-          <p style={{
-            fontSize: '0.85rem',
-            color: '#047857',
-            lineHeight: '1.6',
-            marginBottom: '0.75rem',
-          }}>
-            For automated scraping of club results with a floating button:
-          </p>
-          <ol style={{
-            fontSize: '0.85rem',
-            color: '#047857',
-            margin: '0',
-            paddingLeft: '1.5rem',
-            lineHeight: '1.8',
-          }}>
-            <li>Install <a
-              href="https://www.tampermonkey.net/"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#2563eb', textDecoration: 'underline' }}
-            >Tampermonkey browser extension</a> (if not already installed)</li>
-            <li>Click the button below to download the userscript</li>
-            <li>Tampermonkey will prompt you to install it</li>
-            <li>Visit the <a
-              href="https://www.parkrun.com/results/consolidatedclub/?clubNum=19959"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#2563eb', textDecoration: 'underline' }}
-            >Woodstock Runners parkrun page</a></li>
-            <li>Click the green floating button "🏃 Scrape Club Results"</li>
-            <li>Enter start/end dates and choose replace mode</li>
-            <li>The script will automatically scrape and upload all results!</li>
-          </ol>
-        </div>
-
-        <button
-          onClick={() => {
-            const userscriptUrl = `${window.location.origin}/parkrun-club-tampermonkey.user.js`;
-            window.open(userscriptUrl, '_blank');
-          }}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '0.95rem',
-            fontWeight: 600,
-            color: 'white',
-            backgroundColor: '#10b981',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            transition: 'background-color 0.2s',
-          }}
-          onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
-          onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
-        >
-          📥 Download Club Scraper Userscript
-        </button>
-      </div>
-
-      <div className="admin-header" style={{ marginTop: '3rem' }}>
+      <div className="admin-header" style={{ marginTop: '2rem' }}>
         <h2>Individual Athlete History</h2>
         <p className="subtitle">Scrape complete parkrun history for individual athletes (including pre-club results)</p>
       </div>
