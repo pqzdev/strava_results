@@ -29,6 +29,7 @@
   const CONFIG = {
     apiEndpoint: urlParams.get('apiEndpoint') || 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import-individual',
     athletesApiEndpoint: urlParams.get('athletesApiEndpoint') || 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/athletes-to-scrape',
+    apiKey: urlParams.get('apiKey') || '', // API key for authentication
     mode: urlParams.get('mode') || 'all', // 'new' or 'all'
     delayBetweenAthletes: parseInt(urlParams.get('delay') || '3000'), // 3 seconds between athletes
     autoNavigate: urlParams.get('autoNavigate') !== 'false', // Auto-navigate to next athlete

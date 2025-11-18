@@ -39,6 +39,7 @@
     maxFibonacciWait: 34, // Maximum fibonacci backoff in seconds (matches server-side)
     batchSize: 3, // Upload to API every 3 dates (reduced to avoid D1 query limits)
     apiEndpoint: urlParams.get('apiEndpoint') || 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import', // API endpoint to POST results
+    apiKey: urlParams.get('apiKey') || '', // API key for authentication
     autoUpload: urlParams.get('autoUpload') !== 'false', // Auto-upload by default (disable with autoUpload=false)
     replaceMode: urlParams.get('replaceMode') === 'true', // Replace all existing data on first upload
   };
