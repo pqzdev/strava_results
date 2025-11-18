@@ -275,12 +275,12 @@
 
   const csvData = convertToCSV(results);
 
-  // ========== UPLOAD TO API ==========
+  // ========== UPLOAD TO API WITH RETRY LOGIC ==========
 
   async function uploadToAPI(csvData) {
     if (!CONFIG.apiEndpoint) {
       console.log('\n⚠️  No API endpoint configured, skipping upload');
-      return false;
+      return { success: false, error: 'No API endpoint' };
     }
 
     const url = new URL(CONFIG.apiEndpoint);
@@ -289,53 +289,132 @@
     console.log(`   Athlete ID: ${currentAthlete.parkrun_athlete_id}`);
     console.log(`   Results: ${results.length}\n`);
 
-    try {
-      // Create a File object from CSV data
-      const blob = new Blob([csvData], { type: 'text/csv' });
-      const file = new File([blob], `parkrun-individual-${currentAthlete.parkrun_athlete_id}.csv`, { type: 'text/csv' });
+    // Fibonacci backoff: 1s, 1s, 2s, 3s, 5s, 8s, 13s, 21s, 34s, 55s, 89s, 144s, 233s (~5 min total)
+    const fibonacciDelays = [1000, 1000, 2000, 3000, 5000, 8000, 13000, 21000, 34000, 55000, 89000, 144000, 233000];
+    const maxRetries = fibonacciDelays.length;
 
-      // Create FormData
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('parkrun_athlete_id', currentAthlete.parkrun_athlete_id);
-      formData.append('athlete_name', currentAthlete.athlete_name);
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // Create a File object from CSV data
+        const blob = new Blob([csvData], { type: 'text/csv' });
+        const file = new File([blob], `parkrun-individual-${currentAthlete.parkrun_athlete_id}.csv`, { type: 'text/csv' });
 
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        body: formData,
-      });
+        // Create FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('parkrun_athlete_id', currentAthlete.parkrun_athlete_id);
+        formData.append('athlete_name', currentAthlete.athlete_name);
 
-      if (!response.ok) {
-        let errorDetails = '';
-        try {
-          const errorData = await response.json();
-          errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
-        } catch {
-          errorDetails = await response.text();
+        const response = await fetch(url.toString(), {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          let errorDetails = '';
+          try {
+            const errorData = await response.json();
+            errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
+          } catch {
+            errorDetails = await response.text();
+          }
+
+          // 503 Service Unavailable or 5xx errors - retry
+          if (response.status >= 500 && attempt < maxRetries) {
+            const delay = fibonacciDelays[attempt];
+            console.warn(`⚠️  Upload failed (${response.status}): ${errorDetails}`);
+            console.log(`   Retry ${attempt + 1}/${maxRetries} in ${delay / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue; // Retry
+          }
+
+          throw new Error(`Upload failed (${response.status}): ${errorDetails}`);
         }
-        throw new Error(`Upload failed (${response.status}): ${errorDetails}`);
+
+        const result = await response.json();
+        console.log('✅ UPLOAD SUCCESSFUL!');
+        console.log('   Response:', result);
+        console.log(`   New results added: ${result.new_results_added || 0}`);
+        console.log(`   Duplicates skipped: ${result.duplicates_skipped || 0}`);
+
+        if (attempt > 0) {
+          console.log(`   (Succeeded after ${attempt} ${attempt === 1 ? 'retry' : 'retries'})`);
+        }
+
+        return { success: true, result };
+
+      } catch (error) {
+        // Network errors (CORS, connection failed, etc.) - retry
+        if (error.message.includes('fetch') || error.message.includes('CORS') || error.message.includes('network')) {
+          if (attempt < maxRetries) {
+            const delay = fibonacciDelays[attempt];
+            console.warn(`⚠️  Network error: ${error.message}`);
+            console.log(`   Retry ${attempt + 1}/${maxRetries} in ${delay / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue; // Retry
+          }
+        }
+
+        // Final failure after all retries
+        console.error(`❌ Upload failed after ${attempt + 1} attempts: ${error.message}`);
+        return { success: false, error: error.message, attempts: attempt + 1 };
       }
-
-      const result = await response.json();
-      console.log('✅ UPLOAD SUCCESSFUL!');
-      console.log('   Response:', result);
-      console.log(`   New results added: ${result.new_results_added || 0}`);
-      console.log(`   Duplicates skipped: ${result.duplicates_skipped || 0}`);
-      return true;
-
-    } catch (error) {
-      console.error('❌ Upload failed:', error.message);
-      return false;
     }
+
+    // Should never reach here, but just in case
+    return { success: false, error: 'Max retries exceeded', attempts: maxRetries + 1 };
   }
 
   // Upload results
-  let uploadSuccess = false;
+  let uploadResult = { success: true }; // Default success for no results
   if (results.length > 0) {
-    uploadSuccess = await uploadToAPI(csvData);
+    uploadResult = await uploadToAPI(csvData);
   } else {
     console.log('ℹ️  No results to upload');
-    uploadSuccess = true; // Consider it successful even with no results
+  }
+
+  // Track upload statistics in sessionStorage
+  const STATS_KEY = 'parkrun_batch_scraper_stats';
+  let stats = JSON.parse(sessionStorage.getItem(STATS_KEY) || '{"successful":0,"failed":0,"failedAthletes":[]}');
+
+  if (uploadResult.success) {
+    stats.successful++;
+  } else {
+    stats.failed++;
+    stats.failedAthletes.push({
+      name: currentAthlete.athlete_name,
+      id: currentAthlete.parkrun_athlete_id,
+      error: uploadResult.error,
+      attempts: uploadResult.attempts
+    });
+  }
+
+  sessionStorage.setItem(STATS_KEY, JSON.stringify(stats));
+
+  // If upload failed after all retries, stop the scraper
+  if (!uploadResult.success) {
+    console.error('\n❌❌❌ SCRAPER STOPPED DUE TO UPLOAD FAILURE ❌❌❌\n');
+    console.error('📊 FINAL STATISTICS:');
+    console.error(`   ✅ Successful uploads: ${stats.successful}`);
+    console.error(`   ❌ Failed uploads: ${stats.failed}`);
+    console.error(`   📝 Total athletes attempted: ${stats.successful + stats.failed}`);
+    console.error(`   📉 Remaining athletes: ${athletes.length - currentIndex - 1}`);
+
+    if (stats.failedAthletes.length > 0) {
+      console.error('\n❌ FAILED ATHLETES:');
+      stats.failedAthletes.forEach((athlete, i) => {
+        console.error(`   ${i + 1}. ${athlete.name} (ID: ${athlete.id})`);
+        console.error(`      Error: ${athlete.error}`);
+        console.error(`      Attempts: ${athlete.attempts || 'N/A'}`);
+      });
+    }
+
+    console.error('\n💡 To retry: Clear sessionStorage and restart the scraper.');
+    console.error('   Run: sessionStorage.removeItem("parkrun_batch_scraper_config")');
+    console.error('        sessionStorage.removeItem("parkrun_batch_scraper_stats")');
+
+    // Stop the scraper by not navigating to next athlete
+    return;
   }
 
   // ========== MOVE TO NEXT ATHLETE ==========
@@ -344,10 +423,26 @@
     const nextIndex = currentIndex + 1;
 
     if (nextIndex >= athletes.length) {
+      // Get final stats
+      const finalStats = JSON.parse(sessionStorage.getItem(STATS_KEY) || '{"successful":0,"failed":0,"failedAthletes":[]}');
+
       console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('🎉 ALL ATHLETES COMPLETE!');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-      console.log(`✅ Scraped ${athletes.length} athletes total`);
+      console.log('📊 FINAL STATISTICS:');
+      console.log(`   ✅ Successful uploads: ${finalStats.successful}`);
+      console.log(`   ❌ Failed uploads: ${finalStats.failed}`);
+      console.log(`   📝 Total athletes: ${athletes.length}`);
+
+      if (finalStats.failedAthletes.length > 0) {
+        console.log('\n⚠️  FAILED ATHLETES:');
+        finalStats.failedAthletes.forEach((athlete, i) => {
+          console.log(`   ${i + 1}. ${athlete.name} (ID: ${athlete.id}) - ${athlete.error}`);
+        });
+      }
+
+      // Clear stats
+      sessionStorage.removeItem(STATS_KEY);
       return;
     }
 
