@@ -72,7 +72,20 @@ wrangler secret put STRAVA_CLIENT_ID
 
 wrangler secret put STRAVA_CLIENT_SECRET
 # Enter your Strava Client Secret when prompted
+
+# Set Google OAuth credentials (for admin login)
+wrangler secret put GOOGLE_CLIENT_ID
+# Enter your Google Client ID when prompted
+
+wrangler secret put GOOGLE_CLIENT_SECRET
+# Enter your Google Client Secret when prompted
+
+# Set Parkrun API Key (for Tampermonkey scraper authentication)
+wrangler secret put PARKRUN_API_KEY
+# Enter a secure random API key (e.g., generate with: openssl rand -hex 32)
 ```
+
+**Important**: Save the `PARKRUN_API_KEY` value securely - you'll need to provide it to users of the Tampermonkey scripts.
 
 ### 6. Update Strava Application Settings
 
@@ -261,7 +274,7 @@ Don't forget to update your Strava application with the new domain!
 ## Environment-Specific Configuration
 
 ### Development
-- Uses `workers/.dev.vars` for secrets
+- Uses `workers/.dev.vars` for secrets (includes `PARKRUN_API_KEY`)
 - Frontend: `http://localhost:3000`
 - Workers: `http://localhost:8787`
 - Redirect URI: `http://localhost:3000/auth/callback`

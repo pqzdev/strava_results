@@ -9,6 +9,7 @@ export interface Env {
   STRAVA_CLUB_ID: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
+  PARKRUN_API_KEY: string;
 }
 
 export interface Athlete {
