@@ -392,6 +392,9 @@
       const response = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
+        headers: {
+          'X-API-Key': CONFIG.apiKey
+        }
       });
 
       if (!response.ok) {
@@ -462,6 +465,9 @@
       const response = await fetch(`${CONFIG.apiEndpoint}?replace=true`, {
         method: 'POST',
         body: formData,
+        headers: {
+          'X-API-Key': CONFIG.apiKey
+        }
       });
 
       if (response.ok) {

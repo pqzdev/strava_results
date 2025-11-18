@@ -50,7 +50,11 @@
     const url = new URL(CONFIG.athletesApiEndpoint);
     url.searchParams.set('mode', CONFIG.mode);
 
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), {
+      headers: {
+        'X-API-Key': CONFIG.apiKey
+      }
+    });
     if (!response.ok) {
       throw new Error(`API returned ${response.status}`);
     }
@@ -301,6 +305,9 @@
         const response = await fetch(url.toString(), {
           method: 'POST',
           body: formData,
+          headers: {
+            'X-API-Key': CONFIG.apiKey
+          }
         });
 
         if (!response.ok) {
