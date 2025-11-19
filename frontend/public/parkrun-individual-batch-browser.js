@@ -46,24 +46,43 @@
 
   console.log('📊 Fetching athletes to scrape...');
 
+  if (!CONFIG.apiKey) {
+    console.error('❌ No API key provided!');
+    console.log('   Add ?apiKey=YOUR_KEY to the URL');
+    return;
+  }
+
   let athletes = [];
   try {
     const url = new URL(CONFIG.athletesApiEndpoint);
     url.searchParams.set('mode', CONFIG.mode);
 
+    // Add timeout using AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    console.log(`   Requesting: ${url.toString()}`);
+
     const response = await fetch(url.toString(), {
       headers: {
         'X-API-Key': CONFIG.apiKey
-      }
+      },
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
+
+    console.log(`   Response status: ${response.status}`);
+
     if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`API returned ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
     athletes = data.athletes || [];
 
-    console.log(`✓ Found ${athletes.length} athletes to scrape\n`);
+    console.log(`✅ Found ${athletes.length} athletes to scrape\n`);
 
     if (athletes.length === 0) {
       console.log('⚠️  No athletes to scrape');
@@ -75,7 +94,11 @@
     }
 
   } catch (error) {
-    console.error('❌ Failed to fetch athletes:', error.message);
+    if (error.name === 'AbortError') {
+      console.error('❌ Request timed out after 30 seconds');
+    } else {
+      console.error('❌ Failed to fetch athletes:', error.message);
+    }
     console.log('\nℹ️  You can manually provide athletes by setting window.athletesToScrape');
     console.log('   Example: window.athletesToScrape = [{parkrun_athlete_id: "123", athlete_name: "John"}]');
     return;
