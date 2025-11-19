@@ -30,21 +30,26 @@
     apiEndpoint: urlParams.get('apiEndpoint') || 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import-individual',
     athletesApiEndpoint: urlParams.get('athletesApiEndpoint') || 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/athletes-to-scrape',
     apiKey: urlParams.get('apiKey') || '', // API key for authentication
-    mode: urlParams.get('mode') || 'all', // 'new' or 'all'
+    mode: urlParams.get('mode') || 'all', // 'new', 'all', or 'single'
     delayBetweenAthletes: parseInt(urlParams.get('delay') || '3000'), // 3 seconds between athletes
     autoNavigate: urlParams.get('autoNavigate') !== 'false', // Auto-navigate to next athlete
+    onlyThisAthlete: urlParams.get('onlyThisAthlete') || null, // For single mode
+  };
+
+  const modeDescriptions = {
+    'new': 'only unscraped athletes',
+    'all': 'all athletes',
+    'single': 'only this parkrunner'
   };
 
   console.log('📋 Configuration:');
   console.log(`   API Endpoint: ${CONFIG.apiEndpoint}`);
   console.log(`   Athletes API: ${CONFIG.athletesApiEndpoint}`);
-  console.log(`   Mode: ${CONFIG.mode} (${CONFIG.mode === 'new' ? 'only unscraped athletes' : 'all athletes'})`);
+  console.log(`   Mode: ${CONFIG.mode} (${modeDescriptions[CONFIG.mode] || CONFIG.mode})`);
   console.log(`   Delay between athletes: ${CONFIG.delayBetweenAthletes}ms`);
   console.log(`   Auto-navigate: ${CONFIG.autoNavigate ? 'Yes' : 'No'}\n`);
 
   // ========== FETCH ATHLETES TO SCRAPE ==========
-
-  console.log('📊 Fetching athletes to scrape...');
 
   if (!CONFIG.apiKey) {
     console.error('❌ No API key provided!');
@@ -53,55 +58,90 @@
   }
 
   let athletes = [];
-  try {
-    const url = new URL(CONFIG.athletesApiEndpoint);
-    url.searchParams.set('mode', CONFIG.mode);
 
-    // Add timeout using AbortController
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  // For single mode, we don't need to fetch the athletes list
+  if (CONFIG.mode === 'single') {
+    console.log('📊 Single athlete mode - scraping current page only\n');
 
-    console.log(`   Requesting: ${url.toString()}`);
+    // Extract athlete ID from URL
+    const urlMatch = window.location.pathname.match(/\/parkrunner\/(\d+)/);
+    const currentAthleteId = urlMatch ? urlMatch[1] : null;
 
-    const response = await fetch(url.toString(), {
-      headers: {
-        'X-API-Key': CONFIG.apiKey
-      },
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    console.log(`   Response status: ${response.status}`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API returned ${response.status}: ${errorText}`);
-    }
-
-    const data = await response.json();
-    athletes = data.athletes || [];
-
-    console.log(`✅ Found ${athletes.length} athletes to scrape\n`);
-
-    if (athletes.length === 0) {
-      console.log('⚠️  No athletes to scrape');
-      if (CONFIG.mode === 'new') {
-        console.log('   All athletes have already been scraped!');
-        console.log('   Use mode=all to re-scrape everyone.');
-      }
+    if (!currentAthleteId) {
+      console.error('❌ Could not extract athlete ID from URL');
       return;
     }
 
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      console.error('❌ Request timed out after 30 seconds');
-    } else {
-      console.error('❌ Failed to fetch athletes:', error.message);
+    // Try to get athlete name from page
+    let athleteName = 'Unknown';
+    const h2Element = document.querySelector('h2');
+    if (h2Element) {
+      // Extract name from "FirstName LASTNAME - X parkruns" format
+      const nameMatch = h2Element.textContent.match(/^([^-]+)/);
+      if (nameMatch) {
+        athleteName = nameMatch[1].trim();
+      }
     }
-    console.log('\nℹ️  You can manually provide athletes by setting window.athletesToScrape');
-    console.log('   Example: window.athletesToScrape = [{parkrun_athlete_id: "123", athlete_name: "John"}]');
-    return;
+
+    athletes = [{
+      parkrun_athlete_id: currentAthleteId,
+      athlete_name: athleteName
+    }];
+
+    console.log(`✅ Scraping: ${athleteName} (${currentAthleteId})\n`);
+  } else {
+    console.log('📊 Fetching athletes to scrape...');
+
+    try {
+      const url = new URL(CONFIG.athletesApiEndpoint);
+      url.searchParams.set('mode', CONFIG.mode);
+
+      // Add timeout using AbortController
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      console.log(`   Requesting: ${url.toString()}`);
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          'X-API-Key': CONFIG.apiKey
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      console.log(`   Response status: ${response.status}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API returned ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      athletes = data.athletes || [];
+
+      console.log(`✅ Found ${athletes.length} athletes to scrape\n`);
+
+      if (athletes.length === 0) {
+        console.log('⚠️  No athletes to scrape');
+        if (CONFIG.mode === 'new') {
+          console.log('   All athletes have already been scraped!');
+          console.log('   Use mode=all to re-scrape everyone.');
+        }
+        return;
+      }
+
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.error('❌ Request timed out after 30 seconds');
+      } else {
+        console.error('❌ Failed to fetch athletes:', error.message);
+      }
+      console.log('\nℹ️  You can manually provide athletes by setting window.athletesToScrape');
+      console.log('   Example: window.athletesToScrape = [{parkrun_athlete_id: "123", athlete_name: "John"}]');
+      return;
+    }
   }
 
   // ========== GET CURRENT ATHLETE INDEX ==========
