@@ -227,7 +227,7 @@ export default function Admin() {
   const [events, setEvents] = useState<EventStats[]>([]);
   const [editingEvent, setEditingEvent] = useState<string | null>(null);
   const [newEventName, setNewEventName] = useState('');
-  const [eventSortField, setEventSortField] = useState<EventSortField>('dates');
+  const [eventSortField, setEventSortField] = useState<EventSortField>('activity_count');
   const [eventSortDirection, setEventSortDirection] = useState<EventSortDirection>('desc');
   const [eventSearch, setEventSearch] = useState('');
   const PARKRUN_PAGE_SIZE = 50;
@@ -1640,7 +1640,7 @@ export default function Admin() {
                       <td className="number-cell">{event.activity_count}</td>
                       <td>
                         <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
-                          {event.dates.map((date, idx) => (
+                          {[...event.dates].sort().reverse().map((date, idx) => (
                             <div key={idx}>
                               <Link
                                 to={`/dashboard?eventNames=${encodeURIComponent(event.event_name)}&dateFrom=${date}&dateTo=${date}`}
