@@ -209,13 +209,13 @@ export default function SyncMonitor() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return '✅';
+        return <i className="fa-solid fa-check" style={{ color: '#16a34a' }}></i>;
       case 'in_progress':
-        return '⏳';
+        return <i className="fa-solid fa-hourglass-half" style={{ color: '#f59e0b' }}></i>;
       case 'error':
-        return '❌';
+        return <i className="fa-solid fa-xmark" style={{ color: '#dc2626' }}></i>;
       default:
-        return '⚪';
+        return <i className="fa-regular fa-circle" style={{ color: '#6b7280' }}></i>;
     }
   };
 
@@ -307,7 +307,7 @@ export default function SyncMonitor() {
 
         {athlete.sync_status === 'completed' && (
           <div className="success-info">
-            ✅ Sync completed successfully!
+            <i className="fa-solid fa-check"></i> Sync completed successfully!
           </div>
         )}
       </div>
@@ -316,7 +316,7 @@ export default function SyncMonitor() {
       {batchProgress && (
         <div className="status-card" style={{ marginTop: '2rem' }}>
           <div className="status-header">
-            <h3>📦 Batch Progress</h3>
+            <h3><i className="fa-solid fa-box"></i> Batch Progress</h3>
             <span style={{ fontSize: '0.9rem', color: '#64748b' }}>
               Session: {batchProgress.session_id.slice(-8)}
             </span>
@@ -393,10 +393,10 @@ export default function SyncMonitor() {
                 }}
               >
                 <div style={{ fontSize: '1.25rem', marginRight: '1rem' }}>
-                  {batch.status === 'completed' ? '✅' :
-                   batch.status === 'processing' ? '⏳' :
-                   batch.status === 'failed' ? '❌' :
-                   batch.status === 'cancelled' ? '🚫' : '⏸️'}
+                  {batch.status === 'completed' ? <i className="fa-solid fa-check" style={{ color: '#16a34a' }}></i> :
+                   batch.status === 'processing' ? <i className="fa-solid fa-hourglass-half" style={{ color: '#f59e0b' }}></i> :
+                   batch.status === 'failed' ? <i className="fa-solid fa-xmark" style={{ color: '#dc2626' }}></i> :
+                   batch.status === 'cancelled' ? <i className="fa-solid fa-ban" style={{ color: '#6b7280' }}></i> : <i className="fa-solid fa-pause" style={{ color: '#6b7280' }}></i>}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>

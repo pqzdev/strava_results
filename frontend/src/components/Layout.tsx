@@ -31,7 +31,7 @@ export default function Layout() {
         <div className="container">
           <div className="header-content">
             <Link to="/" className="logo">
-              <span className="logo-icon">🏃</span>
+              <span className="logo-icon"><i className="fa-solid fa-person-running"></i></span>
               <span className="logo-text">Woodstock Runners results</span>
             </Link>
             <nav className="nav">

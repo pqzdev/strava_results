@@ -384,7 +384,7 @@ export function ReviewDashboard({ adminStravaId }: { adminStravaId: number }) {
     return (
       <div className="review-dashboard">
         <h2>Activity Review Dashboard</h2>
-        <p className="no-activities">🎉 All activities have been reviewed! No unassigned activities found.</p>
+        <p className="no-activities"><i className="fa-solid fa-champagne-glasses"></i> All activities have been reviewed! No unassigned activities found.</p>
       </div>
     );
   }

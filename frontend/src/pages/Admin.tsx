@@ -1034,9 +1034,9 @@ export default function Admin() {
     }
   };
 
-  const getSortIcon = (field: SortField | ParkrunSortField, currentField: SortField | ParkrunSortField, currentDirection: SortDirection | ParkrunSortDirection): string => {
-    if (currentField !== field) return '↕️';
-    return currentDirection === 'asc' ? '↑' : '↓';
+  const getSortIcon = (field: SortField | ParkrunSortField, currentField: SortField | ParkrunSortField, currentDirection: SortDirection | ParkrunSortDirection): React.ReactNode => {
+    if (currentField !== field) return <i className="fa-solid fa-sort"></i>;
+    return currentDirection === 'asc' ? <i className="fa-solid fa-sort-up"></i> : <i className="fa-solid fa-sort-down"></i>;
   };
 
   const sortedAthletes = [...athletes].sort((a, b) => {
@@ -1155,43 +1155,43 @@ export default function Admin() {
           className={`admin-tab ${activeTab === 'athletes' ? 'active' : ''}`}
           onClick={() => setActiveTab('athletes')}
         >
-          👥 Athletes & Sync
+          <i className="fa-solid fa-users"></i> Athletes & Sync
         </button>
         <button
           className={`admin-tab ${activeTab === 'parkrun' ? 'active' : ''}`}
           onClick={() => setActiveTab('parkrun')}
         >
-          🏃 Parkrun
+          <i className="fa-solid fa-person-running"></i> Parkrun
         </button>
         <button
           className={`admin-tab ${activeTab === 'events' ? 'active' : ''}`}
           onClick={() => setActiveTab('events')}
         >
-          📅 Events
+          <i className="fa-solid fa-calendar"></i> Events
         </button>
         <button
           className={`admin-tab ${activeTab === 'review' ? 'active' : ''}`}
           onClick={() => setActiveTab('review')}
         >
-          ✅ Review
+          <i className="fa-solid fa-circle-check"></i> Review
         </button>
         <button
           className={`admin-tab ${activeTab === 'submissions' ? 'active' : ''}`}
           onClick={() => setActiveTab('submissions')}
         >
-          📝 Manual Submissions {manualSubmissions.length > 0 && `(${manualSubmissions.length})`}
+          <i className="fa-solid fa-file-pen"></i> Manual Submissions {manualSubmissions.length > 0 && `(${manualSubmissions.length})`}
         </button>
         <button
           className={`admin-tab ${activeTab === 'api-control' ? 'active' : ''}`}
           onClick={() => setActiveTab('api-control')}
         >
-          ⚙️ API Control
+          <i className="fa-solid fa-gear"></i> API Control
         </button>
         <button
           className={`admin-tab ${activeTab === 'sync-dashboard' ? 'active' : ''}`}
           onClick={() => setActiveTab('sync-dashboard')}
         >
-          🔄 Sync Dashboard
+          <i className="fa-solid fa-rotate"></i> Sync Dashboard
         </button>
       </div>
 
@@ -1224,7 +1224,7 @@ export default function Admin() {
       </div>
 
       <div className="admin-header" style={{ marginTop: '3rem' }}>
-        <h2>🔄 Sync Queue</h2>
+        <h2><i className="fa-solid fa-rotate"></i> Sync Queue</h2>
         <p className="subtitle">Reliable batched activity downloads using database queue</p>
       </div>
 
@@ -1238,19 +1238,19 @@ export default function Admin() {
           <div className="admin-stats">
             <div className="stat-card">
               <div className="stat-value">{queueStats.pending}</div>
-              <div className="stat-label">⏳ Pending Jobs</div>
+              <div className="stat-label"><i className="fa-solid fa-hourglass-half"></i> Pending Jobs</div>
             </div>
             <div className="stat-card">
               <div className="stat-value">{queueStats.processing}</div>
-              <div className="stat-label">⚙️ Processing</div>
+              <div className="stat-label"><i className="fa-solid fa-gear"></i> Processing</div>
             </div>
             <div className="stat-card">
               <div className="stat-value">{queueStats.completed_24h}</div>
-              <div className="stat-label">✅ Completed (24h)</div>
+              <div className="stat-label"><i className="fa-solid fa-check"></i> Completed (24h)</div>
             </div>
             <div className="stat-card">
               <div className="stat-value">{queueStats.failed_24h}</div>
-              <div className="stat-label">❌ Failed (24h)</div>
+              <div className="stat-label"><i className="fa-solid fa-xmark"></i> Failed (24h)</div>
             </div>
           </div>
         )}
@@ -1271,7 +1271,7 @@ export default function Admin() {
               opacity: queueingAll ? 0.6 : 1,
             }}
           >
-            {queueingAll ? '⏳ Queueing...' : '🚀 Queue All Athletes for Full Sync'}
+            {queueingAll ? <><i className="fa-solid fa-hourglass-half"></i> Queueing...</> : <><i className="fa-solid fa-rocket"></i> Queue All Athletes for Full Sync</>}
           </button>
           <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#666' }}>
             This will queue all connected athletes for a full sync. The queue processor will handle them one by one.
@@ -1333,7 +1333,7 @@ export default function Admin() {
                     {getSyncStatusBadge(athlete.sync_status)}
                     {athlete.sync_error && (
                       <div className="sync-error" title={athlete.sync_error}>
-                        ⚠️
+                        <i className="fa-solid fa-triangle-exclamation"></i>
                       </div>
                     )}
                     {athlete.batch_progress && athlete.sync_status === 'in_progress' && (
@@ -1413,7 +1413,7 @@ export default function Admin() {
                         className="button button-stop"
                         title="Stop sync"
                       >
-                        ⏹️ Stop
+                        <i className="fa-solid fa-stop"></i> Stop
                       </button>
                     ) : (
                       <>
@@ -1424,7 +1424,7 @@ export default function Admin() {
                           title="WOOD-8: Batched full sync (recommended for large athletes)"
                           style={{ marginRight: '4px' }}
                         >
-                          🔄 Refresh
+                          <i className="fa-solid fa-rotate"></i> Refresh
                         </button>
                         <button
                           onClick={() => triggerSync(athlete.id)}
@@ -1433,7 +1433,7 @@ export default function Admin() {
                           title="Legacy: Queue athlete for full sync (high priority)"
                           style={{ fontSize: '0.85em', padding: '4px 8px' }}
                         >
-                          🚀 Queue
+                          <i className="fa-solid fa-rocket"></i> Queue
                         </button>
                       </>
                     )}
@@ -1447,7 +1447,7 @@ export default function Admin() {
                       className="button button-delete"
                       title="Delete athlete and all data"
                     >
-                      🗑️
+                      <i className="fa-solid fa-trash"></i>
                     </button>
                   </div>
                 </td>
@@ -1730,7 +1730,7 @@ export default function Admin() {
             opacity: analyzingEvents ? 0.6 : 1,
           }}
         >
-          {analyzingEvents ? '⏳ Analyzing...' : '🤖 Run AI Analysis'}
+          {analyzingEvents ? <><i className="fa-solid fa-spinner fa-spin"></i> Analyzing...</> : <><i className="fa-solid fa-robot"></i> Run AI Analysis</>}
         </button>
         <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
           Trigger AI to analyze ungrouped races and generate event name suggestions. This may take a few minutes.
@@ -1834,7 +1834,7 @@ export default function Admin() {
                               }}
                               title="Save and approve"
                             >
-                              💾 Save
+                              <i className="fa-solid fa-floppy-disk"></i> Save
                             </button>
                             <button
                               onClick={() =>
@@ -1877,7 +1877,7 @@ export default function Admin() {
                               }}
                               title="Approve suggestion"
                             >
-                              ✅ Approve
+                              <i className="fa-solid fa-check"></i> Approve
                             </button>
                             <button
                               onClick={() =>
@@ -1898,7 +1898,7 @@ export default function Admin() {
                               }}
                               title="Edit event name"
                             >
-                              ✏️ Edit
+                              <i className="fa-solid fa-pen"></i> Edit
                             </button>
                             <button
                               onClick={() =>
@@ -1911,7 +1911,7 @@ export default function Admin() {
                               }}
                               title="Reject suggestion"
                             >
-                              ❌ Reject
+                              <i className="fa-solid fa-xmark"></i> Reject
                             </button>
                           </>
                         )}
@@ -1981,7 +1981,7 @@ export default function Admin() {
                             }}
                             title="Revoke approval and remove event name from races"
                           >
-                            🔄 Revoke
+                            <i className="fa-solid fa-rotate"></i> Revoke
                           </button>
                         </td>
                       </tr>
@@ -2028,7 +2028,7 @@ export default function Admin() {
                 gap: '0.5rem',
                 marginBottom: '0.75rem',
               }}>
-                <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                <span style={{ fontSize: '1.2rem' }}><i className="fa-solid fa-triangle-exclamation"></i></span>
                 <strong style={{ color: '#92400e' }}>
                   {parkrunDuplicates.length} runner{parkrunDuplicates.length !== 1 ? 's' : ''} with multiple activities on the same day
                 </strong>
@@ -2106,10 +2106,10 @@ export default function Admin() {
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            🏃 Club Results Scraper
+            <i className="fa-solid fa-person-running"></i> Club Results Scraper
           </span>
           <span style={{ fontSize: '1.2rem' }}>
-            {showParkrunInstructions ? '▼' : '▶'}
+            {showParkrunInstructions ? <i className="fa-solid fa-chevron-down"></i> : <i className="fa-solid fa-chevron-right"></i>}
           </span>
         </button>
 
@@ -2137,7 +2137,7 @@ export default function Admin() {
                 color: '#065f46',
                 marginBottom: '0.5rem',
               }}>
-                📋 Installation:
+                <i className="fa-solid fa-clipboard"></i> Installation:
               </p>
               <ol style={{
                 fontSize: '0.85rem',
@@ -2178,7 +2178,7 @@ export default function Admin() {
                 color: '#065f46',
                 marginBottom: '0.5rem',
               }}>
-                🔑 API Key:
+                <i className="fa-solid fa-key"></i> API Key:
               </p>
               <div style={{
                 display: 'flex',
@@ -2249,7 +2249,7 @@ export default function Admin() {
               onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
               onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
             >
-              📥 Download Club Scraper Userscript
+              <i className="fa-solid fa-download"></i> Download Club Scraper Userscript
             </button>
           </div>
         )}
@@ -2280,10 +2280,10 @@ export default function Admin() {
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            🏃 Individual Athlete Batch Scraper
+            <i className="fa-solid fa-person-running"></i> Individual Athlete Batch Scraper
           </span>
           <span style={{ fontSize: '1.2rem' }}>
-            {showIndividualScraper ? '▼' : '▶'}
+            {showIndividualScraper ? <i className="fa-solid fa-chevron-down"></i> : <i className="fa-solid fa-chevron-right"></i>}
           </span>
         </button>
 
@@ -2312,7 +2312,7 @@ export default function Admin() {
                 color: '#065f46',
                 marginBottom: '0.5rem',
               }}>
-                📋 Installation:
+                <i className="fa-solid fa-clipboard"></i> Installation:
               </p>
               <ol style={{
                 fontSize: '0.85rem',
@@ -2353,7 +2353,7 @@ export default function Admin() {
                 color: '#065f46',
                 marginBottom: '0.5rem',
               }}>
-                🔑 API Key:
+                <i className="fa-solid fa-key"></i> API Key:
               </p>
               <div style={{
                 display: 'flex',
@@ -2424,7 +2424,7 @@ export default function Admin() {
               onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
               onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
             >
-              📥 Download Individual Athlete Scraper
+              <i className="fa-solid fa-download"></i> Download Individual Athlete Scraper
             </button>
           </div>
         )}
@@ -2483,7 +2483,7 @@ export default function Admin() {
           <div className="stat-value" style={{ color: '#ef4444' }}>
             {parkrunAthletes.filter((a) => a.has_left_club === 1).length}
           </div>
-          <div className="stat-label">Left Club 🚪</div>
+          <div className="stat-label">Left Club <i className="fa-solid fa-door-open"></i></div>
         </div>
       </div>
 
@@ -2528,7 +2528,7 @@ export default function Admin() {
                           color: '#ef4444',
                         }}
                       >
-                        🚪
+                        <i className="fa-solid fa-door-open"></i>
                       </span>
                     )}
                   </div>
@@ -2620,7 +2620,7 @@ export default function Admin() {
       {activeTab === 'submissions' && (
         <div className="tab-content">
           <div className="admin-header">
-            <h2>📝 Manual Activity Submissions</h2>
+            <h2><i className="fa-solid fa-file-pen"></i> Manual Activity Submissions</h2>
             <p className="subtitle">Review and approve manually submitted Strava activities</p>
           </div>
 
@@ -2735,7 +2735,7 @@ export default function Admin() {
                             }}
                             title="New event name"
                           >
-                            ⚠️
+                            <i className="fa-solid fa-triangle-exclamation"></i>
                           </span>
                         )}
                       </div>
@@ -2756,7 +2756,7 @@ export default function Admin() {
                           }}
                           title="Approve and add to races"
                         >
-                          ✅ Approve
+                          <i className="fa-solid fa-check"></i> Approve
                         </button>
                         <button
                           onClick={() => handleRejectSubmission(submission.id)}
@@ -2767,7 +2767,7 @@ export default function Admin() {
                           }}
                           title="Reject submission"
                         >
-                          ❌ Reject
+                          <i className="fa-solid fa-xmark"></i> Reject
                         </button>
                       </div>
                     </td>
@@ -2780,7 +2780,7 @@ export default function Admin() {
 
           {/* Approved Submissions Section */}
           <div className="admin-header" style={{ marginTop: '3rem' }}>
-            <h2>✅ Approved Submissions</h2>
+            <h2><i className="fa-solid fa-circle-check"></i> Approved Submissions</h2>
             <p className="subtitle">Previously approved manual submissions</p>
           </div>
 
@@ -2856,7 +2856,7 @@ export default function Admin() {
                           }}
                           title="Delete this approved submission"
                         >
-                          🗑️ Delete
+                          <i className="fa-solid fa-trash"></i> Delete
                         </button>
                       </td>
                     </tr>
@@ -2872,7 +2872,7 @@ export default function Admin() {
       {activeTab === 'api-control' && (
         <div className="tab-content">
           <div className="admin-header">
-            <h2>⚙️ API Control Panel</h2>
+            <h2><i className="fa-solid fa-gear"></i> API Control Panel</h2>
             <p className="subtitle">Execute API commands directly from the admin panel</p>
           </div>
 
@@ -2887,7 +2887,7 @@ export default function Admin() {
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <div style={{ flex: '1', minWidth: '300px' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
-                  🔍 Search Commands
+                  <i className="fa-solid fa-magnifying-glass"></i> Search Commands
                 </label>
                 <input
                   type="text"
@@ -2910,7 +2910,7 @@ export default function Admin() {
               </div>
               <div style={{ minWidth: '220px' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
-                  📂 Category
+                  <i className="fa-solid fa-folder"></i> Category
                 </label>
                 <select
                   value={apiCategory}
@@ -3028,7 +3028,7 @@ export default function Admin() {
       {activeTab === 'sync-dashboard' && (
         <div className="tab-content">
           <div className="admin-header">
-            <h2>🔄 Sync Queue Dashboard</h2>
+            <h2><i className="fa-solid fa-rotate"></i> Sync Queue Dashboard</h2>
             <p className="subtitle">Monitor and manage athlete sync jobs</p>
           </div>
 
@@ -3044,7 +3044,7 @@ export default function Admin() {
               {/* Active/Processing Syncs */}
               <div style={{ marginBottom: '3rem' }}>
                 <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem', fontWeight: 600 }}>
-                  🔄 Active Syncs ({syncQueueStatus.active.length})
+                  <i className="fa-solid fa-rotate"></i> Active Syncs ({syncQueueStatus.active.length})
                 </h3>
                 {syncQueueStatus.active.length === 0 ? (
                   <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No active syncs</p>
@@ -3118,7 +3118,7 @@ export default function Admin() {
                                   }}
                                   title="Stop this sync"
                                 >
-                                  ⏹️ Stop
+                                  <i className="fa-solid fa-stop"></i> Stop
                                 </button>
                               </td>
                             </tr>
@@ -3133,7 +3133,7 @@ export default function Admin() {
               {/* Recent Completed/Failed Syncs */}
               <div>
                 <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem', fontWeight: 600 }}>
-                  📊 Recent Syncs (Last 10)
+                  <i className="fa-solid fa-chart-column"></i> Recent Syncs (Last 10)
                 </h3>
                 {syncQueueStatus.recent.length === 0 ? (
                   <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No recent syncs</p>

@@ -4,6 +4,7 @@ import './Parkrun.css';
 import ParkrunChart from '../components/ParkrunChart';
 import ParkrunWeeklySummary from '../components/ParkrunWeeklySummary';
 import MultiSelectAutocomplete from '../components/MultiSelectAutocomplete';
+import { fetchApi, ApiMaintenanceError } from '../utils/api';
 
 // Default date range for parkrun filters
 const DEFAULT_DATE_FROM = '2022-01-01';
@@ -66,6 +67,7 @@ export default function Parkrun() {
   const [stats, setStats] = useState<ParkrunStats | null>(null);
   const [absoluteDateRange, setAbsoluteDateRange] = useState<{ earliest?: string; latest?: string }>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Initialize filters from URL params using lazy initializer
   const [filters, setFilters] = useState<Filters>(() => {
@@ -96,6 +98,7 @@ export default function Parkrun() {
 
   async function fetchResults() {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({
         limit: pagination.limit.toString(),
@@ -111,16 +114,15 @@ export default function Parkrun() {
       params.append('sort_by', sortField);
       params.append('sort_dir', sortDirection);
 
-      const response = await fetch(`/api/parkrun?${params}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      const data = await response.json();
+      const data = await fetchApi<{ results: ParkrunResult[]; pagination?: { total: number } }>(`/api/parkrun?${params}`);
 
       setResults(data.results || []);
       setPagination(prev => ({ ...prev, total: data.pagination?.total || 0 }));
-    } catch (error) {
-      console.error('Error fetching parkrun results:', error);
+    } catch (err) {
+      console.error('Error fetching parkrun results:', err);
+      if (err instanceof ApiMaintenanceError) {
+        setError(err.message);
+      }
       // Don't clear results on error - keep showing previous data
       setResults([]);
       setPagination(prev => ({ ...prev, total: 0 }));
@@ -139,19 +141,20 @@ export default function Parkrun() {
       if (filters.dateFrom) params.append('date_from', filters.dateFrom);
       if (filters.dateTo) params.append('date_to', filters.dateTo);
 
-      const response = await fetch(`/api/parkrun/stats?${params}`);
-      const data = await response.json();
+      const data = await fetchApi<ParkrunStats>(`/api/parkrun/stats?${params}`);
       setStats(data);
-    } catch (error) {
-      console.error('Error fetching parkrun stats:', error);
+    } catch (err) {
+      console.error('Error fetching parkrun stats:', err);
+      if (err instanceof ApiMaintenanceError) {
+        setError(err.message);
+      }
     }
   }
 
   async function fetchAvailableOptions() {
     try {
       // Fetch all results without pagination to get unique athletes and events
-      const response = await fetch('/api/parkrun?limit=10000');
-      const data = await response.json();
+      const data = await fetchApi<{ results: ParkrunResult[] }>('/api/parkrun?limit=10000');
 
       if (data.results) {
         const athletes = Array.from(
@@ -165,22 +168,27 @@ export default function Parkrun() {
         setAvailableAthletes(athletes);
         setAvailableEvents(events);
       }
-    } catch (error) {
-      console.error('Error fetching available options:', error);
+    } catch (err) {
+      console.error('Error fetching available options:', err);
+      if (err instanceof ApiMaintenanceError) {
+        setError(err.message);
+      }
     }
   }
 
   async function fetchAbsoluteDateRange() {
     try {
       // Fetch unfiltered stats to get absolute earliest/latest dates for date picker constraints
-      const response = await fetch('/api/parkrun/stats');
-      const data = await response.json();
+      const data = await fetchApi<{ earliestDate?: string; latestDate?: string }>('/api/parkrun/stats');
       setAbsoluteDateRange({
         earliest: data.earliestDate,
         latest: data.latestDate,
       });
-    } catch (error) {
-      console.error('Error fetching absolute date range:', error);
+    } catch (err) {
+      console.error('Error fetching absolute date range:', err);
+      if (err instanceof ApiMaintenanceError) {
+        setError(err.message);
+      }
     }
   }
 
@@ -279,13 +287,26 @@ export default function Parkrun() {
     setPagination(prev => ({ ...prev, offset: 0 })); // Reset to first page
   }
 
-  function getSortIcon(field: SortField): string {
-    if (sortField !== field) return '↕️';
-    return sortDirection === 'asc' ? '↑' : '↓';
+  function getSortIcon(field: SortField): React.ReactNode {
+    if (sortField !== field) return <i className="fa-solid fa-sort"></i>;
+    return sortDirection === 'asc' ? <i className="fa-solid fa-sort-up"></i> : <i className="fa-solid fa-sort-down"></i>;
   }
 
   return (
     <div className="parkrun-page">
+      {error && (
+        <div style={{
+          padding: '1rem',
+          margin: '1rem 0',
+          backgroundColor: '#fef3c7',
+          border: '1px solid #f59e0b',
+          borderRadius: '8px',
+          textAlign: 'center',
+          color: '#92400e',
+        }}>
+          {error}
+        </div>
+      )}
       <div className="parkrun-header">
         <h1>Parkrun Results</h1>
         <p className="subtitle">

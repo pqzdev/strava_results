@@ -128,7 +128,7 @@ export default function RaceFilters({
           )}
         </div>
         <button className="filters-toggle" type="button" aria-label={isExpanded ? 'Collapse filters' : 'Expand filters'}>
-          {isExpanded ? '▼' : '▶'}
+          {isExpanded ? <i className="fa-solid fa-chevron-down"></i> : <i className="fa-solid fa-chevron-right"></i>}
         </button>
       </div>
 

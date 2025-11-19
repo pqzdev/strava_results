@@ -269,13 +269,13 @@ export default function ParkrunWeeklySummary() {
 
       <div className="summary-stats">
         <p>
-          👟 <strong>{summary.summary.athleteCount}</strong> Woodie{summary.summary.athleteCount !== 1 ? 's' : ''} across{' '}
+          <i className="fa-solid fa-shoe-prints"></i> <strong>{summary.summary.athleteCount}</strong> Woodie{summary.summary.athleteCount !== 1 ? 's' : ''} across{' '}
           <strong>{summary.summary.eventCount}</strong> different event{summary.summary.eventCount !== 1 ? 's' : ''}
         </p>
 
         {summary.popularEvents.length > 0 && (
           <p>
-            🏆 <strong>Most popular events:</strong>{' '}
+            <i className="fa-solid fa-trophy"></i> <strong>Most popular events:</strong>{' '}
             {summary.popularEvents.map((event, index) => (
               <span key={event.name}>
                 {index > 0 && ', '}
@@ -287,14 +287,14 @@ export default function ParkrunWeeklySummary() {
 
         {summary.firstTimeEvents.length > 0 && (
           <p>
-            🎉 <strong>First Woodies visit:</strong>{' '}
+            <i className="fa-solid fa-champagne-glasses"></i> <strong>First Woodies visit:</strong>{' '}
             {summary.firstTimeEvents.join(', ')}
           </p>
         )}
 
         {summary.rarePokemons.length > 0 && (
           <p>
-            🦄 <strong>Rare Pokémons:</strong>{' '}
+            <i className="fa-solid fa-wand-sparkles"></i> <strong>Rare Pokémons:</strong>{' '}
             {summary.rarePokemons.map((pokemon, index) => (
               <span key={pokemon.name}>
                 {index > 0 && ', '}
@@ -308,7 +308,7 @@ export default function ParkrunWeeklySummary() {
       {/* Milestones section - admin only */}
       {isAdmin && milestones && (
         <div className="milestones-section">
-          <h3>🏅 Milestones</h3>
+          <h3><i className="fa-solid fa-medal"></i> Milestones</h3>
 
           {/* Achieved milestones */}
           <div className="milestone-group">

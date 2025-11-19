@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './Home.css';
+import { fetchApi, ApiMaintenanceError } from '../utils/api';
 
 interface Stats {
   athletes: number;
@@ -17,6 +18,7 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [athleteFirstname, setAthleteFirstname] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStats();
@@ -66,14 +68,16 @@ export default function Home() {
   const fetchStats = async () => {
     console.log('[HOME] Fetching stats from /api/stats...');
     try {
-      const response = await fetch('/api/stats');
-      console.log('[HOME] Stats response status:', response.status);
-      const data = await response.json();
+      const data = await fetchApi<Stats>('/api/stats');
       console.log('[HOME] Stats data received:', data);
       setStats(data);
+      setError(null);
       console.log('[HOME] Stats state updated');
-    } catch (error) {
-      console.error('[HOME] Failed to fetch stats:', error);
+    } catch (err) {
+      console.error('[HOME] Failed to fetch stats:', err);
+      if (err instanceof ApiMaintenanceError) {
+        setError(err.message);
+      }
     }
   };
 
@@ -146,7 +150,8 @@ export default function Home() {
         }}>
           <p style={{ margin: 0 }}>
             This page is for Woodies to share their results and parkrun participation.
-            If you want to learn more about Woodstock Runners, visit our{' '}
+            If you want to learn more about Woodstock Runners,<br />
+            visit our{' '}
             <a href="https://www.woodstockrunners.org.au/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>
               website
             </a>, and check out our{' '}
@@ -159,17 +164,30 @@ export default function Home() {
           </p>
         </div>
 
+        {error && (
+          <div className="error-banner" style={{
+            padding: '1rem',
+            marginBottom: '1rem',
+            backgroundColor: '#fef3c7',
+            borderRadius: '8px',
+            textAlign: 'center',
+            color: '#92400e',
+          }}>
+            {error}
+          </div>
+        )}
+
         <div className="stats-container">
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h2 className="stats-section-title" style={{ margin: 0 }}>Strava Results</h2>
             {isAdmin && (
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
                 className="button button-secondary"
-                style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', marginLeft: '1rem' }}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
               >
-                {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+                {refreshing ? <><i className="fa-solid fa-rotate fa-spin"></i> Refreshing...</> : <><i className="fa-solid fa-rotate"></i> Refresh</>}
               </button>
             )}
           </div>
@@ -253,21 +271,21 @@ export default function Home() {
           <h2 className="features-title">How It Works</h2>
           <div className="features-grid">
             <div className="feature">
-              <div className="feature-icon">🔗</div>
+              <div className="feature-icon"><i className="fa-solid fa-link"></i></div>
               <h3 className="feature-title">Connect Your Strava</h3>
               <p className="feature-text">
                 Securely link your Strava account with one click. We only access activities you've marked as races.
               </p>
             </div>
             <div className="feature">
-              <div className="feature-icon">🔄</div>
+              <div className="feature-icon"><i className="fa-solid fa-rotate"></i></div>
               <h3 className="feature-title">Automatic Sync</h3>
               <p className="feature-text">
                 Race results sync automatically every day. Just mark your activity as a "Race" in Strava.
               </p>
             </div>
             <div className="feature">
-              <div className="feature-icon">📊</div>
+              <div className="feature-icon"><i className="fa-solid fa-chart-column"></i></div>
               <h3 className="feature-title">View Club Results</h3>
               <p className="feature-text">
                 See all club members' race results in one dashboard. Filter by date, distance, or athlete.
