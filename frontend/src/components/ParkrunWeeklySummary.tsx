@@ -323,7 +323,7 @@ export default function ParkrunWeeklySummary() {
                         {index > 0 && ', '}
                         {athlete.parkrun_id ? (
                           <a
-                            href={`https://www.parkrun.com/parkrunner/${athlete.parkrun_id}/`}
+                            href={`https://www.parkrun.com.au/parkrunner/${athlete.parkrun_id}/`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -356,7 +356,7 @@ export default function ParkrunWeeklySummary() {
                         {index > 0 && ', '}
                         {athlete.parkrun_id ? (
                           <a
-                            href={`https://www.parkrun.com/parkrunner/${athlete.parkrun_id}/`}
+                            href={`https://www.parkrun.com.au/parkrunner/${athlete.parkrun_id}/`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
