@@ -103,8 +103,50 @@
         const apiKey = getApiKey();
         if (!apiKey) return;
 
-        const mode = confirm('Scraping Mode:\n\nOK = New athletes only\nCancel = All athletes (refresh)') ? 'new' : 'all';
+        // Get current athlete ID from URL for "only this" option
+        const urlMatch = window.location.pathname.match(/\/parkrunner\/(\d+)/);
+        const currentAthleteId = urlMatch ? urlMatch[1] : null;
+
+        const modeInput = prompt(
+            'Select scraping mode:\n\n' +
+            '1 = All athletes (refresh all)\n' +
+            '2 = New athletes only\n' +
+            '3 = Only this parkrunner' + (currentAthleteId ? ` (${currentAthleteId})` : '') + '\n\n' +
+            'Enter 1, 2, or 3:'
+        );
+
+        if (!modeInput) {
+            console.log('❌ Scraper cancelled');
+            return;
+        }
+
+        let mode;
+        let onlyThisAthlete = null;
+        switch (modeInput.trim()) {
+            case '1':
+                mode = 'all';
+                break;
+            case '2':
+                mode = 'new';
+                break;
+            case '3':
+                mode = 'single';
+                onlyThisAthlete = currentAthleteId;
+                if (!onlyThisAthlete) {
+                    alert('❌ Could not detect athlete ID from URL');
+                    return;
+                }
+                break;
+            default:
+                alert('❌ Invalid selection. Please enter 1, 2, or 3.');
+                return;
+        }
+
         const delayInput = prompt('Delay between athletes (milliseconds):', '3000');
+        if (!delayInput) {
+            console.log('❌ Scraper cancelled');
+            return;
+        }
         const delay = parseInt(delayInput) || 3000;
 
         if (delay < 1000 || delay > 30000) {
@@ -118,6 +160,7 @@
             apiEndpoint: 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import-individual',
             athletesApiEndpoint: 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/athletes-to-scrape',
             apiKey: apiKey,
+            onlyThisAthlete: onlyThisAthlete,
             active: true
         };
 
@@ -177,7 +220,10 @@
         currentUrl.searchParams.set('apiKey', config.apiKey);
         currentUrl.searchParams.set('mode', config.mode);
         currentUrl.searchParams.set('delay', config.delay.toString());
-        currentUrl.searchParams.set('autoNavigate', 'true');
+        currentUrl.searchParams.set('autoNavigate', config.mode !== 'single' ? 'true' : 'false');
+        if (config.onlyThisAthlete) {
+            currentUrl.searchParams.set('onlyThisAthlete', config.onlyThisAthlete);
+        }
 
         // Update browser URL without reload
         window.history.replaceState({}, '', currentUrl.toString());
