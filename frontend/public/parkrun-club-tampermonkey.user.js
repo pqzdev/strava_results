@@ -19,7 +19,7 @@
     const API_KEY_STORAGE = 'parkrun_scraper_api_key';
     const SCRIPT_URL = 'https://woodstock-results.pages.dev/parkrun-smart-scraper.js';
 
-    // Add CSS for the floating button
+    // Add CSS for the floating button and modal
     GM_addStyle(`
         #parkrun-club-scraper-button {
             position: fixed;
@@ -66,6 +66,124 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: none;
             max-width: 300px;
+        }
+
+        /* Modal styles */
+        #parkrun-club-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #parkrun-club-modal .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+        #parkrun-club-modal h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: #333;
+        }
+        #parkrun-club-modal .date-inputs {
+            margin-bottom: 16px;
+        }
+        #parkrun-club-modal .date-field {
+            margin-bottom: 12px;
+        }
+        #parkrun-club-modal .date-field label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #555;
+        }
+        #parkrun-club-modal .date-field input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        #parkrun-club-modal .date-field input:focus {
+            outline: none;
+            border-color: #11998e;
+        }
+        #parkrun-club-modal .radio-group {
+            margin-bottom: 16px;
+        }
+        #parkrun-club-modal .radio-group-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #555;
+            font-weight: 500;
+        }
+        #parkrun-club-modal .radio-option {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            margin: 6px 0;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        #parkrun-club-modal .radio-option:hover {
+            border-color: #11998e;
+            background: #f0fdf4;
+        }
+        #parkrun-club-modal .radio-option.selected {
+            border-color: #11998e;
+            background: #ecfdf5;
+        }
+        #parkrun-club-modal .radio-option input {
+            margin-right: 10px;
+        }
+        #parkrun-club-modal .radio-option label {
+            cursor: pointer;
+            flex: 1;
+            font-size: 14px;
+            color: #333;
+        }
+        #parkrun-club-modal .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        #parkrun-club-modal button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        #parkrun-club-modal .btn-cancel {
+            background: #f0f0f0;
+            color: #666;
+        }
+        #parkrun-club-modal .btn-cancel:hover {
+            background: #e0e0e0;
+        }
+        #parkrun-club-modal .btn-start {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        #parkrun-club-modal .btn-start:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(17, 153, 142, 0.4);
         }
     `);
 
@@ -115,65 +233,135 @@
         return apiKey;
     }
 
+    // Show modal dialog for scraper configuration
+    function showConfigModal(apiKey) {
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'parkrun-club-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h3>Club Results Scraper</h3>
+                <div class="date-inputs">
+                    <div class="date-field">
+                        <label for="start-date">Start Date</label>
+                        <input type="date" id="start-date" value="${getDefaultStartDate()}">
+                    </div>
+                    <div class="date-field">
+                        <label for="end-date">End Date</label>
+                        <input type="date" id="end-date" value="${getDefaultEndDate()}">
+                    </div>
+                </div>
+                <div class="radio-group">
+                    <span class="radio-group-label">Import Mode</span>
+                    <div class="radio-option selected" data-value="new">
+                        <input type="radio" name="import-mode" id="mode-new" value="new" checked>
+                        <label for="mode-new">Add new data only</label>
+                    </div>
+                    <div class="radio-option" data-value="replace">
+                        <input type="radio" name="import-mode" id="mode-replace" value="replace">
+                        <label for="mode-replace">Replace all existing data</label>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="btn-cancel">Cancel</button>
+                    <button class="btn-start">Start</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Handle radio option clicks
+        const radioOptions = modal.querySelectorAll('.radio-option');
+        radioOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                radioOptions.forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                option.querySelector('input').checked = true;
+            });
+        });
+
+        // Handle cancel
+        modal.querySelector('.btn-cancel').addEventListener('click', () => {
+            modal.remove();
+            console.log('❌ Scraper cancelled');
+        });
+
+        // Handle start
+        modal.querySelector('.btn-start').addEventListener('click', () => {
+            const startDateInput = modal.querySelector('#start-date').value;
+            const endDateInput = modal.querySelector('#end-date').value;
+            const selectedMode = modal.querySelector('input[name="import-mode"]:checked').value;
+
+            if (!startDateInput || !endDateInput) {
+                alert('❌ Both dates are required');
+                return;
+            }
+
+            // Validate dates
+            const startDate = new Date(startDateInput);
+            const endDate = new Date(endDateInput);
+
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                alert('❌ Invalid date format');
+                return;
+            }
+
+            if (startDate > endDate) {
+                alert('❌ Start date must be before end date');
+                return;
+            }
+
+            const replaceMode = selectedMode === 'replace';
+
+            const config = {
+                startDate: startDateInput,
+                endDate: endDateInput,
+                replaceMode,
+                apiEndpoint: 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import',
+                apiKey: apiKey,
+                clubNum: CLUB_NUM,
+                active: true
+            };
+
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+
+            console.log('✅ Parkrun Club Scraper activated!');
+            console.log('Configuration:', config);
+
+            button.textContent = '🔄 Scraper Running...';
+            button.classList.add('active');
+            button.onclick = function() {
+                if (confirm('Stop the club scraper?')) {
+                    sessionStorage.removeItem(STORAGE_KEY);
+                    button.textContent = '🏃 Scrape Club Results';
+                    button.classList.remove('active');
+                    statusDiv.style.display = 'none';
+                    console.log('✅ Parkrun Club Scraper stopped');
+                }
+            };
+
+            modal.remove();
+
+            // Start scraping immediately
+            runScraper();
+        });
+
+        // Close modal on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                console.log('❌ Scraper cancelled');
+            }
+        });
+    }
+
     // Button click handler - start scraper
     button.onclick = function() {
         const apiKey = getApiKey();
         if (!apiKey) return;
 
-        // Prompt for date range
-        const startDateInput = prompt('Start date (YYYY-MM-DD):', getDefaultStartDate());
-        const endDateInput = prompt('End date (YYYY-MM-DD):', getDefaultEndDate());
-
-        if (!startDateInput || !endDateInput) {
-            alert('❌ Both dates are required');
-            return;
-        }
-
-        // Validate dates
-        const startDate = new Date(startDateInput);
-        const endDate = new Date(endDateInput);
-
-        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            alert('❌ Invalid date format. Please use YYYY-MM-DD');
-            return;
-        }
-
-        if (startDate > endDate) {
-            alert('❌ Start date must be before end date');
-            return;
-        }
-
-        const replaceMode = confirm('Replace Mode:\n\nOK = Replace all existing data\nCancel = Add new data only');
-
-        const config = {
-            startDate: startDateInput,
-            endDate: endDateInput,
-            replaceMode,
-            apiEndpoint: 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import',
-            apiKey: apiKey,
-            clubNum: CLUB_NUM,
-            active: true
-        };
-
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-
-        console.log('✅ Parkrun Club Scraper activated!');
-        console.log('Configuration:', config);
-
-        button.textContent = '🔄 Scraper Running...';
-        button.classList.add('active');
-        button.onclick = function() {
-            if (confirm('Stop the club scraper?')) {
-                sessionStorage.removeItem(STORAGE_KEY);
-                button.textContent = '🏃 Scrape Club Results';
-                button.classList.remove('active');
-                statusDiv.style.display = 'none';
-                console.log('✅ Parkrun Club Scraper stopped');
-            }
-        };
-
-        // Start scraping immediately
-        runScraper();
+        showConfigModal(apiKey);
     };
 
     function getDefaultStartDate() {
