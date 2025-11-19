@@ -224,6 +224,14 @@
   });
   logProgress(`Scraping ${currentIndex + 1}/${athletes.length}: ${currentAthlete.athlete_name}`, 'info');
 
+  // Save progress to sessionStorage so it persists across page loads
+  const PROGRESS_KEY = 'parkrun_batch_scraper_stats';
+  let progressStats = JSON.parse(sessionStorage.getItem(PROGRESS_KEY) || '{"successful":0,"failed":0,"failedAthletes":[]}');
+  progressStats.current = currentIndex + 1;
+  progressStats.total = athletes.length;
+  progressStats.athleteName = `${currentAthlete.athlete_name} (${currentAthlete.parkrun_athlete_id})`;
+  sessionStorage.setItem(PROGRESS_KEY, JSON.stringify(progressStats));
+
   // ========== SCRAPE CURRENT ATHLETE ==========
 
   console.log('🔍 Looking for results table...\n');

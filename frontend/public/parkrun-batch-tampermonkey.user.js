@@ -398,14 +398,19 @@
         // Load stats from session storage
         const stats = JSON.parse(sessionStorage.getItem('parkrun_batch_scraper_stats') || '{"successful":0,"failed":0}');
         window.parkrunScraperProgress.update({
+            current: stats.current || 0,
+            total: stats.total || 0,
             success: stats.successful,
-            errors: stats.failed
+            errors: stats.failed,
+            athleteName: stats.athleteName || 'Loading...'
         });
 
-        // Add stop button
+        // Toggle panel visibility on button click
         button.onclick = function() {
-            if (confirm('Stop the batch scraper?')) {
-                stopScraper();
+            if (progressPanel.style.display === 'none') {
+                progressPanel.style.display = 'block';
+            } else {
+                progressPanel.style.display = 'none';
             }
         };
 
@@ -535,9 +540,12 @@
             });
             document.getElementById('log-messages').innerHTML = '';
 
+            // Toggle panel visibility on button click
             button.onclick = function() {
-                if (confirm('Stop the batch scraper?')) {
-                    stopScraper();
+                if (progressPanel.style.display === 'none') {
+                    progressPanel.style.display = 'block';
+                } else {
+                    progressPanel.style.display = 'none';
                 }
             };
 
