@@ -333,6 +333,7 @@
   margin-bottom: 2rem;
   border-bottom: 2px solid var(--border-color);
   overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .admin-tab {

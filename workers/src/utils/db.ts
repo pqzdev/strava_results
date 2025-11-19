@@ -1,6 +1,6 @@
 // Database utility functions
 
-import { Env, Athlete, Race, StravaActivity } from '../types';
+import { Env, Athlete, StravaActivity } from '../types';
 import { extractParkrunFeatures, predictParkrun } from './ml-client';
 
 /**
@@ -214,17 +214,6 @@ export async function fetchDetailedActivity(
 }
 
 /**
- * @deprecated Use fetchDetailedActivity instead
- */
-async function fetchDetailedPolyline(
-  activityId: number,
-  accessToken: string
-): Promise<string | null> {
-  const { polyline } = await fetchDetailedActivity(activityId, accessToken);
-  return polyline;
-}
-
-/**
  * Insert a new race into the database with detailed polyline
  * Automatically restores event_name from persistent mapping table if available
  */
@@ -323,18 +312,6 @@ export async function insertRace(
       now
     )
     .run();
-}
-
-/**
- * Get recent races with athlete information
- */
-export async function getRecentRaces(
-  limit: number = 50,
-  offset: number = 0
-): Promise<any[]> {
-  // This will be used by the API endpoint
-  // Returns races with athlete names joined
-  return [];
 }
 
 /**
