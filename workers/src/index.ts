@@ -13,7 +13,6 @@ import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAt
 import { importParkrunCSV } from './api/parkrun-import';
 import { importIndividualParkrunCSV } from './api/parkrun-import-individual';
 import { getAthletesToScrape } from './api/parkrun-athletes-to-scrape';
-import { testParkrunProxy } from './api/parkrun-proxy-test';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames, getEventStats, renameEvent } from './api/events';
 import { backfillPolylines } from './api/polyline-backfill';
 import { handleRawResponseBackfill } from './api/raw-response-backfill';
@@ -399,11 +398,6 @@ export default {
         const authError = await requireApiKey(request, env);
         if (authError) return authError;
         return importIndividualParkrunCSV(request, env);
-      }
-
-      // Test parkrun proxy integration
-      if (path === '/api/parkrun/proxy-test' && request.method === 'GET') {
-        return testParkrunProxy(request, env);
       }
 
       if (path === '/api/parkrun/athletes-to-scrape' && request.method === 'GET') {
