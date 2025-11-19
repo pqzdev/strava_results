@@ -227,8 +227,8 @@ export default function Admin() {
   const [events, setEvents] = useState<EventStats[]>([]);
   const [editingEvent, setEditingEvent] = useState<string | null>(null);
   const [newEventName, setNewEventName] = useState('');
-  const [eventSortField, setEventSortField] = useState<EventSortField>('event_name');
-  const [eventSortDirection, setEventSortDirection] = useState<EventSortDirection>('asc');
+  const [eventSortField, setEventSortField] = useState<EventSortField>('dates');
+  const [eventSortDirection, setEventSortDirection] = useState<EventSortDirection>('desc');
   const [eventSearch, setEventSearch] = useState('');
   const PARKRUN_PAGE_SIZE = 50;
 
@@ -1641,14 +1641,34 @@ export default function Admin() {
                       <td>
                         <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
                           {event.dates.map((date, idx) => (
-                            <div key={idx}>{formatDateString(date)}</div>
+                            <div key={idx}>
+                              <Link
+                                to={`/dashboard?eventNames=${encodeURIComponent(event.event_name)}&dateFrom=${date}&dateTo=${date}`}
+                                style={{
+                                  color: '#fc4c02',
+                                  textDecoration: 'none',
+                                }}
+                              >
+                                {formatDateString(date)}
+                              </Link>
+                            </div>
                           ))}
                         </div>
                       </td>
                       <td>
                         <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
                           {event.distances.map((distance, idx) => (
-                            <div key={idx}>{distance}</div>
+                            <div key={idx}>
+                              <Link
+                                to={`/dashboard?eventNames=${encodeURIComponent(event.event_name)}&distanceCategories=${encodeURIComponent(distance)}`}
+                                style={{
+                                  color: '#fc4c02',
+                                  textDecoration: 'none',
+                                }}
+                              >
+                                {distance}
+                              </Link>
+                            </div>
                           ))}
                         </div>
                       </td>

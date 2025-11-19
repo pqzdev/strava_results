@@ -1095,10 +1095,18 @@ export async function bulkEditRaces(
 
       // Update visibility if provided
       if (updates.is_hidden !== undefined) {
+        // Check current state to see if we're actually changing anything
+        const currentState = await env.DB.prepare(
+          `SELECT is_hidden FROM races WHERE id = ?`
+        ).bind(race.id).first<{ is_hidden: number }>();
+
+        const newHiddenValue = updates.is_hidden ? 1 : 0;
+        const wasAlreadyInState = currentState?.is_hidden === newHiddenValue;
+
         await env.DB.prepare(
           `UPDATE races SET is_hidden = ? WHERE id = ?`
         )
-          .bind(updates.is_hidden ? 1 : 0, race.id)
+          .bind(newHiddenValue, race.id)
           .run();
 
         // Persist visibility to mapping table so it survives full syncs
@@ -1108,18 +1116,36 @@ export async function bulkEditRaces(
            ON CONFLICT(strava_activity_id, athlete_id)
            DO UPDATE SET is_hidden = excluded.is_hidden, updated_at = excluded.updated_at`
         )
-          .bind(race.strava_activity_id, race.athlete_id, race.strava_activity_id, race.athlete_id, updates.is_hidden ? 1 : 0)
+          .bind(race.strava_activity_id, race.athlete_id, race.strava_activity_id, race.athlete_id, newHiddenValue)
           .run();
+
+        // Only count as updated if the state actually changed
+        if (!wasAlreadyInState) {
+          updatedCount++;
+        }
+        continue; // Skip the general updatedCount++ below
       }
 
       updatedCount++;
+    }
+
+    // Build appropriate message
+    let message: string;
+    if (updatedCount === 0 && matchingRaces.length > 0) {
+      // Found races but none were changed (e.g., all already hidden)
+      message = `All ${matchingRaces.length} matching race${matchingRaces.length !== 1 ? 's were' : ' was'} already in the requested state`;
+    } else if (updatedCount < matchingRaces.length) {
+      message = `Updated ${updatedCount} race${updatedCount !== 1 ? 's' : ''} (${matchingRaces.length - updatedCount} already in requested state)`;
+    } else {
+      message = `Successfully updated ${updatedCount} race${updatedCount !== 1 ? 's' : ''}`;
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         updated: updatedCount,
-        message: `Successfully updated ${updatedCount} race${updatedCount !== 1 ? 's' : ''}`,
+        total: matchingRaces.length,
+        message,
       }),
       {
         status: 200,
