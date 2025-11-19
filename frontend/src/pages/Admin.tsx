@@ -204,7 +204,7 @@ export default function Admin() {
 
   // Get API key from localStorage (same key used by Tampermonkey scripts)
   const getStoredApiKey = () => localStorage.getItem('parkrun_scraper_api_key') || '';
-  const [apiKeyValue, setApiKeyValue] = useState(getStoredApiKey);
+  const [apiKeyValue] = useState(getStoredApiKey);
 
   const handleRevealApiKey = () => {
     if (!showApiKey && apiKeyValue) {
