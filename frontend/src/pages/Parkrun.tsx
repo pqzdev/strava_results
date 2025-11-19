@@ -6,9 +6,9 @@ import ParkrunWeeklySummary from '../components/ParkrunWeeklySummary';
 import MultiSelectAutocomplete from '../components/MultiSelectAutocomplete';
 import { fetchApi, ApiMaintenanceError } from '../utils/api';
 
-// Default date range for parkrun filters
-const DEFAULT_DATE_FROM = '2022-01-01';
-const getDefaultDateTo = () => new Date().toISOString().split('T')[0];
+// Placeholder defaults before actual data range is loaded
+const PLACEHOLDER_DATE_FROM = '2022-01-01';
+const getPlaceholderDateTo = () => new Date().toISOString().split('T')[0];
 
 interface ParkrunResult {
   id: number;
@@ -69,6 +69,12 @@ export default function Parkrun() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Track if URL had date params (to know if we should override with data defaults)
+  const [hadUrlDateParams] = useState(() => ({
+    dateFrom: searchParams.has('dateFrom'),
+    dateTo: searchParams.has('dateTo'),
+  }));
+
   // Initialize filters from URL params using lazy initializer
   const [filters, setFilters] = useState<Filters>(() => {
     const athletesParam = searchParams.get('athletes');
@@ -76,8 +82,8 @@ export default function Parkrun() {
     return {
       athletes: athletesParam ? athletesParam.split('|').filter(Boolean) : [],
       events: eventsParam ? eventsParam.split('|').filter(Boolean) : [],
-      dateFrom: searchParams.get('dateFrom') || DEFAULT_DATE_FROM,
-      dateTo: searchParams.get('dateTo') || getDefaultDateTo(),
+      dateFrom: searchParams.get('dateFrom') || PLACEHOLDER_DATE_FROM,
+      dateTo: searchParams.get('dateTo') || getPlaceholderDateTo(),
     };
   });
   const [availableAthletes, setAvailableAthletes] = useState<string[]>([]);
@@ -184,6 +190,15 @@ export default function Parkrun() {
         earliest: data.earliestDate,
         latest: data.latestDate,
       });
+
+      // Update filter defaults to match actual data range (only if no URL params were provided)
+      if (data.earliestDate || data.latestDate) {
+        setFilters(prev => ({
+          ...prev,
+          dateFrom: hadUrlDateParams.dateFrom ? prev.dateFrom : (data.earliestDate || prev.dateFrom),
+          dateTo: hadUrlDateParams.dateTo ? prev.dateTo : (data.latestDate || prev.dateTo),
+        }));
+      }
     } catch (err) {
       console.error('Error fetching absolute date range:', err);
       if (err instanceof ApiMaintenanceError) {
@@ -200,10 +215,10 @@ export default function Parkrun() {
       updatedFilters.dateFrom = absoluteDateRange.earliest;
     }
 
-    // Enforce maximum date to today
-    const today = getDefaultDateTo();
-    if (updatedFilters.dateTo && updatedFilters.dateTo > today) {
-      updatedFilters.dateTo = today;
+    // Enforce maximum date to latest available data (or today as fallback)
+    const maxDate = absoluteDateRange.latest || getPlaceholderDateTo();
+    if (updatedFilters.dateTo && updatedFilters.dateTo > maxDate) {
+      updatedFilters.dateTo = maxDate;
     }
 
     setFilters(updatedFilters);
@@ -385,8 +400,8 @@ export default function Parkrun() {
                 <input
                   type="date"
                   min={absoluteDateRange.earliest}
-                  max={filters.dateTo || getDefaultDateTo()}
-                  value={filters.dateFrom || DEFAULT_DATE_FROM}
+                  max={filters.dateTo || absoluteDateRange.latest}
+                  value={filters.dateFrom || absoluteDateRange.earliest}
                   onChange={e => handleFilterChange({ dateFrom: e.target.value })}
                   className="date-input"
                 />
@@ -402,15 +417,15 @@ export default function Parkrun() {
               <div className="date-input-wrapper">
                 <input
                   type="date"
-                  min={filters.dateFrom || DEFAULT_DATE_FROM}
-                  max={getDefaultDateTo()}
-                  value={filters.dateTo || getDefaultDateTo()}
+                  min={filters.dateFrom || absoluteDateRange.earliest}
+                  max={absoluteDateRange.latest}
+                  value={filters.dateTo || absoluteDateRange.latest}
                   onChange={e => handleFilterChange({ dateTo: e.target.value })}
                   className="date-input"
                 />
                 <button
                   type="button"
-                  onClick={() => handleFilterChange({ dateTo: getDefaultDateTo() })}
+                  onClick={() => handleFilterChange({ dateTo: absoluteDateRange.latest })}
                   className="date-shortcut-link"
                 >
                   max
@@ -421,7 +436,12 @@ export default function Parkrun() {
         )}
         <button
           onClick={() =>
-            handleFilterChange({ athletes: [], events: [], dateFrom: DEFAULT_DATE_FROM, dateTo: getDefaultDateTo() })
+            handleFilterChange({
+              athletes: [],
+              events: [],
+              dateFrom: absoluteDateRange.earliest || PLACEHOLDER_DATE_FROM,
+              dateTo: absoluteDateRange.latest || getPlaceholderDateTo()
+            })
           }
           className="clear-filters-btn"
         >
