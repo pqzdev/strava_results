@@ -261,11 +261,11 @@ async function startEnrichmentPhase(
   console.log(`[Discovery] ${totalRaces} races need enrichment`);
 
   if (totalRaces === 0) {
-    // No races to enrich, mark sync as complete
+    // No races to enrich, mark sync as complete - keep sync_session_id for historical reference
     await env.DB.prepare(
       `UPDATE athletes
        SET sync_status = 'completed', sync_error = NULL,
-           last_synced_at = ?, sync_session_id = NULL
+           last_synced_at = ?
        WHERE id = ?`
     )
       .bind(Math.floor(Date.now() / 1000), athleteId)

@@ -152,11 +152,11 @@ async function checkEnrichmentSession(
       .bind(athleteId)
       .first<{ count: number }>();
 
-    // Mark sync as complete
+    // Mark sync as complete - keep sync_session_id for historical reference
     await env.DB.prepare(
       `UPDATE athletes
        SET sync_status = 'completed', sync_error = NULL,
-           last_synced_at = ?, sync_session_id = NULL,
+           last_synced_at = ?,
            current_batch_number = 0, total_batches_expected = NULL
        WHERE id = ?`
     )

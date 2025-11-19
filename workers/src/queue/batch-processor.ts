@@ -224,7 +224,7 @@ export async function finalizeSyncSession(
     .bind(athleteId)
     .first<{ count: number }>();
 
-  // Update athlete record
+  // Update athlete record - keep sync_session_id for historical reference
   await env.DB.prepare(
     `UPDATE athletes
      SET sync_status = 'completed',
@@ -232,7 +232,6 @@ export async function finalizeSyncSession(
          last_synced_at = ?,
          current_batch_number = 0,
          total_batches_expected = NULL,
-         sync_session_id = NULL,
          total_activities_count = ?
      WHERE id = ?`
   )
