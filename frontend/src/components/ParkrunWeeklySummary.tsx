@@ -13,16 +13,61 @@ interface WeeklySummary {
   rarePokemons: Array<{ name: string; visitCount: number }>;
 }
 
+interface MilestoneData {
+  date: string;
+  achieved: Array<{
+    milestone: number;
+    athletes: Array<{ name: string; event: string; parkrun_id: string | null }>;
+  }>;
+  upcoming: Array<{
+    milestone: number;
+    athletes: Array<{ name: string; count: number; parkrun_id: string | null }>;
+  }>;
+}
+
 export default function ParkrunWeeklySummary() {
   const [summary, setSummary] = useState<WeeklySummary | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [showCalendar, setShowCalendar] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [milestones, setMilestones] = useState<MilestoneData | null>(null);
+
+  // Check admin status on mount
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      const stravaId = localStorage.getItem('strava_athlete_id');
+      if (stravaId) {
+        try {
+          const response = await fetch(`/api/admin/athletes?admin_strava_id=${stravaId}`);
+          setIsAdmin(response.ok);
+        } catch {
+          setIsAdmin(false);
+        }
+      }
+    };
+    checkAdminStatus();
+  }, []);
 
   useEffect(() => {
     fetchSummary(selectedDate);
+    if (selectedDate) {
+      fetchMilestones(selectedDate);
+    }
   }, [selectedDate]);
+
+  async function fetchMilestones(date: string) {
+    try {
+      const response = await fetch(`/api/parkrun/milestones?date=${date}`);
+      if (response.ok) {
+        const data = await response.json();
+        setMilestones(data);
+      }
+    } catch (error) {
+      console.error('Error fetching milestones:', error);
+    }
+  }
 
   useEffect(() => {
     if (selectedDate) {
@@ -259,6 +304,79 @@ export default function ParkrunWeeklySummary() {
           </p>
         )}
       </div>
+
+      {/* Milestones section - admin only */}
+      {isAdmin && milestones && (
+        <div className="milestones-section">
+          <h3>🏅 Milestones</h3>
+
+          {/* Achieved milestones */}
+          <div className="milestone-group">
+            <strong>Achieved this week:</strong>
+            {milestones.achieved.length > 0 ? (
+              <ul className="milestone-list">
+                {milestones.achieved.map(group => (
+                  <li key={group.milestone}>
+                    <span className="milestone-number">{group.milestone}:</span>{' '}
+                    {group.athletes.map((athlete, index) => (
+                      <span key={athlete.name}>
+                        {index > 0 && ', '}
+                        {athlete.parkrun_id ? (
+                          <a
+                            href={`https://www.parkrun.com/parkrunner/${athlete.parkrun_id}/`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {athlete.name}
+                          </a>
+                        ) : (
+                          athlete.name
+                        )}
+                        {' '}({athlete.event})
+                      </span>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="no-milestones">No milestones this week</p>
+            )}
+          </div>
+
+          {/* Upcoming milestones */}
+          <div className="milestone-group">
+            <strong>Upcoming milestones:</strong>
+            {milestones.upcoming.length > 0 ? (
+              <ul className="milestone-list">
+                {milestones.upcoming.map(group => (
+                  <li key={group.milestone}>
+                    <span className="milestone-number">{group.milestone}:</span>{' '}
+                    {group.athletes.map((athlete, index) => (
+                      <span key={athlete.name}>
+                        {index > 0 && ', '}
+                        {athlete.parkrun_id ? (
+                          <a
+                            href={`https://www.parkrun.com/parkrunner/${athlete.parkrun_id}/`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {athlete.name}
+                          </a>
+                        ) : (
+                          athlete.name
+                        )}
+                        {' '}({athlete.count})
+                      </span>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="no-milestones">No upcoming milestones</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

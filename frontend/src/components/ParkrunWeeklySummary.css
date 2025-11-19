@@ -228,3 +228,58 @@
     flex: 1;
   }
 }
+
+/* Milestones section */
+.milestones-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #dee2e6;
+}
+
+.milestones-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.2rem;
+  color: #212529;
+}
+
+.milestone-group {
+  margin-bottom: 12px;
+}
+
+.milestone-group strong {
+  color: #495057;
+  font-size: 0.95rem;
+}
+
+.milestone-list {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+  list-style-type: disc;
+}
+
+.milestone-list li {
+  margin-bottom: 6px;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.milestone-number {
+  font-weight: 600;
+  color: #0056b3;
+}
+
+.milestone-list a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.milestone-list a:hover {
+  text-decoration: underline;
+}
+
+.no-milestones {
+  margin: 8px 0 0 0;
+  color: #6c757d;
+  font-style: italic;
+  font-size: 0.9rem;
+}

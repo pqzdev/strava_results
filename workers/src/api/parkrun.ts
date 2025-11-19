@@ -690,6 +690,147 @@ export async function getParkrunDuplicates(request: Request, env: Env): Promise<
 }
 
 /**
+ * GET /api/parkrun/milestones - Get milestone achievements and upcoming milestones for a date
+ * Milestones are: 25, 50, 100, 250, 500, 1000
+ * Upcoming = within 98% of milestone (rounded down)
+ */
+export async function getParkrunMilestones(request: Request, env: Env): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const requestedDate = url.searchParams.get('date');
+
+    // Get the target date (most recent if not specified)
+    let targetDate = requestedDate;
+    if (!targetDate) {
+      const mostRecentResult = await env.DB.prepare(
+        `SELECT MAX(date) as latest_date FROM parkrun_results`
+      ).first<{ latest_date: string }>();
+      targetDate = mostRecentResult?.latest_date || '';
+    }
+
+    if (!targetDate) {
+      return new Response(
+        JSON.stringify({ error: 'No parkrun data available' }),
+        { status: 404, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+
+    const milestones = [25, 50, 100, 250, 500, 1000];
+
+    // Get athletes who ran on this date with their total run counts up to this date
+    // We count total parkruns per athlete (not event_number which is per-event)
+    const athletesOnDate = await env.DB.prepare(
+      `SELECT DISTINCT pr.athlete_name, pr.event_name, pr.parkrun_athlete_id
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+       WHERE pr.date = ?
+         AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)`
+    ).bind(targetDate).all<{ athlete_name: string; event_name: string; parkrun_athlete_id: string | null }>();
+
+    // For each athlete, get their total parkrun count up to and including this date
+    const achievedMilestones: Array<{
+      milestone: number;
+      athletes: Array<{ name: string; event: string; parkrun_id: string | null }>;
+    }> = milestones.map(m => ({ milestone: m, athletes: [] }));
+
+    const upcomingMilestones: Array<{
+      milestone: number;
+      athletes: Array<{ name: string; count: number; parkrun_id: string | null }>;
+    }> = milestones.map(m => ({ milestone: m, athletes: [] }));
+
+    for (const athlete of (athletesOnDate.results || [])) {
+      // Count total parkruns for this athlete up to and including targetDate
+      const countResult = await env.DB.prepare(
+        `SELECT COUNT(*) as total
+         FROM parkrun_results
+         WHERE athlete_name = ? AND date <= ?`
+      ).bind(athlete.athlete_name, targetDate).first<{ total: number }>();
+
+      const totalRuns = countResult?.total || 0;
+
+      // Check if they hit a milestone on this exact date
+      for (let i = 0; i < milestones.length; i++) {
+        const milestone = milestones[i];
+        if (totalRuns === milestone) {
+          achievedMilestones[i].athletes.push({
+            name: athlete.athlete_name,
+            event: athlete.event_name,
+            parkrun_id: athlete.parkrun_athlete_id,
+          });
+        }
+      }
+    }
+
+    // Get all visible athletes and their current total run counts for upcoming milestones
+    const allAthletes = await env.DB.prepare(
+      `SELECT
+        pr.athlete_name,
+        (SELECT parkrun_athlete_id FROM parkrun_results WHERE athlete_name = pr.athlete_name AND parkrun_athlete_id IS NOT NULL LIMIT 1) as parkrun_id,
+        COUNT(*) as total
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+       WHERE pr.date <= ?
+         AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+       GROUP BY pr.athlete_name`
+    ).bind(targetDate).all<{ athlete_name: string; parkrun_id: string | null; total: number }>();
+
+    // Check for upcoming milestones (within 98% but not yet reached)
+    for (const athlete of (allAthletes.results || [])) {
+      for (let i = 0; i < milestones.length; i++) {
+        const milestone = milestones[i];
+        const threshold = Math.floor(milestone * 0.98);
+
+        if (athlete.total >= threshold && athlete.total < milestone) {
+          upcomingMilestones[i].athletes.push({
+            name: athlete.athlete_name,
+            count: athlete.total,
+            parkrun_id: athlete.parkrun_id,
+          });
+        }
+      }
+    }
+
+    // Sort upcoming athletes by count descending (closest to milestone first)
+    for (const upcoming of upcomingMilestones) {
+      upcoming.athletes.sort((a, b) => b.count - a.count);
+    }
+
+    // Filter out empty milestones for cleaner response
+    const achieved = achievedMilestones.filter(m => m.athletes.length > 0);
+    const upcoming = upcomingMilestones.filter(m => m.athletes.length > 0);
+
+    return new Response(
+      JSON.stringify({
+        date: targetDate,
+        achieved,
+        upcoming,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error fetching parkrun milestones:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to fetch parkrun milestones',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  }
+}
+
+/**
  * PATCH /api/parkrun/athletes/:name - Update parkrun athlete visibility
  */
 export async function updateParkrunAthlete(
