@@ -153,13 +153,16 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
       }
 
       // Batch check for existing results - build lookup keys
-      // SQLite has a limit of ~999 variables, and we use 3 per row, so max 300 rows per batch
-      // Using 50 to be safe (150 variables per batch)
-      const BATCH_SIZE = 50;
+      // SQLite has a limit of ~999 variables
+      // For existence check: 3 variables per row, so max ~330 rows
+      // For inserts: 10 variables per statement, so max ~99 statements
+      // Using 20 for existence checks (60 variables) and separate limit for inserts
+      const EXISTENCE_BATCH_SIZE = 20;
+      const STATEMENT_BATCH_SIZE = 50; // Each INSERT has 10 vars = 500 total
       const existingResults = new Map<string, { id: number; data_source: string | null }>();
 
-      for (let i = 0; i < processedRows.length; i += BATCH_SIZE) {
-        const batch = processedRows.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < processedRows.length; i += EXISTENCE_BATCH_SIZE) {
+        const batch = processedRows.slice(i, i + EXISTENCE_BATCH_SIZE);
 
         // Build query for this batch
         const placeholders = batch.map(() => '(parkrun_athlete_id = ? AND event_name = ? AND date = ?)').join(' OR ');
@@ -232,9 +235,10 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
       // Execute batched statements
       const allStatements = [...insertStatements, ...updateStatements];
 
-      // D1 batch limit is typically 100 statements, so batch in chunks
-      for (let i = 0; i < allStatements.length; i += BATCH_SIZE) {
-        const batch = allStatements.slice(i, i + BATCH_SIZE);
+      // D1 batch has variable limits - INSERT has 10 vars each, UPDATE has 3
+      // Using smaller batches to stay under SQLite's ~999 variable limit
+      for (let i = 0; i < allStatements.length; i += STATEMENT_BATCH_SIZE) {
+        const batch = allStatements.slice(i, i + STATEMENT_BATCH_SIZE);
         if (batch.length > 0) {
           await env.DB.batch(batch);
         }
