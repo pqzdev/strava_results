@@ -292,10 +292,31 @@
   pointer-events: auto;
 }
 
+/* Hover-based tooltip for normal mode */
+.description-hover-trigger:hover .description-hover-tooltip {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Edit mode icon styling */
+.description-icon-edit {
+  opacity: 0.6;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.description-icon-edit:hover {
+  opacity: 1;
+  color: #5568d3;
+}
+
 .description-text {
-  margin-bottom: 0.5rem;
   max-height: 200px;
   overflow-y: auto;
+}
+
+/* Only add margin when there's content after (like fetch link) */
+.description-text:not(:last-child) {
+  margin-bottom: 0.5rem;
 }
 
 .fetch-description-link {

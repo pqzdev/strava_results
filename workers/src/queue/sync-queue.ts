@@ -105,16 +105,14 @@ async function insertRaceOptimized(
 ): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
 
-  // Use summary polyline from activity list (avoid excessive API calls during sync)
-  // Descriptions and detailed polylines can be backfilled later via separate process
+  // Use summary polyline from activity list
   let polyline = activity.map?.summary_polyline || null;
   let description = activity.description || null; // Use description from list API if available
   let rawResponse = null; // WOOD-6: Store full raw response
 
-  // Only fetch detailed activity if absolutely no polyline available
-  // This avoids hitting subrequest limits during large syncs
-  // WOOD-6: Also gets raw response for future feature extraction
-  if (!polyline && accessToken) {
+  // Always fetch detailed activity to get description and full data
+  // This ensures we have the complete activity information including description
+  if (accessToken) {
     const detailed = await fetchDetailedActivity(activity.id, accessToken);
 
     if (detailed.polyline) {
@@ -122,7 +120,7 @@ async function insertRaceOptimized(
       console.log(`Fetched detailed polyline for activity ${activity.id}`);
     }
 
-    // Get description if we had to fetch detailed activity anyway
+    // Always get description from detailed activity (more reliable than list API)
     if (detailed.description) {
       description = detailed.description;
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { FaEye, FaEyeSlash, FaUserPen } from 'react-icons/fa6';
 import { FaCommentDots, FaRegCommentDots } from 'react-icons/fa6';
 import './RaceTable.css';
@@ -56,36 +56,12 @@ function VisibilityToggle({ race, isOwner, onToggle }: VisibilityToggleProps) {
 interface DescriptionTooltipProps {
   race: Race;
   isOwner: boolean;
+  isEditMode?: boolean;
   onFetchDescription: (raceId: number, stravaActivityId: number) => Promise<void>;
 }
 
-function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTooltipProps) {
+function DescriptionTooltip({ race, isOwner, isEditMode, onFetchDescription }: DescriptionTooltipProps) {
   const [isFetching, setIsFetching] = useState(false);
-  const [isTooltipVisible, setIsTooltipVisible] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  // Close tooltip when clicking outside
-  useEffect(() => {
-    if (!isOwner || !isTooltipVisible) {
-      return;
-    }
-
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsTooltipVisible(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isTooltipVisible, isOwner]);
-
-  // Only show to owner or admin
-  if (!isOwner) {
-    return null;
-  }
 
   const handleFetch = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -100,46 +76,39 @@ function DescriptionTooltip({ race, isOwner, onFetchDescription }: DescriptionTo
     }
   };
 
-  const handleIconClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsTooltipVisible(!isTooltipVisible);
-  };
+  // In edit mode: show for owners on all activities
+  // In normal mode: only show if description exists
+  if (isEditMode) {
+    // Edit mode: show speech bubble on all activities for owners
+    if (!isOwner) {
+      return null;
+    }
+
+    return (
+      <div className="description-tooltip-wrapper">
+        <FaRegCommentDots
+          className="description-icon description-icon-edit"
+          onClick={handleFetch}
+          title={isFetching ? 'Fetching...' : (race.description ? 'Refresh description' : 'Fetch description')}
+          style={{ cursor: isFetching ? 'wait' : 'pointer' }}
+        />
+      </div>
+    );
+  }
+
+  // Normal mode: only show if description exists
+  if (!race.description) {
+    return null;
+  }
 
   return (
-    <div className="description-tooltip-wrapper" ref={wrapperRef}>
-      {race.description ? (
-        <FaCommentDots
-          className="description-icon"
-          onClick={handleIconClick}
-        />
-      ) : (
-        <FaRegCommentDots
-          className="description-icon"
-          onClick={handleIconClick}
-        />
-      )}
-      <div className={`description-tooltip ${isTooltipVisible ? 'visible' : ''}`}>
-        {race.description ? (
-          <>
-            <div className="description-text">{race.description}</div>
-            <a
-              href="#"
-              onClick={handleFetch}
-              className="fetch-description-link"
-            >
-              {isFetching ? 'Refreshing...' : 'Refresh description'}
-            </a>
-          </>
-        ) : (
-          <a
-            href="#"
-            onClick={handleFetch}
-            className="fetch-description-link"
-          >
-            {isFetching ? 'Fetching...' : 'Fetch description'}
-          </a>
-        )}
+    <div className="description-tooltip-wrapper description-hover-trigger">
+      <FaCommentDots
+        className="description-icon"
+        title={race.description}
+      />
+      <div className="description-tooltip description-hover-tooltip">
+        <div className="description-text">{race.description}</div>
       </div>
     </div>
   );
@@ -956,6 +925,7 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
                   <DescriptionTooltip
                     race={race}
                     isOwner={isAdmin || race.strava_id === currentAthleteId}
+                    isEditMode={isEditMode}
                     onFetchDescription={handleDescriptionFetch}
                   />
                 </div>
