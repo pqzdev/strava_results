@@ -534,6 +534,43 @@ export async function checkAdmin(request: Request, env: Env): Promise<Response> 
 }
 
 /**
+ * GET /api/admin/api-key - Get the parkrun scraper API key (admin only)
+ */
+export async function getAdminApiKey(request: Request, env: Env): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const adminStravaId = parseInt(url.searchParams.get('admin_strava_id') || '0');
+
+    if (!adminStravaId || !(await isAdmin(adminStravaId, env))) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Return the API key from environment
+    const apiKey = env.PARKRUN_API_KEY || '';
+
+    return new Response(
+      JSON.stringify({ api_key: apiKey }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error getting API key:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
+/**
  * GET /api/admin/sync-status - Get sync queue status (includes both legacy queue and batched syncs)
  */
 export async function getAdminSyncStatus(request: Request, env: Env): Promise<Response> {

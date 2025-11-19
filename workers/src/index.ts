@@ -7,7 +7,7 @@ import { syncAthlete } from './queue/sync-queue';
 import { processPendingBatches } from './cron/batch-processor-cron';
 import { healthCheckBatchedSyncs } from './cron/sync-health-monitor';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
-import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin, getAdminSyncStatus, stopSyncJob, triggerBatchedAthleteSync, getBatchedSyncProgress } from './api/admin';
+import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin, getAdminSyncStatus, stopSyncJob, triggerBatchedAthleteSync, getBatchedSyncProgress, getAdminApiKey } from './api/admin';
 import { getReviewActivities, updateActivity } from './api/admin-review';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate, getParkrunWeeklySummary, getParkrunDuplicates, getParkrunMilestones } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
@@ -187,6 +187,11 @@ export default {
       // Check if user is admin
       if (path === '/api/admin/check' && request.method === 'GET') {
         return checkAdmin(request, env);
+      }
+
+      // Get API key (admin only)
+      if (path === '/api/admin/api-key' && request.method === 'GET') {
+        return getAdminApiKey(request, env);
       }
 
       // Review dashboard - Get unassigned activities

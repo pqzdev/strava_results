@@ -201,10 +201,7 @@ export default function Admin() {
   const [showIndividualScraper, setShowIndividualScraper] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
-
-  // Get API key from localStorage (same key used by Tampermonkey scripts)
-  const getStoredApiKey = () => localStorage.getItem('parkrun_scraper_api_key') || '';
-  const [apiKeyValue] = useState(getStoredApiKey);
+  const [apiKeyValue, setApiKeyValue] = useState('');
 
   const handleRevealApiKey = () => {
     if (!showApiKey && apiKeyValue) {
@@ -265,11 +262,26 @@ export default function Admin() {
     fetchManualSubmissions();
     fetchApprovedSubmissions();
     fetchSyncStatus();
+    fetchApiKey();
 
     // Poll queue stats every 30 seconds
     const interval = setInterval(fetchQueueStats, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const fetchApiKey = async () => {
+    try {
+      const response = await fetch(
+        `/api/admin/api-key?admin_strava_id=${currentAthleteId}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setApiKeyValue(data.api_key || '');
+      }
+    } catch (err) {
+      console.error('Failed to fetch API key:', err);
+    }
+  };
 
   // Auto-refresh sync status when on sync-dashboard tab
   useEffect(() => {
