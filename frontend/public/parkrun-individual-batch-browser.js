@@ -116,13 +116,43 @@
     currentIndex = athletes.findIndex(a => a.parkrun_athlete_id === currentAthleteId);
   }
 
-  // If not found or first run, start at 0
+  // If not found, we're on the wrong page - navigate to first athlete
   if (currentIndex === -1) {
-    currentIndex = 0;
-    console.log('⚠️  Current athlete not in list, starting from first athlete\n');
+    console.log('⚠️  Current athlete not in list, navigating to first athlete...\n');
+
+    const firstAthlete = athletes[0];
+    const correctUrl = new URL(`https://www.parkrun.com.au/parkrunner/${firstAthlete.parkrun_athlete_id}/all/`);
+    correctUrl.searchParams.set('apiKey', CONFIG.apiKey);
+    correctUrl.searchParams.set('apiEndpoint', CONFIG.apiEndpoint);
+    correctUrl.searchParams.set('athletesApiEndpoint', CONFIG.athletesApiEndpoint);
+    correctUrl.searchParams.set('mode', CONFIG.mode);
+    correctUrl.searchParams.set('delay', CONFIG.delayBetweenAthletes.toString());
+    correctUrl.searchParams.set('autoNavigate', CONFIG.autoNavigate.toString());
+
+    console.log(`🌐 Redirecting to: ${correctUrl.toString()}\n`);
+    window.location.href = correctUrl.toString();
+    return;
   }
 
   const currentAthlete = athletes[currentIndex];
+
+  // CRITICAL: Verify we're on the correct athlete's page before scraping
+  // This prevents scraping wrong data if URL was manipulated or page redirected
+  if (currentAthleteId !== currentAthlete.parkrun_athlete_id) {
+    console.error(`❌ Page mismatch! URL has athlete ${currentAthleteId} but expected ${currentAthlete.parkrun_athlete_id}`);
+    console.log('   This should not happen. Navigating to correct page...\n');
+
+    const correctUrl = new URL(`https://www.parkrun.com.au/parkrunner/${currentAthlete.parkrun_athlete_id}/all/`);
+    correctUrl.searchParams.set('apiKey', CONFIG.apiKey);
+    correctUrl.searchParams.set('apiEndpoint', CONFIG.apiEndpoint);
+    correctUrl.searchParams.set('athletesApiEndpoint', CONFIG.athletesApiEndpoint);
+    correctUrl.searchParams.set('mode', CONFIG.mode);
+    correctUrl.searchParams.set('delay', CONFIG.delayBetweenAthletes.toString());
+    correctUrl.searchParams.set('autoNavigate', CONFIG.autoNavigate.toString());
+
+    window.location.href = correctUrl.toString();
+    return;
+  }
 
   console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`📍 Current Progress: ${currentIndex + 1}/${athletes.length}`);
