@@ -345,7 +345,7 @@ export default function ParkrunWeeklySummary() {
 
           {/* Upcoming milestones */}
           <div className="milestone-group">
-            <strong>Upcoming milestones:</strong>
+            <strong>Upcoming:</strong>
             {milestones.upcoming.length > 0 ? (
               <ul className="milestone-list">
                 {milestones.upcoming.map(group => (

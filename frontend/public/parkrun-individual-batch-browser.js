@@ -545,6 +545,14 @@
     console.log(`\n⏳ Waiting ${CONFIG.delayBetweenAthletes}ms before next athlete...\n`);
     await new Promise(resolve => setTimeout(resolve, CONFIG.delayBetweenAthletes));
 
+    // Check if scraper was stopped (sessionStorage cleared by tampermonkey button)
+    const SCRAPER_CONFIG_KEY = 'parkrun_batch_scraper_config';
+    if (!sessionStorage.getItem(SCRAPER_CONFIG_KEY)) {
+      console.log('\n🛑 Scraper stopped by user');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+      return;
+    }
+
     console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`📍 Moving to athlete ${nextIndex + 1}/${athletes.length}`);
     console.log(`🏃 Next: ${nextAthlete.athlete_name} (${nextAthlete.parkrun_athlete_id})`);

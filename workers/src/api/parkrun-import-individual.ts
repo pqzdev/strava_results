@@ -153,8 +153,9 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
       }
 
       // Batch check for existing results - build lookup keys
-      // We'll check in batches of 100 to avoid query size limits
-      const BATCH_SIZE = 100;
+      // SQLite has a limit of ~999 variables, and we use 3 per row, so max 300 rows per batch
+      // Using 50 to be safe (150 variables per batch)
+      const BATCH_SIZE = 50;
       const existingResults = new Map<string, { id: number; data_source: string | null }>();
 
       for (let i = 0; i < processedRows.length; i += BATCH_SIZE) {
