@@ -73,115 +73,169 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
     const scrapeStartTime = Math.floor(Date.now() / 1000);
 
     try {
+      // Fetch ALL event name mappings once (instead of per-row)
+      const allMappings = await env.DB.prepare(
+        `SELECT from_name, to_name FROM parkrun_event_name_mappings`
+      ).all<{ from_name: string; to_name: string }>();
+
+      const eventNameMap = new Map<string, string>();
+      for (const mapping of (allMappings.results || [])) {
+        eventNameMap.set(mapping.from_name, mapping.to_name);
+      }
+
+      // Pre-process all rows to get normalized event names and parsed data
+      const processedRows: Array<{
+        date: string;
+        eventName: string;
+        position: number;
+        timeString: string;
+        timeSeconds: number;
+        ageGrade: string | null;
+        runNumber: number;
+        athleteName: string;
+        parkrunId: string;
+      }> = [];
+
       for (const row of rows) {
-        try {
-          // Parse CSV row
-          const date = parseParkrunDate(row.Date || row.date);
-          let eventName = row.Event || row.event;
-          const position = parseInt(row.Pos || row.pos || row.Position || '0');
-          const timeString = row.Time || row.time;
-          const ageGrade = row['Age Grade'] || row.ageGrade || row['age grade'];
-          const runNumber = parseInt(row['Run Number'] || row.runNumber || row['run number'] || '0');
+        // Parse CSV row
+        const date = parseParkrunDate(row.Date || row.date);
+        let eventName = row.Event || row.event;
+        const position = parseInt(row.Pos || row.pos || row.Position || '0');
+        const timeString = row.Time || row.time;
+        const ageGrade = row['Age Grade'] || row.ageGrade || row['age grade'] || null;
+        const runNumber = parseInt(row['Run Number'] || row.runNumber || row['run number'] || '0');
 
-          // Get athlete info from row or form data
-          const rowAthleteName = row.parkrunner || row.Parkrunner || athleteName;
-          const rowParkrunId = row['Parkrun ID'] || row.parkrunId || parkrunAthleteId;
+        // Get athlete info from row or form data
+        const rowAthleteName = row.parkrunner || row.Parkrunner || athleteName;
+        const rowParkrunId = row['Parkrun ID'] || row.parkrunId || parkrunAthleteId;
 
-          if (!date || !eventName || !timeString || !rowAthleteName) {
-            console.warn('Skipping invalid row:', row);
-            errors++;
-            continue;
-          }
+        if (!date || !eventName || !timeString || !rowAthleteName) {
+          console.warn('Skipping invalid row:', row);
+          errors++;
+          continue;
+        }
 
-          // Normalize event name: remove " parkrun" from middle or end
-          eventName = eventName.replace(/\s+parkrun,/i, ',');
-          eventName = eventName.replace(/\s+parkrun$/i, '');
-          eventName = eventName.trim();
+        // Normalize event name: remove " parkrun" from middle or end
+        eventName = eventName.replace(/\s+parkrun,/i, ',');
+        eventName = eventName.replace(/\s+parkrun$/i, '');
+        eventName = eventName.trim();
 
-          // Remove language-specific prefixes FIRST (e.g., "parkrun de/du Montsouris" → "Montsouris")
-          // Must check these BEFORE "parkrun " to avoid leaving language prefix
-          if (eventName.startsWith('parkrun de ')) {
-            eventName = eventName.substring(11); // Remove "parkrun de " (11 characters)
-          } else if (eventName.startsWith('parkrun du ')) {
-            eventName = eventName.substring(11); // Remove "parkrun du " (11 characters)
-          }
-          // Remove "parkrun " prefix (e.g., "parkrun Ogród Saski, Lublin" → "Ogród Saski, Lublin")
-          else if (eventName.startsWith('parkrun ')) {
-            eventName = eventName.substring(8); // Remove "parkrun " (8 characters)
-          }
+        // Remove language-specific prefixes FIRST (e.g., "parkrun de/du Montsouris" → "Montsouris")
+        if (eventName.startsWith('parkrun de ')) {
+          eventName = eventName.substring(11);
+        } else if (eventName.startsWith('parkrun du ')) {
+          eventName = eventName.substring(11);
+        } else if (eventName.startsWith('parkrun ')) {
+          eventName = eventName.substring(8);
+        }
 
-          eventName = eventName.trim();
+        eventName = eventName.trim();
 
-          // Apply database-driven event name mappings
-          const mappingResult = await env.DB.prepare(
-            `SELECT to_name FROM parkrun_event_name_mappings WHERE from_name = ?`
-          ).bind(eventName).first<{ to_name: string }>();
+        // Apply event name mapping from pre-fetched map
+        const mappedName = eventNameMap.get(eventName);
+        if (mappedName) {
+          eventName = mappedName;
+        }
 
-          if (mappingResult) {
-            eventName = mappingResult.to_name;
-          }
+        const timeSeconds = parseTimeToSeconds(timeString);
 
-          const timeSeconds = parseTimeToSeconds(timeString);
+        processedRows.push({
+          date,
+          eventName,
+          position,
+          timeString,
+          timeSeconds,
+          ageGrade,
+          runNumber,
+          athleteName: rowAthleteName as string,
+          parkrunId: rowParkrunId as string,
+        });
+      }
 
-          // Check if this result already exists (unique on: parkrun_athlete_id + event_name + date)
-          const existing = await env.DB.prepare(
-            `SELECT id, data_source FROM parkrun_results
-             WHERE parkrun_athlete_id = ? AND event_name = ? AND date = ?`
-          )
-            .bind(rowParkrunId, eventName, date)
-            .first<{ id: number; data_source: string | null }>();
+      // Batch check for existing results - build lookup keys
+      // We'll check in batches of 100 to avoid query size limits
+      const BATCH_SIZE = 100;
+      const existingResults = new Map<string, { id: number; data_source: string | null }>();
 
-          if (existing) {
-            // Row exists - handle based on data source
-            if (existing.data_source === 'club' || existing.data_source === null) {
-              // Club data exists - update parkrun_athlete_id but KEEP club data (especially gender_position)
-              const result = await env.DB.prepare(
+      for (let i = 0; i < processedRows.length; i += BATCH_SIZE) {
+        const batch = processedRows.slice(i, i + BATCH_SIZE);
+
+        // Build query for this batch
+        const placeholders = batch.map(() => '(parkrun_athlete_id = ? AND event_name = ? AND date = ?)').join(' OR ');
+        const bindings: any[] = [];
+        batch.forEach(row => {
+          bindings.push(row.parkrunId, row.eventName, row.date);
+        });
+
+        const existingQuery = await env.DB.prepare(
+          `SELECT id, parkrun_athlete_id, event_name, date, data_source
+           FROM parkrun_results
+           WHERE ${placeholders}`
+        ).bind(...bindings).all<{ id: number; parkrun_athlete_id: string; event_name: string; date: string; data_source: string | null }>();
+
+        for (const result of (existingQuery.results || [])) {
+          const key = `${result.parkrun_athlete_id}|${result.event_name}|${result.date}`;
+          existingResults.set(key, { id: result.id, data_source: result.data_source });
+        }
+      }
+
+      // Now process rows with batched inserts/updates
+      const insertStatements: D1PreparedStatement[] = [];
+      const updateStatements: D1PreparedStatement[] = [];
+
+      for (const row of processedRows) {
+        const key = `${row.parkrunId}|${row.eventName}|${row.date}`;
+        const existing = existingResults.get(key);
+
+        if (existing) {
+          // Row exists - handle based on data source
+          if (existing.data_source === 'club' || existing.data_source === null) {
+            // Club data exists - update parkrun_athlete_id but KEEP club data
+            updateStatements.push(
+              env.DB.prepare(
                 `UPDATE parkrun_results
                  SET parkrun_athlete_id = ?,
                      age_grade = COALESCE(age_grade, ?)
                  WHERE id = ?`
-              )
-                .bind(rowParkrunId, ageGrade || null, existing.id)
-                .run();
-
-              if (result.meta.changes > 0) {
-                imported++;
-              } else {
-                duplicatesSkipped++;
-              }
-            } else {
-              // Already exists from individual scraping - skip (duplicate)
-              duplicatesSkipped++;
-            }
+              ).bind(row.parkrunId, row.ageGrade, existing.id)
+            );
+            imported++;
           } else {
-            // New row - insert it
-            const result = await env.DB.prepare(
+            // Already exists from individual scraping - skip
+            duplicatesSkipped++;
+          }
+        } else {
+          // New row - insert it
+          insertStatements.push(
+            env.DB.prepare(
               `INSERT INTO parkrun_results
                (athlete_name, parkrun_athlete_id, event_name, event_number, position,
                 time_seconds, time_string, age_grade, date, data_source)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'individual')`
+            ).bind(
+              row.athleteName,
+              row.parkrunId,
+              row.eventName,
+              row.runNumber,
+              row.position,
+              row.timeSeconds,
+              row.timeString,
+              row.ageGrade,
+              row.date
             )
-              .bind(
-                rowAthleteName,
-                rowParkrunId,
-                eventName,
-                runNumber,
-                position,
-                timeSeconds,
-                timeString,
-                ageGrade || null,
-                date
-              )
-              .run();
+          );
+          imported++;
+        }
+      }
 
-            if (result.meta.changes > 0) {
-              imported++;
-            }
-          }
+      // Execute batched statements
+      const allStatements = [...insertStatements, ...updateStatements];
 
-        } catch (error) {
-          console.error('Error importing row:', error);
-          errors++;
+      // D1 batch limit is typically 100 statements, so batch in chunks
+      for (let i = 0; i < allStatements.length; i += BATCH_SIZE) {
+        const batch = allStatements.slice(i, i + BATCH_SIZE);
+        if (batch.length > 0) {
+          await env.DB.batch(batch);
         }
       }
 
