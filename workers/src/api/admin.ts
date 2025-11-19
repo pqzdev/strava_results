@@ -677,10 +677,59 @@ export async function getAdminSyncStatus(request: Request, env: Env): Promise<Re
       };
     });
 
+    // Get batched syncs that are completed/failed (for recent list)
+    const completedBatchedSyncs = await env.DB.prepare(`
+      SELECT
+        a.id as athlete_id,
+        a.strava_id,
+        a.firstname,
+        a.lastname,
+        a.sync_session_id,
+        a.sync_status,
+        a.sync_error,
+        sb.batch_type,
+        COUNT(*) as total_batches,
+        SUM(CASE WHEN sb.status = 'completed' THEN 1 ELSE 0 END) as completed_batches,
+        SUM(CASE WHEN sb.status = 'failed' THEN 1 ELSE 0 END) as failed_batches,
+        SUM(CASE WHEN sb.status = 'completed' THEN sb.activities_fetched ELSE 0 END) as activities_synced,
+        SUM(CASE WHEN sb.status = 'completed' THEN sb.races_added ELSE 0 END) as races_added,
+        MIN(sb.created_at) as started_at,
+        MAX(sb.completed_at) as completed_at,
+        MAX(CASE WHEN sb.status = 'failed' THEN sb.error_message ELSE NULL END) as error_message
+      FROM athletes a
+      JOIN sync_batches sb ON a.sync_session_id = sb.sync_session_id
+      WHERE a.sync_status IN ('completed', 'failed', 'idle')
+        AND a.sync_session_id IS NOT NULL
+      GROUP BY a.id, a.strava_id, a.firstname, a.lastname, a.sync_session_id, a.sync_status, a.sync_error, sb.batch_type
+      ORDER BY MAX(sb.completed_at) DESC
+      LIMIT 10
+    `).all();
+
+    // Format completed batched syncs for the recent list
+    const batchedRecent = (completedBatchedSyncs.results || []).map((sync: any) => {
+      const hasFailed = sync.failed_batches > 0 || sync.sync_status === 'failed';
+      return {
+        id: `batch-${sync.sync_session_id}`,
+        athlete_id: sync.athlete_id,
+        strava_id: sync.strava_id,
+        first_name: sync.firstname,
+        last_name: sync.lastname,
+        job_type: `batched_${sync.batch_type}`,
+        status: hasFailed ? 'failed' : 'completed',
+        started_at: sync.started_at ? sync.started_at * 1000 : null,
+        completed_at: sync.completed_at ? sync.completed_at * 1000 : null,
+        activities_synced: sync.activities_synced || 0,
+        races_added: sync.races_added || 0,
+        total_activities_expected: null,
+        error_message: sync.error_message || sync.sync_error || null,
+        created_at: sync.started_at ? sync.started_at * 1000 : null,
+      };
+    });
+
     // Merge with legacy queue status
     const combinedStatus = {
       active: [...queueStatus.active, ...batchedActive],
-      recent: queueStatus.recent,
+      recent: [...batchedRecent, ...queueStatus.recent].slice(0, 10),
     };
 
     return new Response(
