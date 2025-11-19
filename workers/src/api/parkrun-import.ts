@@ -6,6 +6,194 @@ interface CSVRow {
   [key: string]: string;
 }
 
+// Australian state abbreviations for expanding short forms
+const AU_STATE_ABBREVS: Record<string, string> = {
+  'QLD': 'Queensland',
+  'NSW': 'New South Wales',
+  'VIC': 'Victoria',
+  'SA': 'South Australia',
+  'WA': 'Western Australia',
+  'TAS': 'Tasmania',
+  'NT': 'Northern Territory',
+  'ACT': 'Australian Capital Territory',
+};
+
+interface ParkrunEvent {
+  properties: {
+    EventShortName: string;
+    EventLongName: string;
+    seriesid: number;
+  };
+}
+
+interface EventsJSON {
+  features: ParkrunEvent[];
+}
+
+/**
+ * Normalize event long name by removing "parkrun" variations
+ */
+function normalizeEventLongName(longName: string): string {
+  let normalized = longName;
+
+  // Remove " parkrun," -> ","
+  normalized = normalized.replace(/\s+parkrun,/gi, ',');
+
+  // Remove " parkrun" at end
+  normalized = normalized.replace(/\s+parkrun$/gi, '');
+
+  // Remove "parkrun " at start (handles "parkrun de/du" prefixes)
+  if (normalized.toLowerCase().startsWith('parkrun de ')) {
+    normalized = normalized.substring(11);
+  } else if (normalized.toLowerCase().startsWith('parkrun du ')) {
+    normalized = normalized.substring(11);
+  } else if (normalized.toLowerCase().startsWith('parkrun ')) {
+    normalized = normalized.substring(8);
+  }
+
+  return normalized.trim();
+}
+
+/**
+ * Expand Australian state abbreviations in event names
+ */
+function expandStateAbbreviation(name: string): string {
+  for (const [abbrev, full] of Object.entries(AU_STATE_ABBREVS)) {
+    const pattern = new RegExp(`\\s+${abbrev}$`, 'i');
+    if (pattern.test(name)) {
+      return name.replace(pattern, `, ${full}`);
+    }
+  }
+  return name;
+}
+
+/**
+ * Fetch parkrun events.json and refresh the event name mappings table
+ */
+async function refreshEventNameMappings(env: Env): Promise<{ updated: number; added: number }> {
+  console.log('Refreshing event name mappings from parkrun events.json...');
+
+  const response = await fetch('https://images.parkrun.com/events.json');
+  if (!response.ok) {
+    throw new Error(`Failed to fetch events.json: ${response.status}`);
+  }
+
+  const data = await response.json() as EventsJSON;
+
+  if (!data.features || !Array.isArray(data.features)) {
+    throw new Error('Invalid events.json format: missing features array');
+  }
+
+  let updated = 0;
+  let added = 0;
+  const seenFrom = new Set<string>();
+
+  for (const event of data.features) {
+    // Skip junior parkruns (seriesid 2)
+    if (event.properties.seriesid === 2) {
+      continue;
+    }
+
+    const shortName = event.properties.EventShortName;
+    const longName = event.properties.EventLongName;
+
+    if (!shortName || !longName) continue;
+
+    // Skip duplicates
+    if (seenFrom.has(shortName)) continue;
+    seenFrom.add(shortName);
+
+    // Normalize the long name
+    const normalized = normalizeEventLongName(longName);
+
+    // Also handle expanded state abbreviations
+    const expandedShortName = expandStateAbbreviation(shortName);
+
+    // Insert or update mapping
+    const result = await env.DB.prepare(
+      `INSERT INTO parkrun_event_name_mappings (from_name, to_name, notes)
+       VALUES (?, ?, 'Auto-refreshed from events.json')
+       ON CONFLICT(from_name) DO UPDATE SET
+         to_name = excluded.to_name,
+         notes = excluded.notes`
+    ).bind(shortName, normalized).run();
+
+    if (result.meta.changes > 0) {
+      // Check if it was an insert or update
+      const existing = await env.DB.prepare(
+        `SELECT id FROM parkrun_event_name_mappings WHERE from_name = ?`
+      ).bind(shortName).first();
+
+      if (existing) {
+        updated++;
+      } else {
+        added++;
+      }
+    }
+
+    // Also add mapping for expanded state abbreviation if different
+    if (expandedShortName !== shortName) {
+      await env.DB.prepare(
+        `INSERT INTO parkrun_event_name_mappings (from_name, to_name, notes)
+         VALUES (?, ?, 'Auto-refreshed from events.json (state expanded)')
+         ON CONFLICT(from_name) DO UPDATE SET
+           to_name = excluded.to_name,
+           notes = excluded.notes`
+      ).bind(expandedShortName, normalized).run();
+    }
+  }
+
+  console.log(`Mappings refreshed: ${added} added, ${updated} updated`);
+  return { updated, added };
+}
+
+/**
+ * Re-apply event name mappings to all parkrun results
+ */
+async function reapplyEventNameMappings(env: Env): Promise<number> {
+  const result = await env.DB.prepare(
+    `UPDATE parkrun_results
+     SET event_name = (
+       SELECT to_name
+       FROM parkrun_event_name_mappings
+       WHERE parkrun_event_name_mappings.from_name = parkrun_results.event_name
+     )
+     WHERE event_name IN (SELECT from_name FROM parkrun_event_name_mappings)`
+  ).run();
+
+  return result.meta.changes || 0;
+}
+
+/**
+ * Delete results that have event names matching from_name in mappings table
+ * These are unmapped/duplicate entries that should be cleaned up
+ */
+async function deleteUnmappedResults(env: Env): Promise<number> {
+  const result = await env.DB.prepare(
+    `DELETE FROM parkrun_results
+     WHERE event_name IN (SELECT from_name FROM parkrun_event_name_mappings)`
+  ).run();
+
+  return result.meta.changes || 0;
+}
+
+/**
+ * Detect runners with multiple activities on the same day (excluding Jan 1)
+ */
+async function detectDuplicateSameDayActivities(env: Env): Promise<Array<{ athlete_name: string; date: string; count: number }>> {
+  const results = await env.DB.prepare(
+    `SELECT athlete_name, date, COUNT(*) as count
+     FROM parkrun_results
+     WHERE date NOT LIKE '%-01-01'
+     GROUP BY athlete_name, date
+     HAVING COUNT(*) > 1
+     ORDER BY date DESC, athlete_name
+     LIMIT 100`
+  ).all<{ athlete_name: string; date: string; count: number }>();
+
+  return results.results || [];
+}
+
 /**
  * Parse time string (MM:SS or HH:MM:SS) to seconds
  */
@@ -234,6 +422,35 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
         )
         .run();
 
+      // Check for duplicate same-day activities (potential naming inconsistencies)
+      const duplicates = await detectDuplicateSameDayActivities(env);
+      let mappingsRefreshed = false;
+      let mappingsUpdated = 0;
+      let resultsRemapped = 0;
+      let resultsDeleted = 0;
+
+      if (duplicates.length > 0) {
+        console.log(`Detected ${duplicates.length} runners with multiple activities on same day (excluding Jan 1)`);
+        console.log('Refreshing event name mappings to resolve potential naming inconsistencies...');
+
+        try {
+          // Refresh mappings from parkrun events.json
+          const { updated, added } = await refreshEventNameMappings(env);
+          mappingsUpdated = updated + added;
+
+          // Re-apply mappings to fix any naming issues
+          resultsRemapped = await reapplyEventNameMappings(env);
+
+          // Delete any remaining results with from_name values (duplicates)
+          resultsDeleted = await deleteUnmappedResults(env);
+
+          mappingsRefreshed = true;
+          console.log(`Mappings refreshed: ${mappingsUpdated} mappings, ${resultsRemapped} results remapped, ${resultsDeleted} results deleted`);
+        } catch (refreshError) {
+          console.error('Failed to refresh event name mappings:', refreshError);
+        }
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -243,6 +460,12 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
           errors,
           total: rows.length,
           deleted: shouldReplace ? deleted : 0,
+          duplicateSameDayDetected: duplicates.length,
+          mappingsRefreshed,
+          mappingsUpdated,
+          resultsRemapped,
+          resultsDeletedFromMapping: resultsDeleted,
+          duplicateDetails: duplicates.slice(0, 10), // Return first 10 for debugging
         }),
         {
           headers: {

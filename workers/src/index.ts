@@ -9,11 +9,10 @@ import { healthCheckBatchedSyncs } from './cron/sync-health-monitor';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin, getAdminSyncStatus, stopSyncJob, triggerBatchedAthleteSync, getBatchedSyncProgress } from './api/admin';
 import { getReviewActivities, updateActivity } from './api/admin-review';
-import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate, getParkrunWeeklySummary } from './api/parkrun';
+import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate, getParkrunWeeklySummary, getParkrunDuplicates } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
 import { importIndividualParkrunCSV } from './api/parkrun-import-individual';
 import { getAthletesToScrape } from './api/parkrun-athletes-to-scrape';
-import { testParkrunProxy } from './api/parkrun-proxy-test';
 import { getEventSuggestions, updateEventSuggestion, triggerEventAnalysis, getEventNames, getEventStats, renameEvent } from './api/events';
 import { backfillPolylines } from './api/polyline-backfill';
 import { handleRawResponseBackfill } from './api/raw-response-backfill';
@@ -401,11 +400,6 @@ export default {
         return importIndividualParkrunCSV(request, env);
       }
 
-      // Test parkrun proxy integration
-      if (path === '/api/parkrun/proxy-test' && request.method === 'GET') {
-        return testParkrunProxy(request, env);
-      }
-
       if (path === '/api/parkrun/athletes-to-scrape' && request.method === 'GET') {
         const authError = await requireApiKey(request, env);
         if (authError) return authError;
@@ -414,6 +408,10 @@ export default {
 
       if (path === '/api/parkrun/athletes' && request.method === 'GET') {
         return getParkrunAthletes(request, env);
+      }
+
+      if (path === '/api/parkrun/duplicates' && request.method === 'GET') {
+        return getParkrunDuplicates(request, env);
       }
 
       // Update parkrun athlete visibility

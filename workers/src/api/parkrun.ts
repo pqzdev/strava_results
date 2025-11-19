@@ -638,6 +638,58 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
 }
 
 /**
+ * GET /api/parkrun/duplicates - Get runners with multiple activities on the same day
+ * Excludes January 1st (legitimate double parkrun day)
+ */
+export async function getParkrunDuplicates(request: Request, env: Env): Promise<Response> {
+  try {
+    const results = await env.DB.prepare(
+      `SELECT
+        pr.athlete_name,
+        pr.date,
+        COUNT(*) as activity_count,
+        GROUP_CONCAT(pr.event_name, ', ') as events
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+       WHERE pr.date NOT LIKE '%-01-01'
+         AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+       GROUP BY pr.athlete_name, pr.date
+       HAVING COUNT(*) > 1
+       ORDER BY pr.date DESC, pr.athlete_name
+       LIMIT 100`
+    ).all<{ athlete_name: string; date: string; activity_count: number; events: string }>();
+
+    return new Response(
+      JSON.stringify({
+        duplicates: results.results || [],
+        count: results.results?.length || 0,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  } catch (error) {
+    console.error('Error fetching parkrun duplicates:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to fetch parkrun duplicates',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  }
+}
+
+/**
  * PATCH /api/parkrun/athletes/:name - Update parkrun athlete visibility
  */
 export async function updateParkrunAthlete(

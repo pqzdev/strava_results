@@ -185,6 +185,12 @@ export default function Admin() {
 
   const [athletes, setAthletes] = useState<AdminAthlete[]>([]);
   const [parkrunAthletes, setParkrunAthletes] = useState<ParkrunAthlete[]>([]);
+  const [parkrunDuplicates, setParkrunDuplicates] = useState<Array<{
+    athlete_name: string;
+    date: string;
+    activity_count: number;
+    events: string;
+  }>>([]);
   const [eventSuggestions, setEventSuggestions] = useState<EventSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -237,6 +243,7 @@ export default function Admin() {
   useEffect(() => {
     fetchAthletes();
     fetchParkrunAthletes();
+    fetchParkrunDuplicates();
     fetchEventSuggestions();
     fetchEvents();
     fetchQueueStats();
@@ -300,6 +307,23 @@ export default function Admin() {
       setParkrunAthletes(data.athletes || []);
     } catch (err) {
       console.error('Error fetching parkrun athletes:', err);
+    }
+  };
+
+  const fetchParkrunDuplicates = async () => {
+    try {
+      const response = await fetch('/api/parkrun/duplicates');
+
+      if (!response.ok) {
+        console.error('❌ Parkrun duplicates fetch failed:', response.status, response.statusText);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('✅ Parkrun duplicates loaded:', data.count || 0, 'duplicates');
+      setParkrunDuplicates(data.duplicates || []);
+    } catch (err) {
+      console.error('Error fetching parkrun duplicates:', err);
     }
   };
 
@@ -1962,6 +1986,69 @@ export default function Admin() {
       {/* Parkrun Tab */}
       {activeTab === 'parkrun' && (
         <div className="tab-content">
+          {/* Alert for duplicate same-day activities */}
+          {parkrunDuplicates.length > 0 && (
+            <div style={{
+              marginBottom: '2rem',
+              backgroundColor: '#fef3c7',
+              borderRadius: '8px',
+              border: '2px solid #f59e0b',
+              padding: '1rem 1.5rem',
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                marginBottom: '0.75rem',
+              }}>
+                <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                <strong style={{ color: '#92400e' }}>
+                  {parkrunDuplicates.length} runner{parkrunDuplicates.length !== 1 ? 's' : ''} with multiple activities on the same day
+                </strong>
+              </div>
+              <p style={{
+                fontSize: '0.85rem',
+                color: '#92400e',
+                margin: '0 0 0.75rem 0',
+              }}>
+                These may indicate duplicate entries due to event name mismatches. Click to view filtered results.
+              </p>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+                maxHeight: '200px',
+                overflowY: 'auto',
+              }}>
+                {parkrunDuplicates.map((dup, index) => (
+                  <a
+                    key={index}
+                    href={`/parkrun?athletes=${encodeURIComponent(dup.athlete_name)}&dateFrom=${dup.date}&dateTo=${dup.date}`}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '0.5rem 0.75rem',
+                      backgroundColor: 'white',
+                      borderRadius: '4px',
+                      textDecoration: 'none',
+                      color: '#92400e',
+                      fontSize: '0.85rem',
+                      border: '1px solid #fcd34d',
+                    }}
+                  >
+                    <span>
+                      <strong>{dup.athlete_name}</strong> on {dup.date}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: '#b45309' }}>
+                      {dup.activity_count} activities: {dup.events}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="admin-header">
             <h2>Parkrun Data Scrapers</h2>
             <p className="subtitle">Use Tampermonkey userscripts to scrape parkrun data</p>
