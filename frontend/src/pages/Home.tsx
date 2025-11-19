@@ -134,15 +134,40 @@ export default function Home() {
           </div>
         </div>
 
+        <div style={{
+          textAlign: 'center',
+          padding: '1.5rem',
+          marginBottom: '1.5rem',
+          backgroundColor: '#f8fafc',
+          borderRadius: '8px',
+          fontSize: '0.95rem',
+          lineHeight: '1.6',
+          color: '#475569',
+        }}>
+          <p style={{ margin: 0 }}>
+            This page is for Woodies to share their results and parkrun participation.
+            If you want to learn more about Woodstock Runners, visit our{' '}
+            <a href="https://www.woodstockrunners.org.au/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>
+              website
+            </a>, and check out our{' '}
+            <a href="https://www.instagram.com/woodstockrunners/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>
+              Instagram
+            </a>{' '}and{' '}
+            <a href="https://www.facebook.com/woodstockrunners/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>
+              Facebook
+            </a>{' '}pages.
+          </p>
+        </div>
+
         <div className="stats-container">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '1rem' }}>
             <h2 className="stats-section-title" style={{ margin: 0 }}>Strava Results</h2>
             {isAdmin && (
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
                 className="button button-secondary"
-                style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', marginLeft: '1rem' }}
               >
                 {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
               </button>
