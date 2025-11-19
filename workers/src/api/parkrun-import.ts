@@ -266,6 +266,16 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
 
     const syncLogId = syncLogResult?.id;
 
+    // Pre-load all event name mappings to avoid N+1 queries (one query per CSV row)
+    const allMappings = await env.DB.prepare(
+      `SELECT from_name, to_name FROM parkrun_event_name_mappings`
+    ).all<{ from_name: string; to_name: string }>();
+
+    const eventNameMappings = new Map<string, string>();
+    for (const mapping of (allMappings.results || [])) {
+      eventNameMappings.set(mapping.from_name, mapping.to_name);
+    }
+
     try {
       for (const row of rows) {
         try {
@@ -308,13 +318,10 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
 
           eventName = eventName.trim();
 
-          // Apply database-driven event name mappings
-          const mappingResult = await env.DB.prepare(
-            `SELECT to_name FROM parkrun_event_name_mappings WHERE from_name = ?`
-          ).bind(eventName).first<{ to_name: string }>();
-
-          if (mappingResult) {
-            eventName = mappingResult.to_name;
+          // Apply database-driven event name mappings (using pre-loaded map)
+          const mappedName = eventNameMappings.get(eventName);
+          if (mappedName) {
+            eventName = mappedName;
           }
 
           // Extract event number from event name (e.g., "Event name #123" -> 123)

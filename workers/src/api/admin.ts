@@ -58,30 +58,46 @@ export async function getAdminAthletes(request: Request, env: Env): Promise<Resp
       ORDER BY a.lastname, a.firstname`
     ).all();
 
-    // For athletes with active sync sessions, get batch progress
+    // Get all sync session IDs that need batch progress
+    const sessionIds = (result.results || [])
+      .filter((a: any) => a.sync_session_id)
+      .map((a: any) => a.sync_session_id);
+
+    // Fetch all batch summaries in one query (fixes N+1 problem)
+    const batchSummaryMap = new Map<string, any>();
+
+    if (sessionIds.length > 0) {
+      const placeholders = sessionIds.map(() => '?').join(', ');
+      const batchSummaries = await env.DB.prepare(
+        `SELECT
+          sync_session_id,
+          COUNT(*) as total_batches,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_batches,
+          SUM(CASE WHEN status = 'completed' THEN activities_fetched ELSE 0 END) as total_activities,
+          SUM(CASE WHEN status = 'completed' THEN races_added ELSE 0 END) as total_races_added,
+          SUM(CASE WHEN status = 'completed' THEN races_removed ELSE 0 END) as total_races_removed,
+          MAX(CASE WHEN status = 'processing' THEN batch_number ELSE NULL END) as current_batch,
+          MIN(created_at) as started_at,
+          MAX(completed_at) as completed_at,
+          MAX(CASE WHEN status = 'failed' THEN error_message ELSE NULL END) as error_message
+        FROM sync_batches
+        WHERE sync_session_id IN (${placeholders})
+        GROUP BY sync_session_id`
+      ).bind(...sessionIds).all();
+
+      for (const summary of (batchSummaries.results || []) as any[]) {
+        batchSummaryMap.set(summary.sync_session_id, summary);
+      }
+    }
+
+    // Build athletes with progress using the pre-fetched batch summaries
     const athletesWithProgress = [];
     for (const athlete of result.results) {
       const athleteData: any = { ...athlete };
 
       // Get batch progress for any athlete with a sync_session_id (including completed/failed)
       if (athlete.sync_session_id) {
-        // Get batch summary for this session
-        const batchSummary = await env.DB.prepare(
-          `SELECT
-            COUNT(*) as total_batches,
-            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_batches,
-            SUM(CASE WHEN status = 'completed' THEN activities_fetched ELSE 0 END) as total_activities,
-            SUM(CASE WHEN status = 'completed' THEN races_added ELSE 0 END) as total_races_added,
-            SUM(CASE WHEN status = 'completed' THEN races_removed ELSE 0 END) as total_races_removed,
-            MAX(CASE WHEN status = 'processing' THEN batch_number ELSE NULL END) as current_batch,
-            MIN(created_at) as started_at,
-            MAX(completed_at) as completed_at,
-            MAX(CASE WHEN status = 'failed' THEN error_message ELSE NULL END) as error_message
-          FROM sync_batches
-          WHERE sync_session_id = ?`
-        )
-          .bind(athlete.sync_session_id)
-          .first();
+        const batchSummary = batchSummaryMap.get(athlete.sync_session_id as string);
 
         if (batchSummary && (batchSummary.total_batches as number) > 0) {
           athleteData.batch_progress = {

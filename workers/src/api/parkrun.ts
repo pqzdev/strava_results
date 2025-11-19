@@ -304,24 +304,38 @@ export async function getParkrunAthletes(request: Request, env: Env): Promise<Re
        ORDER BY pr.athlete_name ASC`
     ).all();
 
-    // For each athlete, get their top 3 events by count
-    const athletesWithTopEvents = await Promise.all(
-      (athleteResults.results || []).map(async (athlete: any) => {
-        const topEvents = await env.DB.prepare(
-          `SELECT event_name, COUNT(*) as count
-           FROM parkrun_results
-           WHERE athlete_name = ?
-           GROUP BY event_name
-           ORDER BY count DESC
-           LIMIT 3`
-        ).bind(athlete.athlete_name).all();
+    // Get top 3 events for ALL athletes in a single query (fixes N+1 problem)
+    const allTopEvents = await env.DB.prepare(
+      `SELECT athlete_name, event_name, count
+       FROM (
+         SELECT
+           athlete_name,
+           event_name,
+           COUNT(*) as count,
+           ROW_NUMBER() OVER (PARTITION BY athlete_name ORDER BY COUNT(*) DESC) as rn
+         FROM parkrun_results
+         GROUP BY athlete_name, event_name
+       )
+       WHERE rn <= 3`
+    ).all();
 
-        return {
-          ...athlete,
-          top_events: topEvents.results || [],
-        };
-      })
-    );
+    // Group top events by athlete name for easy lookup
+    const topEventsByAthlete = new Map<string, Array<{event_name: string, count: number}>>();
+    for (const row of (allTopEvents.results || []) as Array<{athlete_name: string, event_name: string, count: number}>) {
+      if (!topEventsByAthlete.has(row.athlete_name)) {
+        topEventsByAthlete.set(row.athlete_name, []);
+      }
+      topEventsByAthlete.get(row.athlete_name)!.push({
+        event_name: row.event_name,
+        count: row.count,
+      });
+    }
+
+    // Combine athlete data with their top events
+    const athletesWithTopEvents = (athleteResults.results || []).map((athlete: any) => ({
+      ...athlete,
+      top_events: topEventsByAthlete.get(athlete.athlete_name) || [],
+    }));
 
     return new Response(
       JSON.stringify({
@@ -595,23 +609,38 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
     // Find first-time events (events on current date that don't appear in preceding dates)
     const firstTimeEvents = currentEvents.filter((event) => !precedingEvents.has(event));
 
-    // Get event occurrence counts before this date (for rare pokemons)
+    // Get event occurrence counts before this date for ALL current events in one query (fixes N+1 problem)
     const rarePokemons: Array<{ name: string; visitCount: number }> = [];
-    for (const event of currentEvents) {
-      const countQuery = `
-        SELECT COUNT(DISTINCT pr.date) as visit_count
+
+    if (currentEvents.length > 0) {
+      const placeholders = currentEvents.map(() => '?').join(', ');
+      const eventCountsQuery = `
+        SELECT pr.event_name, COUNT(DISTINCT pr.date) as visit_count
         FROM parkrun_results pr
         LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
-        WHERE pr.event_name = ?
+        WHERE pr.event_name IN (${placeholders})
           AND pr.date < ?
           AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+        GROUP BY pr.event_name
       `;
-      const countResult = await env.DB.prepare(countQuery).bind(event, targetDate).first<{ visit_count: number }>();
-      const visitCount = (countResult?.visit_count || 0) + 1; // +1 to include current date
+      const eventCountsResult = await env.DB.prepare(eventCountsQuery)
+        .bind(...currentEvents, targetDate)
+        .all();
 
-      // Only include events with <=5 total visits (including current)
-      if (visitCount <= 5 && visitCount > 1) { // >1 to exclude first-time events
-        rarePokemons.push({ name: event, visitCount });
+      // Build a map of event -> visit count before current date
+      const visitCountMap = new Map<string, number>();
+      for (const row of (eventCountsResult.results || []) as Array<{event_name: string, visit_count: number}>) {
+        visitCountMap.set(row.event_name, row.visit_count);
+      }
+
+      // Check each current event for rare pokemon status
+      for (const event of currentEvents) {
+        const visitCount = (visitCountMap.get(event) || 0) + 1; // +1 to include current date
+
+        // Only include events with <=5 total visits (including current)
+        if (visitCount <= 5 && visitCount > 1) { // >1 to exclude first-time events
+          rarePokemons.push({ name: event, visitCount });
+        }
       }
     }
 
@@ -756,25 +785,38 @@ export async function getParkrunMilestones(request: Request, env: Env): Promise<
       athletes: Array<{ name: string; count: number; parkrun_id: string | null }>;
     }> = milestones.map(m => ({ milestone: m, athletes: [] }));
 
-    for (const athlete of (athletesOnDate.results || [])) {
-      // Count total parkruns for this athlete up to and including targetDate
-      const countResult = await env.DB.prepare(
-        `SELECT COUNT(*) as total
+    // Get total run counts for all athletes on this date in one query (fixes N+1 problem)
+    const athleteNames = (athletesOnDate.results || []).map((a: any) => a.athlete_name);
+
+    if (athleteNames.length > 0) {
+      const placeholders = athleteNames.map(() => '?').join(', ');
+      const countsResult = await env.DB.prepare(
+        `SELECT athlete_name, COUNT(*) as total
          FROM parkrun_results
-         WHERE athlete_name = ? AND date <= ?`
-      ).bind(athlete.athlete_name, targetDate).first<{ total: number }>();
+         WHERE athlete_name IN (${placeholders}) AND date <= ?
+         GROUP BY athlete_name`
+      ).bind(...athleteNames, targetDate).all<{ athlete_name: string; total: number }>();
 
-      const totalRuns = countResult?.total || 0;
+      // Build a map of athlete -> total count
+      const countMap = new Map<string, number>();
+      for (const row of (countsResult.results || [])) {
+        countMap.set(row.athlete_name, row.total);
+      }
 
-      // Check if they hit a milestone on this exact date
-      for (let i = 0; i < milestones.length; i++) {
-        const milestone = milestones[i];
-        if (totalRuns === milestone) {
-          achievedMilestones[i].athletes.push({
-            name: athlete.athlete_name,
-            event: athlete.event_name,
-            parkrun_id: athlete.parkrun_athlete_id,
-          });
+      // Check each athlete for milestones
+      for (const athlete of (athletesOnDate.results || [])) {
+        const totalRuns = countMap.get(athlete.athlete_name) || 0;
+
+        // Check if they hit a milestone on this exact date
+        for (let i = 0; i < milestones.length; i++) {
+          const milestone = milestones[i];
+          if (totalRuns === milestone) {
+            achievedMilestones[i].athletes.push({
+              name: athlete.athlete_name,
+              event: athlete.event_name,
+              parkrun_id: athlete.parkrun_athlete_id,
+            });
+          }
         }
       }
     }
