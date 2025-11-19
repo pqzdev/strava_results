@@ -199,6 +199,21 @@ export default function Admin() {
   const [editingEventName, setEditingEventName] = useState<{ [key: number]: string }>({});
   const [showParkrunInstructions, setShowParkrunInstructions] = useState(false);
   const [showIndividualScraper, setShowIndividualScraper] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showCopiedMessage, setShowCopiedMessage] = useState(false);
+
+  // Get API key from localStorage (same key used by Tampermonkey scripts)
+  const getStoredApiKey = () => localStorage.getItem('parkrun_scraper_api_key') || '';
+  const [apiKeyValue, setApiKeyValue] = useState(getStoredApiKey);
+
+  const handleRevealApiKey = () => {
+    if (!showApiKey && apiKeyValue) {
+      navigator.clipboard.writeText(apiKeyValue);
+      setShowCopiedMessage(true);
+      setTimeout(() => setShowCopiedMessage(false), 2000);
+    }
+    setShowApiKey(!showApiKey);
+  };
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [parkrunSortField, setParkrunSortField] = useState<ParkrunSortField>('runs');
@@ -2138,6 +2153,71 @@ export default function Admin() {
               </ol>
             </div>
 
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #10b981',
+            }}>
+              <p style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#065f46',
+                marginBottom: '0.5rem',
+              }}>
+                🔑 API Key:
+              </p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.85rem',
+                color: '#047857',
+              }}>
+                {apiKeyValue ? (
+                  <>
+                    <span style={{ fontFamily: 'monospace', position: 'relative' }}>
+                      {showApiKey ? apiKeyValue : '••••••••••••••••'}
+                      {showCopiedMessage && (
+                        <span style={{
+                          position: 'absolute',
+                          top: '-1.5rem',
+                          left: '0',
+                          backgroundColor: '#065f46',
+                          color: 'white',
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '4px',
+                          fontSize: '0.7rem',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          Copied to clipboard
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      onClick={handleRevealApiKey}
+                      style={{
+                        padding: '0.25rem 0.5rem',
+                        fontSize: '0.75rem',
+                        color: '#2563eb',
+                        backgroundColor: 'transparent',
+                        border: '1px solid #2563eb',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showApiKey ? 'Hide' : 'Reveal & Copy'}
+                    </button>
+                  </>
+                ) : (
+                  <span style={{ fontStyle: 'italic', color: '#6b7280' }}>
+                    Not set - will be prompted on first use
+                  </span>
+                )}
+              </div>
+            </div>
+
             <button
               onClick={() => {
                 const userscriptUrl = `${window.location.origin}/parkrun-club-tampermonkey.user.js`;
@@ -2246,6 +2326,71 @@ export default function Admin() {
                 <li>Click the purple "🏃 Start Batch Scraper" button that appears</li>
                 <li>Choose scraping mode and the script will automatically cycle through all athletes!</li>
               </ol>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #10b981',
+            }}>
+              <p style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#065f46',
+                marginBottom: '0.5rem',
+              }}>
+                🔑 API Key:
+              </p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.85rem',
+                color: '#047857',
+              }}>
+                {apiKeyValue ? (
+                  <>
+                    <span style={{ fontFamily: 'monospace', position: 'relative' }}>
+                      {showApiKey ? apiKeyValue : '••••••••••••••••'}
+                      {showCopiedMessage && (
+                        <span style={{
+                          position: 'absolute',
+                          top: '-1.5rem',
+                          left: '0',
+                          backgroundColor: '#065f46',
+                          color: 'white',
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '4px',
+                          fontSize: '0.7rem',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          Copied to clipboard
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      onClick={handleRevealApiKey}
+                      style={{
+                        padding: '0.25rem 0.5rem',
+                        fontSize: '0.75rem',
+                        color: '#2563eb',
+                        backgroundColor: 'transparent',
+                        border: '1px solid #2563eb',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showApiKey ? 'Hide' : 'Reveal & Copy'}
+                    </button>
+                  </>
+                ) : (
+                  <span style={{ fontStyle: 'italic', color: '#6b7280' }}>
+                    Not set - will be prompted on first use
+                  </span>
+                )}
+              </div>
             </div>
 
             <button
