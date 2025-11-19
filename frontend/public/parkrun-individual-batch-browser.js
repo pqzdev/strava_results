@@ -49,6 +49,19 @@
   console.log(`   Delay between athletes: ${CONFIG.delayBetweenAthletes}ms`);
   console.log(`   Auto-navigate: ${CONFIG.autoNavigate ? 'Yes' : 'No'}\n`);
 
+  // Helper to update progress panel if available
+  function updateProgress(data) {
+    if (window.parkrunScraperProgress) {
+      window.parkrunScraperProgress.update(data);
+    }
+  }
+
+  function logProgress(message, type = 'info') {
+    if (window.parkrunScraperProgress) {
+      window.parkrunScraperProgress.log(message, type);
+    }
+  }
+
   // ========== FETCH ATHLETES TO SCRAPE ==========
 
   if (!CONFIG.apiKey) {
@@ -89,6 +102,8 @@
     }];
 
     console.log(`✅ Scraping: ${athleteName} (${currentAthleteId})\n`);
+    updateProgress({ total: 1, current: 1, athleteName: athleteName });
+    logProgress(`Single mode: ${athleteName}`, 'info');
   } else {
     console.log('📊 Fetching athletes to scrape...');
 
@@ -122,6 +137,8 @@
       athletes = data.athletes || [];
 
       console.log(`✅ Found ${athletes.length} athletes to scrape\n`);
+      updateProgress({ total: athletes.length });
+      logProgress(`Found ${athletes.length} athletes`, 'success');
 
       if (athletes.length === 0) {
         console.log('⚠️  No athletes to scrape');
@@ -198,6 +215,14 @@
   console.log(`📍 Current Progress: ${currentIndex + 1}/${athletes.length}`);
   console.log(`🏃 Athlete: ${currentAthlete.athlete_name} (${currentAthlete.parkrun_athlete_id})`);
   console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+
+  // Update progress panel
+  updateProgress({
+    current: currentIndex + 1,
+    total: athletes.length,
+    athleteName: `${currentAthlete.athlete_name} (${currentAthlete.parkrun_athlete_id})`
+  });
+  logProgress(`Scraping ${currentIndex + 1}/${athletes.length}: ${currentAthlete.athlete_name}`, 'info');
 
   // ========== SCRAPE CURRENT ATHLETE ==========
 
@@ -473,6 +498,7 @@
 
   if (uploadResult.success) {
     stats.successful++;
+    logProgress(`✓ ${currentAthlete.athlete_name}: ${uploadResult.result?.new_results_added || 0} new`, 'success');
   } else {
     stats.failed++;
     stats.failedAthletes.push({
@@ -481,9 +507,16 @@
       error: uploadResult.error,
       attempts: uploadResult.attempts
     });
+    logProgress(`✗ ${currentAthlete.athlete_name}: ${uploadResult.error}`, 'error');
   }
 
   sessionStorage.setItem(STATS_KEY, JSON.stringify(stats));
+
+  // Update progress panel with stats
+  updateProgress({
+    success: stats.successful,
+    errors: stats.failed
+  });
 
   // If upload failed after all retries, stop the scraper
   if (!uploadResult.success) {

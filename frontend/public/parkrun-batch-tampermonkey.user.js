@@ -161,6 +161,117 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
+
+        /* Progress panel styles */
+        #parkrun-progress-panel {
+            position: fixed;
+            bottom: 70px;
+            right: 20px;
+            z-index: 9998;
+            width: 320px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: none;
+            overflow: hidden;
+        }
+        #parkrun-progress-panel .panel-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #parkrun-progress-panel .panel-header .btn-stop {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #parkrun-progress-panel .panel-header .btn-stop:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        #parkrun-progress-panel .panel-body {
+            padding: 12px 16px;
+        }
+        #parkrun-progress-panel .progress-stats {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        #parkrun-progress-panel .stat {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+        #parkrun-progress-panel .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333;
+        }
+        #parkrun-progress-panel .stat-label {
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        #parkrun-progress-panel .stat.success .stat-value {
+            color: #10b981;
+        }
+        #parkrun-progress-panel .stat.error .stat-value {
+            color: #ef4444;
+        }
+        #parkrun-progress-panel .current-athlete {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: #f0f3ff;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        #parkrun-progress-panel .current-athlete-label {
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        #parkrun-progress-panel .current-athlete-name {
+            font-weight: 600;
+            color: #333;
+            word-break: break-word;
+        }
+        #parkrun-progress-panel .log-messages {
+            max-height: 100px;
+            overflow-y: auto;
+            font-size: 11px;
+            font-family: monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        #parkrun-progress-panel .log-message {
+            margin-bottom: 4px;
+            line-height: 1.4;
+        }
+        #parkrun-progress-panel .log-message.success {
+            color: #4ade80;
+        }
+        #parkrun-progress-panel .log-message.error {
+            color: #f87171;
+        }
+        #parkrun-progress-panel .log-message.info {
+            color: #60a5fa;
+        }
     `);
 
     // Create floating button
@@ -169,20 +280,122 @@
     button.textContent = '🏃 Start Batch Scraper';
     document.body.appendChild(button);
 
+    // Create progress panel
+    const progressPanel = document.createElement('div');
+    progressPanel.id = 'parkrun-progress-panel';
+    progressPanel.innerHTML = `
+        <div class="panel-header">
+            <span>Scraper Progress</span>
+            <button class="btn-stop">Stop</button>
+        </div>
+        <div class="panel-body">
+            <div class="progress-stats">
+                <div class="stat">
+                    <div class="stat-value" id="progress-current">0</div>
+                    <div class="stat-label">Current</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="progress-total">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat success">
+                    <div class="stat-value" id="progress-success">0</div>
+                    <div class="stat-label">Success</div>
+                </div>
+                <div class="stat error">
+                    <div class="stat-value" id="progress-errors">0</div>
+                    <div class="stat-label">Errors</div>
+                </div>
+            </div>
+            <div class="current-athlete">
+                <div class="current-athlete-label">Current Athlete</div>
+                <div class="current-athlete-name" id="current-athlete-name">Starting...</div>
+            </div>
+            <div class="log-messages" id="log-messages"></div>
+        </div>
+    `;
+    document.body.appendChild(progressPanel);
+
+    // Stop button handler
+    progressPanel.querySelector('.btn-stop').addEventListener('click', () => {
+        sessionStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem(EXECUTED_KEY);
+        sessionStorage.removeItem('parkrun_batch_scraper_stats');
+        button.textContent = '🏃 Start Batch Scraper';
+        button.classList.remove('active');
+        progressPanel.style.display = 'none';
+        addLogMessage('Scraper stopped by user', 'error');
+        console.log('✅ Parkrun Batch Scraper stopped');
+    });
+
+    // Global API for the browser script to update progress
+    window.parkrunScraperProgress = {
+        show: function() {
+            progressPanel.style.display = 'block';
+        },
+        hide: function() {
+            progressPanel.style.display = 'none';
+        },
+        update: function(data) {
+            if (data.current !== undefined) {
+                document.getElementById('progress-current').textContent = data.current;
+            }
+            if (data.total !== undefined) {
+                document.getElementById('progress-total').textContent = data.total;
+            }
+            if (data.success !== undefined) {
+                document.getElementById('progress-success').textContent = data.success;
+            }
+            if (data.errors !== undefined) {
+                document.getElementById('progress-errors').textContent = data.errors;
+            }
+            if (data.athleteName !== undefined) {
+                document.getElementById('current-athlete-name').textContent = data.athleteName;
+            }
+        },
+        log: function(message, type = 'info') {
+            addLogMessage(message, type);
+        }
+    };
+
+    function addLogMessage(message, type = 'info') {
+        const logContainer = document.getElementById('log-messages');
+        const msgElement = document.createElement('div');
+        msgElement.className = `log-message ${type}`;
+        msgElement.textContent = message;
+        logContainer.appendChild(msgElement);
+        logContainer.scrollTop = logContainer.scrollHeight;
+
+        // Keep only last 50 messages
+        while (logContainer.children.length > 50) {
+            logContainer.removeChild(logContainer.firstChild);
+        }
+    }
+
     // Check if scraper is already running
     const storedConfig = sessionStorage.getItem(STORAGE_KEY);
 
     if (storedConfig) {
         button.textContent = '🔄 Scraper Running...';
         button.classList.add('active');
+        progressPanel.style.display = 'block';
+
+        // Load stats from session storage
+        const stats = JSON.parse(sessionStorage.getItem('parkrun_batch_scraper_stats') || '{"successful":0,"failed":0}');
+        window.parkrunScraperProgress.update({
+            success: stats.successful,
+            errors: stats.failed
+        });
 
         // Add stop button
         button.onclick = function() {
             if (confirm('Stop the batch scraper?')) {
                 sessionStorage.removeItem(STORAGE_KEY);
                 sessionStorage.removeItem(EXECUTED_KEY);
+                sessionStorage.removeItem('parkrun_batch_scraper_stats');
                 button.textContent = '🏃 Start Batch Scraper';
                 button.classList.remove('active');
+                progressPanel.style.display = 'none';
                 console.log('✅ Parkrun Batch Scraper stopped');
             }
         };
@@ -301,12 +514,26 @@
 
             button.textContent = '🔄 Scraper Running...';
             button.classList.add('active');
+            progressPanel.style.display = 'block';
+
+            // Reset progress
+            window.parkrunScraperProgress.update({
+                current: 0,
+                total: 0,
+                success: 0,
+                errors: 0,
+                athleteName: 'Loading...'
+            });
+            document.getElementById('log-messages').innerHTML = '';
+
             button.onclick = function() {
                 if (confirm('Stop the batch scraper?')) {
                     sessionStorage.removeItem(STORAGE_KEY);
                     sessionStorage.removeItem(EXECUTED_KEY);
+                    sessionStorage.removeItem('parkrun_batch_scraper_stats');
                     button.textContent = '🏃 Start Batch Scraper';
                     button.classList.remove('active');
+                    progressPanel.style.display = 'none';
                     console.log('✅ Parkrun Batch Scraper stopped');
                 }
             };
