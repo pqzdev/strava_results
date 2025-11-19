@@ -4,6 +4,3 @@
 name = "woodstock-results"
 compatibility_date = "2024-11-10"
 pages_build_output_dir = "frontend/dist"
-
-[build]
-command = "cd frontend && npm install && npm run build"
