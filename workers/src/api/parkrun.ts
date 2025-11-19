@@ -25,6 +25,7 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
 
   try {
     // Build query with filters - exclude hidden athletes
+    // Uses COUNT(*) OVER() to get total count in same query (avoids duplicate query)
     let query = `
       SELECT
         pr.id,
@@ -40,7 +41,8 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
         pr.age_category,
         pr.date,
         pr.club_name,
-        pr.created_at
+        pr.created_at,
+        COUNT(*) OVER() as total_count
       FROM parkrun_results pr
       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
       WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0)
@@ -77,34 +79,10 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
 
     const result = await env.DB.prepare(query).bind(...bindings).all();
 
-    // Get total count for pagination - exclude hidden athletes
-    let countQuery = `
-      SELECT COUNT(*) as total
-      FROM parkrun_results pr
-      LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
-      WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0)
-    `;
-    const countBindings: any[] = [];
-
-    if (athleteName) {
-      countQuery += ` AND pr.athlete_name LIKE ?`;
-      countBindings.push(`%${athleteName}%`);
-    }
-    if (eventName) {
-      countQuery += ` AND pr.event_name LIKE ?`;
-      countBindings.push(`%${eventName}%`);
-    }
-    if (dateFrom) {
-      countQuery += ` AND pr.date >= ?`;
-      countBindings.push(dateFrom);
-    }
-    if (dateTo) {
-      countQuery += ` AND pr.date <= ?`;
-      countBindings.push(dateTo);
-    }
-
-    const countResult = await env.DB.prepare(countQuery).bind(...countBindings).first<{ total: number }>();
-    const total = countResult?.total || 0;
+    // Extract total count from first result row (same for all rows due to window function)
+    const total = (result.results && result.results.length > 0)
+      ? (result.results[0] as any).total_count || 0
+      : 0;
 
     return new Response(
       JSON.stringify({
@@ -544,9 +522,9 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
       );
     }
 
-    // Get all available dates for the picker
+    // Get all available dates for the picker (limit to last 500 dates for performance)
     const availableDatesResult = await env.DB.prepare(
-      `SELECT DISTINCT date FROM parkrun_results ORDER BY date DESC`
+      `SELECT DISTINCT date FROM parkrun_results ORDER BY date DESC LIMIT 500`
     ).all();
     const availableDates = (availableDatesResult.results || []).map((r: any) => r.date);
 
