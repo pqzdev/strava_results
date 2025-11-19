@@ -482,6 +482,7 @@
 
     // Build next URL
     const nextUrl = new URL(`https://www.parkrun.com.au/parkrunner/${nextAthlete.parkrun_athlete_id}/all/`);
+    nextUrl.searchParams.set('apiKey', CONFIG.apiKey);
     nextUrl.searchParams.set('apiEndpoint', CONFIG.apiEndpoint);
     nextUrl.searchParams.set('athletesApiEndpoint', CONFIG.athletesApiEndpoint);
     nextUrl.searchParams.set('mode', CONFIG.mode);
