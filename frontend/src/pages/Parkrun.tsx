@@ -257,6 +257,10 @@ export default function Parkrun() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}/km`;
   }
 
+  function formatNumber(num: number): string {
+    return num.toLocaleString();
+  }
+
   function handleSort(field: SortField) {
     if (sortField === field) {
       // Toggle direction if clicking same field
@@ -307,15 +311,15 @@ export default function Parkrun() {
         {stats ? (
           <>
             <div className="stat-card">
-              <div className="stat-value">{stats.totalResults}</div>
+              <div className="stat-value">{formatNumber(stats.totalResults)}</div>
               <div className="stat-label">Total Parkruns</div>
             </div>
             <div className="stat-card">
-              <div className="stat-value">{stats.uniqueAthletes}</div>
+              <div className="stat-value">{formatNumber(stats.uniqueAthletes)}</div>
               <div className="stat-label">Athletes</div>
             </div>
             <div className="stat-card">
-              <div className="stat-value">{stats.uniqueEvents}</div>
+              <div className="stat-value">{formatNumber(stats.uniqueEvents)}</div>
               <div className="stat-label">Different Events</div>
             </div>
           </>
@@ -485,9 +489,9 @@ export default function Parkrun() {
               Previous
             </button>
             <span className="pagination-info">
-              Showing {pagination.offset + 1} to{' '}
-              {Math.min(pagination.offset + pagination.limit, pagination.total)} of{' '}
-              {pagination.total} results
+              Showing {formatNumber(pagination.offset + 1)} to{' '}
+              {formatNumber(Math.min(pagination.offset + pagination.limit, pagination.total))} of{' '}
+              {formatNumber(pagination.total)} results
             </span>
             <button
               onClick={handleNextPage}

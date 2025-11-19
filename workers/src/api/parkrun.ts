@@ -156,73 +156,91 @@ export async function getParkrunStats(request: Request, env: Env): Promise<Respo
     const bindings: any[] = [];
 
     if (athleteNames.length > 0) {
-      const athleteConditions = athleteNames.map(() => 'athlete_name = ?').join(' OR ');
+      const athleteConditions = athleteNames.map(() => 'pr.athlete_name = ?').join(' OR ');
       conditions.push(`(${athleteConditions})`);
       athleteNames.forEach(name => bindings.push(name));
     }
 
     if (eventNames.length > 0) {
-      const eventConditions = eventNames.map(() => 'event_name = ?').join(' OR ');
+      const eventConditions = eventNames.map(() => 'pr.event_name = ?').join(' OR ');
       conditions.push(`(${eventConditions})`);
       eventNames.forEach(name => bindings.push(name));
     }
 
     if (dateFrom) {
-      conditions.push('date >= ?');
+      conditions.push('pr.date >= ?');
       bindings.push(dateFrom);
     }
 
     if (dateTo) {
-      conditions.push('date <= ?');
+      conditions.push('pr.date <= ?');
       bindings.push(dateTo);
     }
 
+    // Always filter out hidden athletes
+    conditions.push('(pa.is_hidden IS NULL OR pa.is_hidden = 0)');
+
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // Get total number of parkrun results
+    // Get total number of parkrun results (excluding hidden athletes)
     const totalResults = await env.DB.prepare(
-      `SELECT COUNT(*) as count FROM parkrun_results ${whereClause}`
+      `SELECT COUNT(*) as count
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+       ${whereClause}`
     ).bind(...bindings).first<{ count: number }>();
 
-    // Get unique athletes
+    // Get unique athletes (excluding hidden)
     const uniqueAthletes = await env.DB.prepare(
-      `SELECT COUNT(DISTINCT athlete_name) as count FROM parkrun_results ${whereClause}`
+      `SELECT COUNT(DISTINCT pr.athlete_name) as count
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+       ${whereClause}`
     ).bind(...bindings).first<{ count: number }>();
 
-    // Get unique events
+    // Get unique events (excluding hidden athletes' results)
     const uniqueEvents = await env.DB.prepare(
-      `SELECT COUNT(DISTINCT event_name) as count FROM parkrun_results ${whereClause}`
+      `SELECT COUNT(DISTINCT pr.event_name) as count
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+       ${whereClause}`
     ).bind(...bindings).first<{ count: number }>();
 
-    // Get date range (earliest and latest)
+    // Get date range (earliest and latest, excluding hidden)
     const dateRange = await env.DB.prepare(
-      `SELECT MIN(date) as earliest, MAX(date) as latest FROM parkrun_results ${whereClause}`
+      `SELECT MIN(pr.date) as earliest, MAX(pr.date) as latest
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+       ${whereClause}`
     ).bind(...bindings).first<{ earliest: string; latest: string }>();
 
-    // Get fastest time
+    // Get fastest time (excluding hidden)
     const fastestTime = await env.DB.prepare(
-      `SELECT athlete_name, event_name, time_string, date
-       FROM parkrun_results
+      `SELECT pr.athlete_name, pr.event_name, pr.time_string, pr.date
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
        ${whereClause}
-       ORDER BY time_seconds ASC
+       ORDER BY pr.time_seconds ASC
        LIMIT 1`
     ).bind(...bindings).first();
 
-    // Get most recent result
+    // Get most recent result (excluding hidden)
     const mostRecentResult = await env.DB.prepare(
-      `SELECT athlete_name, event_name, time_string, date
-       FROM parkrun_results
+      `SELECT pr.athlete_name, pr.event_name, pr.time_string, pr.date
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
        ${whereClause}
-       ORDER BY date DESC
+       ORDER BY pr.date DESC
        LIMIT 1`
     ).bind(...bindings).first();
 
-    // Get most parkruns by athlete
+    // Get most parkruns by athlete (excluding hidden)
     const mostActiveAthlete = await env.DB.prepare(
-      `SELECT athlete_name, COUNT(*) as count
-       FROM parkrun_results
+      `SELECT pr.athlete_name, COUNT(*) as count
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
        ${whereClause}
-       GROUP BY athlete_name
+       GROUP BY pr.athlete_name
        ORDER BY count DESC
        LIMIT 1`
     ).bind(...bindings).first();
