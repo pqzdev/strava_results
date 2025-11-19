@@ -398,8 +398,11 @@
         // Load stats from session storage
         const stats = JSON.parse(sessionStorage.getItem('parkrun_batch_scraper_stats') || '{"successful":0,"failed":0}');
         window.parkrunScraperProgress.update({
+            current: stats.current || 0,
+            total: stats.total || 0,
             success: stats.successful,
-            errors: stats.failed
+            errors: stats.failed,
+            athleteName: stats.athleteName || 'Loading...'
         });
 
         // Toggle panel visibility on button click
