@@ -318,14 +318,8 @@
 
     // Stop button handler
     progressPanel.querySelector('.btn-stop').addEventListener('click', () => {
-        sessionStorage.removeItem(STORAGE_KEY);
-        sessionStorage.removeItem(EXECUTED_KEY);
-        sessionStorage.removeItem('parkrun_batch_scraper_stats');
-        button.textContent = '🏃 Start Batch Scraper';
-        button.classList.remove('active');
-        progressPanel.style.display = 'none';
         addLogMessage('Scraper stopped by user', 'error');
-        console.log('✅ Parkrun Batch Scraper stopped');
+        stopScraper();
     });
 
     // Global API for the browser script to update progress
@@ -372,6 +366,27 @@
         }
     }
 
+    // Function to reset button to start state
+    function resetButtonToStart() {
+        button.textContent = '🏃 Start Batch Scraper';
+        button.classList.remove('active');
+        progressPanel.style.display = 'none';
+        button.onclick = function() {
+            const apiKey = getApiKey();
+            if (!apiKey) return;
+            showConfigModal(apiKey);
+        };
+    }
+
+    // Function to stop the scraper
+    function stopScraper() {
+        sessionStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem(EXECUTED_KEY);
+        sessionStorage.removeItem('parkrun_batch_scraper_stats');
+        resetButtonToStart();
+        console.log('✅ Parkrun Batch Scraper stopped');
+    }
+
     // Check if scraper is already running
     const storedConfig = sessionStorage.getItem(STORAGE_KEY);
 
@@ -390,13 +405,7 @@
         // Add stop button
         button.onclick = function() {
             if (confirm('Stop the batch scraper?')) {
-                sessionStorage.removeItem(STORAGE_KEY);
-                sessionStorage.removeItem(EXECUTED_KEY);
-                sessionStorage.removeItem('parkrun_batch_scraper_stats');
-                button.textContent = '🏃 Start Batch Scraper';
-                button.classList.remove('active');
-                progressPanel.style.display = 'none';
-                console.log('✅ Parkrun Batch Scraper stopped');
+                stopScraper();
             }
         };
 
@@ -528,13 +537,7 @@
 
             button.onclick = function() {
                 if (confirm('Stop the batch scraper?')) {
-                    sessionStorage.removeItem(STORAGE_KEY);
-                    sessionStorage.removeItem(EXECUTED_KEY);
-                    sessionStorage.removeItem('parkrun_batch_scraper_stats');
-                    button.textContent = '🏃 Start Batch Scraper';
-                    button.classList.remove('active');
-                    progressPanel.style.display = 'none';
-                    console.log('✅ Parkrun Batch Scraper stopped');
+                    stopScraper();
                 }
             };
 
