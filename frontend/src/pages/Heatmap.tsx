@@ -222,7 +222,7 @@ export default function Heatmap() {
                 opacity: refreshing || loading ? 0.6 : 1,
               }}
             >
-              {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+              {refreshing ? <><i className="fa-solid fa-rotate fa-spin"></i> Refreshing...</> : <><i className="fa-solid fa-rotate"></i> Refresh</>}
             </button>
           )}
         </div>

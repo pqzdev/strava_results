@@ -36,6 +36,10 @@ interface ParkrunAthlete {
   is_hidden: number;
   run_count: number;
   top_events?: Array<{ event_name: string; count: number }>;
+  has_left_club?: number;
+  last_club_run_date?: string | null;
+  last_individual_run_date?: string | null;
+  parkrun_athlete_id?: string | null;
 }
 
 interface EventSuggestion {
@@ -181,22 +185,32 @@ export default function Admin() {
 
   const [athletes, setAthletes] = useState<AdminAthlete[]>([]);
   const [parkrunAthletes, setParkrunAthletes] = useState<ParkrunAthlete[]>([]);
+  const [parkrunDuplicates, setParkrunDuplicates] = useState<Array<{
+    athlete_name: string;
+    date: string;
+    activity_count: number;
+    events: string;
+  }>>([]);
   const [eventSuggestions, setEventSuggestions] = useState<EventSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<Set<number>>(new Set());
   const [analyzingEvents, setAnalyzingEvents] = useState(false);
   const [editingEventName, setEditingEventName] = useState<{ [key: number]: string }>({});
-  const [parkrunStartDate, setParkrunStartDate] = useState(() => {
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-    return twoWeeksAgo.toISOString().split('T')[0];
-  });
-  const [parkrunEndDate, setParkrunEndDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
-  const [replaceExistingData, setReplaceExistingData] = useState(false);
   const [showParkrunInstructions, setShowParkrunInstructions] = useState(false);
+  const [showIndividualScraper, setShowIndividualScraper] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showCopiedMessage, setShowCopiedMessage] = useState(false);
+  const [apiKeyValue, setApiKeyValue] = useState('');
+
+  const handleRevealApiKey = () => {
+    if (!showApiKey && apiKeyValue) {
+      navigator.clipboard.writeText(apiKeyValue);
+      setShowCopiedMessage(true);
+      setTimeout(() => setShowCopiedMessage(false), 2000);
+    }
+    setShowApiKey(!showApiKey);
+  };
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [parkrunSortField, setParkrunSortField] = useState<ParkrunSortField>('runs');
@@ -241,17 +255,33 @@ export default function Admin() {
   useEffect(() => {
     fetchAthletes();
     fetchParkrunAthletes();
+    fetchParkrunDuplicates();
     fetchEventSuggestions();
     fetchEvents();
     fetchQueueStats();
     fetchManualSubmissions();
     fetchApprovedSubmissions();
     fetchSyncStatus();
+    fetchApiKey();
 
     // Poll queue stats every 30 seconds
     const interval = setInterval(fetchQueueStats, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const fetchApiKey = async () => {
+    try {
+      const response = await fetch(
+        `/api/admin/api-key?admin_strava_id=${currentAthleteId}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setApiKeyValue(data.api_key || '');
+      }
+    } catch (err) {
+      console.error('Failed to fetch API key:', err);
+    }
+  };
 
   // Auto-refresh sync status when on sync-dashboard tab
   useEffect(() => {
@@ -288,16 +318,39 @@ export default function Admin() {
 
   const fetchParkrunAthletes = async () => {
     try {
+      console.log('🔍 Fetching parkrun athletes from /api/parkrun/athletes');
       const response = await fetch('/api/parkrun/athletes');
 
       if (!response.ok) {
+        console.error('❌ Parkrun athletes fetch failed:', response.status, response.statusText);
         throw new Error('Failed to fetch parkrun athletes');
       }
 
       const data = await response.json();
+      console.log('✅ Parkrun athletes loaded:', data.athletes?.length || 0, 'athletes');
+      if (data.athletes && data.athletes.length > 0) {
+        console.log('Sample athlete:', data.athletes[0]);
+      }
       setParkrunAthletes(data.athletes || []);
     } catch (err) {
       console.error('Error fetching parkrun athletes:', err);
+    }
+  };
+
+  const fetchParkrunDuplicates = async () => {
+    try {
+      const response = await fetch('/api/parkrun/duplicates');
+
+      if (!response.ok) {
+        console.error('❌ Parkrun duplicates fetch failed:', response.status, response.statusText);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('✅ Parkrun duplicates loaded:', data.count || 0, 'duplicates');
+      setParkrunDuplicates(data.duplicates || []);
+    } catch (err) {
+      console.error('Error fetching parkrun duplicates:', err);
     }
   };
 
@@ -948,39 +1001,6 @@ export default function Admin() {
     }
   };
 
-  const triggerParkrunSync = async () => {
-    // Build the parkrun URL with parameters
-    const apiEndpoint = `${window.location.origin}/api/parkrun/import${replaceExistingData ? '?replace=true' : ''}`;
-    const parkrunUrl = new URL('https://www.parkrun.com/results/consolidatedclub/');
-    parkrunUrl.searchParams.set('clubNum', '19959');
-    parkrunUrl.searchParams.set('startDate', parkrunStartDate);
-    parkrunUrl.searchParams.set('endDate', parkrunEndDate);
-    parkrunUrl.searchParams.set('apiEndpoint', apiEndpoint);
-    parkrunUrl.searchParams.set('autoUpload', 'true');
-
-    // Fetch the scraper script
-    try {
-      const response = await fetch(`${window.location.origin}/parkrun-smart-scraper.js`);
-      const scriptText = await response.text();
-
-      // Copy script to clipboard
-      await navigator.clipboard.writeText(scriptText);
-
-      // Open parkrun page in new tab
-      const parkrunTab = window.open(parkrunUrl.toString(), '_blank');
-
-      if (!parkrunTab) {
-        alert('Please allow popups to use the automatic parkrun sync feature.');
-        return;
-      }
-
-      // Show instructions section
-      setShowParkrunInstructions(true);
-    } catch (err) {
-      alert('Failed to load scraper script. Please try again.');
-    }
-  };
-
   const getSyncStatusBadge = (status: string) => {
     const statusClasses: Record<string, string> = {
       completed: 'status-completed',
@@ -1014,9 +1034,9 @@ export default function Admin() {
     }
   };
 
-  const getSortIcon = (field: SortField | ParkrunSortField, currentField: SortField | ParkrunSortField, currentDirection: SortDirection | ParkrunSortDirection): string => {
-    if (currentField !== field) return '↕️';
-    return currentDirection === 'asc' ? '↑' : '↓';
+  const getSortIcon = (field: SortField | ParkrunSortField, currentField: SortField | ParkrunSortField, currentDirection: SortDirection | ParkrunSortDirection): React.ReactNode => {
+    if (currentField !== field) return <i className="fa-solid fa-sort"></i>;
+    return currentDirection === 'asc' ? <i className="fa-solid fa-sort-up"></i> : <i className="fa-solid fa-sort-down"></i>;
   };
 
   const sortedAthletes = [...athletes].sort((a, b) => {
@@ -1135,43 +1155,43 @@ export default function Admin() {
           className={`admin-tab ${activeTab === 'athletes' ? 'active' : ''}`}
           onClick={() => setActiveTab('athletes')}
         >
-          👥 Athletes & Sync
+          <i className="fa-solid fa-users"></i> Athletes & Sync
         </button>
         <button
           className={`admin-tab ${activeTab === 'parkrun' ? 'active' : ''}`}
           onClick={() => setActiveTab('parkrun')}
         >
-          🏃 Parkrun
+          <i className="fa-solid fa-person-running"></i> Parkrun
         </button>
         <button
           className={`admin-tab ${activeTab === 'events' ? 'active' : ''}`}
           onClick={() => setActiveTab('events')}
         >
-          📅 Events
+          <i className="fa-solid fa-calendar"></i> Events
         </button>
         <button
           className={`admin-tab ${activeTab === 'review' ? 'active' : ''}`}
           onClick={() => setActiveTab('review')}
         >
-          ✅ Review
+          <i className="fa-solid fa-circle-check"></i> Review
         </button>
         <button
           className={`admin-tab ${activeTab === 'submissions' ? 'active' : ''}`}
           onClick={() => setActiveTab('submissions')}
         >
-          📝 Manual Submissions {manualSubmissions.length > 0 && `(${manualSubmissions.length})`}
+          <i className="fa-solid fa-file-pen"></i> Manual Submissions {manualSubmissions.length > 0 && `(${manualSubmissions.length})`}
         </button>
         <button
           className={`admin-tab ${activeTab === 'api-control' ? 'active' : ''}`}
           onClick={() => setActiveTab('api-control')}
         >
-          ⚙️ API Control
+          <i className="fa-solid fa-gear"></i> API Control
         </button>
         <button
           className={`admin-tab ${activeTab === 'sync-dashboard' ? 'active' : ''}`}
           onClick={() => setActiveTab('sync-dashboard')}
         >
-          🔄 Sync Dashboard
+          <i className="fa-solid fa-rotate"></i> Sync Dashboard
         </button>
       </div>
 
@@ -1204,7 +1224,7 @@ export default function Admin() {
       </div>
 
       <div className="admin-header" style={{ marginTop: '3rem' }}>
-        <h2>🔄 Sync Queue</h2>
+        <h2><i className="fa-solid fa-rotate"></i> Sync Queue</h2>
         <p className="subtitle">Reliable batched activity downloads using database queue</p>
       </div>
 
@@ -1218,19 +1238,19 @@ export default function Admin() {
           <div className="admin-stats">
             <div className="stat-card">
               <div className="stat-value">{queueStats.pending}</div>
-              <div className="stat-label">⏳ Pending Jobs</div>
+              <div className="stat-label"><i className="fa-solid fa-hourglass-half"></i> Pending Jobs</div>
             </div>
             <div className="stat-card">
               <div className="stat-value">{queueStats.processing}</div>
-              <div className="stat-label">⚙️ Processing</div>
+              <div className="stat-label"><i className="fa-solid fa-gear"></i> Processing</div>
             </div>
             <div className="stat-card">
               <div className="stat-value">{queueStats.completed_24h}</div>
-              <div className="stat-label">✅ Completed (24h)</div>
+              <div className="stat-label"><i className="fa-solid fa-check"></i> Completed (24h)</div>
             </div>
             <div className="stat-card">
               <div className="stat-value">{queueStats.failed_24h}</div>
-              <div className="stat-label">❌ Failed (24h)</div>
+              <div className="stat-label"><i className="fa-solid fa-xmark"></i> Failed (24h)</div>
             </div>
           </div>
         )}
@@ -1251,7 +1271,7 @@ export default function Admin() {
               opacity: queueingAll ? 0.6 : 1,
             }}
           >
-            {queueingAll ? '⏳ Queueing...' : '🚀 Queue All Athletes for Full Sync'}
+            {queueingAll ? <><i className="fa-solid fa-hourglass-half"></i> Queueing...</> : <><i className="fa-solid fa-rocket"></i> Queue All Athletes for Full Sync</>}
           </button>
           <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#666' }}>
             This will queue all connected athletes for a full sync. The queue processor will handle them one by one.
@@ -1313,7 +1333,7 @@ export default function Admin() {
                     {getSyncStatusBadge(athlete.sync_status)}
                     {athlete.sync_error && (
                       <div className="sync-error" title={athlete.sync_error}>
-                        ⚠️
+                        <i className="fa-solid fa-triangle-exclamation"></i>
                       </div>
                     )}
                     {athlete.batch_progress && athlete.sync_status === 'in_progress' && (
@@ -1393,7 +1413,7 @@ export default function Admin() {
                         className="button button-stop"
                         title="Stop sync"
                       >
-                        ⏹️ Stop
+                        <i className="fa-solid fa-stop"></i> Stop
                       </button>
                     ) : (
                       <>
@@ -1404,7 +1424,7 @@ export default function Admin() {
                           title="WOOD-8: Batched full sync (recommended for large athletes)"
                           style={{ marginRight: '4px' }}
                         >
-                          🔄 Refresh
+                          <i className="fa-solid fa-rotate"></i> Refresh
                         </button>
                         <button
                           onClick={() => triggerSync(athlete.id)}
@@ -1413,7 +1433,7 @@ export default function Admin() {
                           title="Legacy: Queue athlete for full sync (high priority)"
                           style={{ fontSize: '0.85em', padding: '4px 8px' }}
                         >
-                          🚀 Queue
+                          <i className="fa-solid fa-rocket"></i> Queue
                         </button>
                       </>
                     )}
@@ -1427,7 +1447,7 @@ export default function Admin() {
                       className="button button-delete"
                       title="Delete athlete and all data"
                     >
-                      🗑️
+                      <i className="fa-solid fa-trash"></i>
                     </button>
                   </div>
                 </td>
@@ -1710,7 +1730,7 @@ export default function Admin() {
             opacity: analyzingEvents ? 0.6 : 1,
           }}
         >
-          {analyzingEvents ? '⏳ Analyzing...' : '🤖 Run AI Analysis'}
+          {analyzingEvents ? <><i className="fa-solid fa-spinner fa-spin"></i> Analyzing...</> : <><i className="fa-solid fa-robot"></i> Run AI Analysis</>}
         </button>
         <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
           Trigger AI to analyze ungrouped races and generate event name suggestions. This may take a few minutes.
@@ -1814,7 +1834,7 @@ export default function Admin() {
                               }}
                               title="Save and approve"
                             >
-                              💾 Save
+                              <i className="fa-solid fa-floppy-disk"></i> Save
                             </button>
                             <button
                               onClick={() =>
@@ -1857,7 +1877,7 @@ export default function Admin() {
                               }}
                               title="Approve suggestion"
                             >
-                              ✅ Approve
+                              <i className="fa-solid fa-check"></i> Approve
                             </button>
                             <button
                               onClick={() =>
@@ -1878,7 +1898,7 @@ export default function Admin() {
                               }}
                               title="Edit event name"
                             >
-                              ✏️ Edit
+                              <i className="fa-solid fa-pen"></i> Edit
                             </button>
                             <button
                               onClick={() =>
@@ -1891,7 +1911,7 @@ export default function Admin() {
                               }}
                               title="Reject suggestion"
                             >
-                              ❌ Reject
+                              <i className="fa-solid fa-xmark"></i> Reject
                             </button>
                           </>
                         )}
@@ -1961,7 +1981,7 @@ export default function Admin() {
                             }}
                             title="Revoke approval and remove event name from races"
                           >
-                            🔄 Revoke
+                            <i className="fa-solid fa-rotate"></i> Revoke
                           </button>
                         </td>
                       </tr>
@@ -1993,121 +2013,419 @@ export default function Admin() {
       {/* Parkrun Tab */}
       {activeTab === 'parkrun' && (
         <div className="tab-content">
+          {/* Alert for duplicate same-day activities */}
+          {parkrunDuplicates.length > 0 && (
+            <div style={{
+              marginBottom: '2rem',
+              backgroundColor: '#fef3c7',
+              borderRadius: '8px',
+              border: '2px solid #f59e0b',
+              padding: '1rem 1.5rem',
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                marginBottom: '0.75rem',
+              }}>
+                <span style={{ fontSize: '1.2rem' }}><i className="fa-solid fa-triangle-exclamation"></i></span>
+                <strong style={{ color: '#92400e' }}>
+                  {parkrunDuplicates.length} runner{parkrunDuplicates.length !== 1 ? 's' : ''} with multiple activities on the same day
+                </strong>
+              </div>
+              <p style={{
+                fontSize: '0.85rem',
+                color: '#92400e',
+                margin: '0 0 0.75rem 0',
+              }}>
+                These may indicate duplicate entries due to event name mismatches. Click to view filtered results.
+              </p>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+                maxHeight: '200px',
+                overflowY: 'auto',
+              }}>
+                {parkrunDuplicates.map((dup, index) => (
+                  <a
+                    key={index}
+                    href={`/parkrun?athletes=${encodeURIComponent(dup.athlete_name)}&dateFrom=${dup.date}&dateTo=${dup.date}`}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '0.5rem 0.75rem',
+                      backgroundColor: 'white',
+                      borderRadius: '4px',
+                      textDecoration: 'none',
+                      color: '#92400e',
+                      fontSize: '0.85rem',
+                      border: '1px solid #fcd34d',
+                    }}
+                  >
+                    <span>
+                      <strong>{dup.athlete_name}</strong> on {dup.date}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: '#b45309' }}>
+                      {dup.activity_count} activities: {dup.events}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="admin-header">
-            <h2>Parkrun Data Sync</h2>
-            <p className="subtitle">Automatically scrape and import parkrun results</p>
+            <h2>Parkrun Data Scrapers</h2>
+            <p className="subtitle">Use Tampermonkey userscripts to scrape parkrun data</p>
           </div>
 
-      <div className="parkrun-sync-section" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1', minWidth: '200px' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={parkrunStartDate}
-              onChange={(e) => setParkrunStartDate(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-              }}
-            />
-          </div>
-          <div style={{ flex: '1', minWidth: '200px' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-              End Date
-            </label>
-            <input
-              type="date"
-              value={parkrunEndDate}
-              onChange={(e) => setParkrunEndDate(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-              }}
-            />
-          </div>
-          <button
-            onClick={triggerParkrunSync}
-            className="button"
-            style={{
-              padding: '0.5rem 1.5rem',
-              backgroundColor: '#fc4c02',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 500,
-            }}
-          >
-            🏃 Sync Parkrun Data
-          </button>
-        </div>
-        <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <input
-            type="checkbox"
-            id="replaceExistingData"
-            checked={replaceExistingData}
-            onChange={(e) => setReplaceExistingData(e.target.checked)}
-            style={{ cursor: 'pointer' }}
-          />
-          <label htmlFor="replaceExistingData" style={{ cursor: 'pointer', fontSize: '0.9rem' }}>
-            Replace all existing parkrun data (⚠️ This will delete all current parkrun results)
-          </label>
-        </div>
-        <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
-          {replaceExistingData
-            ? '⚠️ All existing parkrun data will be deleted and replaced with new results from the date range.'
-            : '✓ New results will be merged with existing data (duplicates skipped automatically).'}
-        </p>
+      {/* Club Results Tampermonkey Scraper */}
+      <div style={{
+        marginBottom: '2rem',
+        backgroundColor: '#f0fdf4',
+        borderRadius: '8px',
+        border: '2px solid #10b981',
+        overflow: 'hidden',
+      }}>
+        <button
+          onClick={() => setShowParkrunInstructions(!showParkrunInstructions)}
+          style={{
+            width: '100%',
+            padding: '1rem 1.5rem',
+            backgroundColor: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '1rem',
+            fontWeight: 700,
+            color: '#065f46',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <i className="fa-solid fa-person-running"></i> Club Results Scraper
+          </span>
+          <span style={{ fontSize: '1.2rem' }}>
+            {showParkrunInstructions ? <i className="fa-solid fa-chevron-down"></i> : <i className="fa-solid fa-chevron-right"></i>}
+          </span>
+        </button>
 
         {showParkrunInstructions && (
-          <div style={{
-            marginTop: '1rem',
-            padding: '1rem',
-            backgroundColor: '#f0f9ff',
-            border: '1px solid #0ea5e9',
-            borderRadius: '8px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-              <div>
-                <h3 style={{ margin: 0, marginBottom: '0.5rem', color: '#0284c7' }}>
-                  ✅ Script Copied to Clipboard!
-                </h3>
-                <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}>
-                  <strong>Next Steps:</strong>
-                </p>
-                <ol style={{ margin: '0.5rem 0', paddingLeft: '1.5rem', fontSize: '0.9rem' }}>
-                  <li>Go to the parkrun tab that just opened</li>
-                  <li>Press <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>F12</kbd> to open the browser console</li>
-                  <li>Paste the script (<kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Ctrl+V</kbd> or <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Cmd+V</kbd>)</li>
-                  <li>Press <kbd style={{ padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '3px' }}>Enter</kbd></li>
-                </ol>
-                <p style={{ margin: '0.5rem 0', fontSize: '0.85rem', color: '#0369a1' }}>
-                  The scraper will automatically fetch all Saturdays from {parkrunStartDate} to {parkrunEndDate},
-                  include special dates (Dec 25, Jan 1), and upload results to your database (~3-4 minutes for 100+ dates).
-                </p>
-              </div>
-              <button
-                onClick={() => setShowParkrunInstructions(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '1.5rem',
-                  cursor: 'pointer',
-                  color: '#666',
-                  padding: '0 0.5rem',
-                }}
-                title="Close instructions"
-              >
-                ×
-              </button>
+          <div style={{ padding: '0 1.5rem 1.5rem 1.5rem' }}>
+            <p style={{
+              fontSize: '0.9rem',
+              color: '#047857',
+              lineHeight: '1.6',
+              marginBottom: '1rem',
+            }}>
+              Scrape Woodstock Runners club results for any date range with a floating green button.
+            </p>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #10b981',
+            }}>
+              <p style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#065f46',
+                marginBottom: '0.5rem',
+              }}>
+                <i className="fa-solid fa-clipboard"></i> Installation:
+              </p>
+              <ol style={{
+                fontSize: '0.85rem',
+                color: '#047857',
+                margin: '0',
+                paddingLeft: '1.5rem',
+                lineHeight: '1.8',
+              }}>
+                <li>Install <a
+                  href="https://www.tampermonkey.net/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#2563eb', textDecoration: 'underline' }}
+                >Tampermonkey browser extension</a></li>
+                <li>Click the button below to download the userscript</li>
+                <li>Tampermonkey will prompt you to install it</li>
+                <li>Visit the <a
+                  href="https://www.parkrun.com/results/consolidatedclub/?clubNum=19959"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#2563eb', textDecoration: 'underline' }}
+                >Woodstock Runners parkrun page</a></li>
+                <li>Click the green "🏃 Scrape Club Results" button that appears</li>
+                <li>Enter your start/end dates and the script will automatically scrape!</li>
+              </ol>
             </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #10b981',
+            }}>
+              <p style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#065f46',
+                marginBottom: '0.5rem',
+              }}>
+                <i className="fa-solid fa-key"></i> API Key:
+              </p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.85rem',
+                color: '#047857',
+              }}>
+                {apiKeyValue ? (
+                  <>
+                    <span style={{ fontFamily: 'monospace', position: 'relative' }}>
+                      {showApiKey ? apiKeyValue : '••••••••••••••••'}
+                      {showCopiedMessage && (
+                        <span style={{
+                          position: 'absolute',
+                          top: '-1.5rem',
+                          left: '0',
+                          backgroundColor: '#065f46',
+                          color: 'white',
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '4px',
+                          fontSize: '0.7rem',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          Copied to clipboard
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      onClick={handleRevealApiKey}
+                      style={{
+                        padding: '0.25rem 0.5rem',
+                        fontSize: '0.75rem',
+                        color: '#2563eb',
+                        backgroundColor: 'transparent',
+                        border: '1px solid #2563eb',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showApiKey ? 'Hide' : 'Reveal & Copy'}
+                    </button>
+                  </>
+                ) : (
+                  <span style={{ fontStyle: 'italic', color: '#6b7280' }}>
+                    Not set - will be prompted on first use
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                const userscriptUrl = `${window.location.origin}/parkrun-club-tampermonkey.user.js`;
+                window.open(userscriptUrl, '_blank');
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                color: 'white',
+                backgroundColor: '#10b981',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+            >
+              <i className="fa-solid fa-download"></i> Download Club Scraper Userscript
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Individual Athlete Batch Scraper - Tampermonkey */}
+      <div style={{
+        marginBottom: '2rem',
+        backgroundColor: '#f0fdf4',
+        borderRadius: '8px',
+        border: '2px solid #10b981',
+        overflow: 'hidden',
+      }}>
+        <button
+          onClick={() => setShowIndividualScraper(!showIndividualScraper)}
+          style={{
+            width: '100%',
+            padding: '1rem 1.5rem',
+            backgroundColor: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '1rem',
+            fontWeight: 700,
+            color: '#065f46',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <i className="fa-solid fa-person-running"></i> Individual Athlete Batch Scraper
+          </span>
+          <span style={{ fontSize: '1.2rem' }}>
+            {showIndividualScraper ? <i className="fa-solid fa-chevron-down"></i> : <i className="fa-solid fa-chevron-right"></i>}
+          </span>
+        </button>
+
+        {showIndividualScraper && (
+          <div style={{ padding: '0 1.5rem 1.5rem 1.5rem' }}>
+            <p style={{
+              fontSize: '0.9rem',
+              color: '#047857',
+              lineHeight: '1.6',
+              marginBottom: '1rem',
+            }}>
+              Automatically scrape all athletes' complete parkrun histories with a single click.
+              The script adds a purple floating button to parkrun pages.
+            </p>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #10b981',
+            }}>
+              <p style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#065f46',
+                marginBottom: '0.5rem',
+              }}>
+                <i className="fa-solid fa-clipboard"></i> Installation:
+              </p>
+              <ol style={{
+                fontSize: '0.85rem',
+                color: '#047857',
+                margin: '0',
+                paddingLeft: '1.5rem',
+                lineHeight: '1.8',
+              }}>
+                <li>Install <a
+                  href="https://www.tampermonkey.net/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#2563eb', textDecoration: 'underline' }}
+                >Tampermonkey browser extension</a></li>
+                <li>Click the button below to download the userscript</li>
+                <li>Tampermonkey will prompt you to install it</li>
+                <li>Navigate to any parkrun athlete page (e.g., <a
+                  href="https://www.parkrun.com.au/parkrunner/7796495/all/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#2563eb', textDecoration: 'underline' }}
+                >parkrun.com.au/parkrunner/7796495/all/</a>)</li>
+                <li>Click the purple "🏃 Start Batch Scraper" button that appears</li>
+                <li>Choose scraping mode and the script will automatically cycle through all athletes!</li>
+              </ol>
+            </div>
+
+            <div style={{
+              backgroundColor: 'white',
+              padding: '1rem',
+              borderRadius: '6px',
+              marginBottom: '1rem',
+              border: '1px solid #10b981',
+            }}>
+              <p style={{
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#065f46',
+                marginBottom: '0.5rem',
+              }}>
+                <i className="fa-solid fa-key"></i> API Key:
+              </p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.85rem',
+                color: '#047857',
+              }}>
+                {apiKeyValue ? (
+                  <>
+                    <span style={{ fontFamily: 'monospace', position: 'relative' }}>
+                      {showApiKey ? apiKeyValue : '••••••••••••••••'}
+                      {showCopiedMessage && (
+                        <span style={{
+                          position: 'absolute',
+                          top: '-1.5rem',
+                          left: '0',
+                          backgroundColor: '#065f46',
+                          color: 'white',
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '4px',
+                          fontSize: '0.7rem',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          Copied to clipboard
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      onClick={handleRevealApiKey}
+                      style={{
+                        padding: '0.25rem 0.5rem',
+                        fontSize: '0.75rem',
+                        color: '#2563eb',
+                        backgroundColor: 'transparent',
+                        border: '1px solid #2563eb',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showApiKey ? 'Hide' : 'Reveal & Copy'}
+                    </button>
+                  </>
+                ) : (
+                  <span style={{ fontStyle: 'italic', color: '#6b7280' }}>
+                    Not set - will be prompted on first use
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                const userscriptUrl = `${window.location.origin}/parkrun-batch-tampermonkey.user.js`;
+                window.open(userscriptUrl, '_blank');
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                color: 'white',
+                backgroundColor: '#10b981',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#059669')}
+              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#10b981')}
+            >
+              <i className="fa-solid fa-download"></i> Download Individual Athlete Scraper
+            </button>
           </div>
         )}
       </div>
@@ -2161,6 +2479,12 @@ export default function Admin() {
           </div>
           <div className="stat-label">Visible</div>
         </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: '#ef4444' }}>
+            {parkrunAthletes.filter((a) => a.has_left_club === 1).length}
+          </div>
+          <div className="stat-label">Left Club <i className="fa-solid fa-door-open"></i></div>
+        </div>
       </div>
 
       <div className="admin-table-container">
@@ -2184,7 +2508,29 @@ export default function Admin() {
               <tr key={athlete.athlete_name}>
                 <td>
                   <div className="athlete-cell">
-                    <span>{athlete.athlete_name}</span>
+                    {athlete.parkrun_athlete_id ? (
+                      <a
+                        href={`https://www.parkrun.com.au/parkrunner/${athlete.parkrun_athlete_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {athlete.athlete_name}
+                      </a>
+                    ) : (
+                      <span>{athlete.athlete_name}</span>
+                    )}
+                    {athlete.has_left_club === 1 && (
+                      <span
+                        title="Left Woodstock parkrun group"
+                        style={{
+                          marginLeft: '0.5rem',
+                          fontSize: '1.1rem',
+                          color: '#ef4444',
+                        }}
+                      >
+                        <i className="fa-solid fa-door-open"></i>
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="number-cell">{athlete.run_count}</td>
@@ -2274,7 +2620,7 @@ export default function Admin() {
       {activeTab === 'submissions' && (
         <div className="tab-content">
           <div className="admin-header">
-            <h2>📝 Manual Activity Submissions</h2>
+            <h2><i className="fa-solid fa-file-pen"></i> Manual Activity Submissions</h2>
             <p className="subtitle">Review and approve manually submitted Strava activities</p>
           </div>
 
@@ -2389,7 +2735,7 @@ export default function Admin() {
                             }}
                             title="New event name"
                           >
-                            ⚠️
+                            <i className="fa-solid fa-triangle-exclamation"></i>
                           </span>
                         )}
                       </div>
@@ -2410,7 +2756,7 @@ export default function Admin() {
                           }}
                           title="Approve and add to races"
                         >
-                          ✅ Approve
+                          <i className="fa-solid fa-check"></i> Approve
                         </button>
                         <button
                           onClick={() => handleRejectSubmission(submission.id)}
@@ -2421,7 +2767,7 @@ export default function Admin() {
                           }}
                           title="Reject submission"
                         >
-                          ❌ Reject
+                          <i className="fa-solid fa-xmark"></i> Reject
                         </button>
                       </div>
                     </td>
@@ -2434,7 +2780,7 @@ export default function Admin() {
 
           {/* Approved Submissions Section */}
           <div className="admin-header" style={{ marginTop: '3rem' }}>
-            <h2>✅ Approved Submissions</h2>
+            <h2><i className="fa-solid fa-circle-check"></i> Approved Submissions</h2>
             <p className="subtitle">Previously approved manual submissions</p>
           </div>
 
@@ -2510,7 +2856,7 @@ export default function Admin() {
                           }}
                           title="Delete this approved submission"
                         >
-                          🗑️ Delete
+                          <i className="fa-solid fa-trash"></i> Delete
                         </button>
                       </td>
                     </tr>
@@ -2526,7 +2872,7 @@ export default function Admin() {
       {activeTab === 'api-control' && (
         <div className="tab-content">
           <div className="admin-header">
-            <h2>⚙️ API Control Panel</h2>
+            <h2><i className="fa-solid fa-gear"></i> API Control Panel</h2>
             <p className="subtitle">Execute API commands directly from the admin panel</p>
           </div>
 
@@ -2541,7 +2887,7 @@ export default function Admin() {
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <div style={{ flex: '1', minWidth: '300px' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
-                  🔍 Search Commands
+                  <i className="fa-solid fa-magnifying-glass"></i> Search Commands
                 </label>
                 <input
                   type="text"
@@ -2564,7 +2910,7 @@ export default function Admin() {
               </div>
               <div style={{ minWidth: '220px' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
-                  📂 Category
+                  <i className="fa-solid fa-folder"></i> Category
                 </label>
                 <select
                   value={apiCategory}
@@ -2682,7 +3028,7 @@ export default function Admin() {
       {activeTab === 'sync-dashboard' && (
         <div className="tab-content">
           <div className="admin-header">
-            <h2>🔄 Sync Queue Dashboard</h2>
+            <h2><i className="fa-solid fa-rotate"></i> Sync Queue Dashboard</h2>
             <p className="subtitle">Monitor and manage athlete sync jobs</p>
           </div>
 
@@ -2698,13 +3044,13 @@ export default function Admin() {
               {/* Active/Processing Syncs */}
               <div style={{ marginBottom: '3rem' }}>
                 <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem', fontWeight: 600 }}>
-                  🔄 Active Syncs ({syncQueueStatus.active.length})
+                  <i className="fa-solid fa-rotate"></i> Active Syncs ({syncQueueStatus.active.length})
                 </h3>
                 {syncQueueStatus.active.length === 0 ? (
                   <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No active syncs</p>
                 ) : (
-                  <div className="athletes-table-container">
-                    <table className="athletes-table">
+                  <div className="admin-table-container">
+                    <table className="admin-table">
                       <thead>
                         <tr>
                           <th>Sync ID</th>
@@ -2731,11 +3077,11 @@ export default function Admin() {
 
                           return (
                             <tr key={job.id}>
-                              <td>{job.id}</td>
+                              <td className="number-cell">{job.id}</td>
                               <td>
                                 {job.first_name} {job.last_name}
                               </td>
-                              <td>{job.strava_id}</td>
+                              <td className="strava-link">{job.strava_id}</td>
                               <td>{job.job_type}</td>
                               <td>
                                 <span
@@ -2744,13 +3090,13 @@ export default function Admin() {
                                   {job.status}
                                 </span>
                               </td>
-                              <td>
+                              <td className="date-cell">
                                 {startTime
                                   ? startTime.toLocaleString()
                                   : '-'}
                               </td>
-                              <td>{durationText}</td>
-                              <td>
+                              <td className="number-cell">{durationText}</td>
+                              <td className="number-cell">
                                 {job.total_activities_expected
                                   ? `${job.activities_synced} / ${job.total_activities_expected}`
                                   : `${job.activities_synced} activities`}
@@ -2772,7 +3118,7 @@ export default function Admin() {
                                   }}
                                   title="Stop this sync"
                                 >
-                                  ⏹️ Stop
+                                  <i className="fa-solid fa-stop"></i> Stop
                                 </button>
                               </td>
                             </tr>
@@ -2787,13 +3133,13 @@ export default function Admin() {
               {/* Recent Completed/Failed Syncs */}
               <div>
                 <h3 style={{ marginBottom: '1rem', fontSize: '1.3rem', fontWeight: 600 }}>
-                  📊 Recent Syncs (Last 10)
+                  <i className="fa-solid fa-chart-column"></i> Recent Syncs (Last 10)
                 </h3>
                 {syncQueueStatus.recent.length === 0 ? (
                   <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No recent syncs</p>
                 ) : (
-                  <div className="athletes-table-container">
-                    <table className="athletes-table">
+                  <div className="admin-table-container">
+                    <table className="admin-table">
                       <thead>
                         <tr>
                           <th>Sync ID</th>
@@ -2822,11 +3168,11 @@ export default function Admin() {
 
                           return (
                             <tr key={job.id}>
-                              <td>{job.id}</td>
+                              <td className="number-cell">{job.id}</td>
                               <td>
                                 {job.first_name} {job.last_name}
                               </td>
-                              <td>{job.strava_id}</td>
+                              <td className="strava-link">{job.strava_id}</td>
                               <td>{job.job_type}</td>
                               <td>
                                 <span
@@ -2835,19 +3181,19 @@ export default function Admin() {
                                   {job.status}
                                 </span>
                               </td>
-                              <td>
+                              <td className="date-cell">
                                 {startTime
                                   ? startTime.toLocaleString()
                                   : '-'}
                               </td>
-                              <td>
+                              <td className="date-cell">
                                 {endTime
                                   ? endTime.toLocaleString()
                                   : '-'}
                               </td>
-                              <td>{durationText}</td>
-                              <td>{job.activities_synced || 0}</td>
-                              <td>-</td>
+                              <td className="number-cell">{durationText}</td>
+                              <td className="number-cell">{job.activities_synced || 0}</td>
+                              <td className="number-cell">-</td>
                               <td>
                                 {job.error_message && (
                                   <span style={{ color: '#dc2626', fontSize: '0.85rem' }}>

@@ -80,7 +80,7 @@ export default function RaceFilters({
       <div className="filters-header" onClick={() => setIsExpanded(!isExpanded)}>
         <h3 className="filters-title">Filters</h3>
         <button className="filters-toggle" type="button" aria-label={isExpanded ? 'Collapse filters' : 'Expand filters'}>
-          {isExpanded ? '▼' : '▶'}
+          {isExpanded ? <i className="fa-solid fa-chevron-down"></i> : <i className="fa-solid fa-chevron-right"></i>}
         </button>
       </div>
 

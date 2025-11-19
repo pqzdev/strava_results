@@ -400,7 +400,7 @@ export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl,
                 marginLeft: '0.5rem',
                 fontWeight: 700,
               }}>
-                ⚠️ DANGER
+                <i className="fa-solid fa-triangle-exclamation"></i> DANGER
               </span>
             )}
           </h3>
@@ -484,7 +484,7 @@ export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl,
             }
           }}
         >
-          {isExecuting ? '⏳ Executing...' : '▶️ Execute Command'}
+          {isExecuting ? <><i className="fa-solid fa-spinner fa-spin"></i> Executing...</> : <><i className="fa-solid fa-play"></i> Execute Command</>}
         </button>
       </div>
 
@@ -497,7 +497,7 @@ export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl,
           borderRadius: '6px',
         }}>
           <p style={{ fontSize: '0.85rem', color: '#991b1b', fontWeight: 600, margin: '0 0 0.25rem 0' }}>
-            ❌ Error
+            <i className="fa-solid fa-xmark"></i> Error
           </p>
           <p style={{ fontSize: '0.85rem', color: '#7f1d1d', margin: 0 }}>
             {error}
@@ -514,7 +514,7 @@ export const ApiCommandCard: React.FC<ApiCommandCardProps> = ({ command, apiUrl,
           borderRadius: '6px',
         }}>
           <p style={{ fontSize: '0.85rem', color: '#166534', fontWeight: 600, margin: '0 0 0.5rem 0' }}>
-            ✅ Response
+            <i className="fa-solid fa-check"></i> Response
           </p>
           <pre style={{
             fontSize: '0.75rem',

@@ -378,7 +378,7 @@ export default function Dashboard() {
           </div>
         ) : races.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">🏃</div>
+            <div className="empty-icon"><i className="fa-solid fa-person-running"></i></div>
             <h3>No races found</h3>
             <p>
               {Object.values(filters).some((f) => f)

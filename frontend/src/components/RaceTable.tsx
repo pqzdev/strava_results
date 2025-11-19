@@ -678,7 +678,7 @@ function EditableEvent({ race, isAdmin, availableEvents, onSave, currentAthleteI
                 cursor: 'pointer',
               }}
             >
-              🔍
+              <i className="fa-solid fa-magnifying-glass"></i>
             </a>
           )}
         </>
@@ -746,9 +746,9 @@ export default function RaceTable({ races, currentAthleteId, isAdmin = false, on
     return 0;
   });
 
-  const getSortIndicator = (field: keyof Race) => {
-    if (sortField !== field) return ' ↕';
-    return sortDirection === 'asc' ? ' ↑' : ' ↓';
+  const getSortIndicator = (field: keyof Race): React.ReactNode => {
+    if (sortField !== field) return <> <i className="fa-solid fa-sort"></i></>;
+    return sortDirection === 'asc' ? <> <i className="fa-solid fa-sort-up"></i></> : <> <i className="fa-solid fa-sort-down"></i></>;
   };
 
   const handleTimeUpdate = async (raceId: number, newTime: number | null) => {
