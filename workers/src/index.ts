@@ -9,7 +9,7 @@ import { healthCheckBatchedSyncs } from './cron/sync-health-monitor';
 import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin, getAdminSyncStatus, stopSyncJob, triggerBatchedAthleteSync, getBatchedSyncProgress } from './api/admin';
 import { getReviewActivities, updateActivity } from './api/admin-review';
-import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate, getParkrunWeeklySummary } from './api/parkrun';
+import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate, getParkrunWeeklySummary, getParkrunDuplicates } from './api/parkrun';
 import { importParkrunCSV } from './api/parkrun-import';
 import { importIndividualParkrunCSV } from './api/parkrun-import-individual';
 import { getAthletesToScrape } from './api/parkrun-athletes-to-scrape';
@@ -414,6 +414,10 @@ export default {
 
       if (path === '/api/parkrun/athletes' && request.method === 'GET') {
         return getParkrunAthletes(request, env);
+      }
+
+      if (path === '/api/parkrun/duplicates' && request.method === 'GET') {
+        return getParkrunDuplicates(request, env);
       }
 
       // Update parkrun athlete visibility
