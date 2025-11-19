@@ -63,7 +63,8 @@ export async function getAdminAthletes(request: Request, env: Env): Promise<Resp
     for (const athlete of result.results) {
       const athleteData: any = { ...athlete };
 
-      if (athlete.sync_session_id && athlete.sync_status === 'in_progress') {
+      // Get batch progress for any athlete with a sync_session_id (including completed/failed)
+      if (athlete.sync_session_id) {
         // Get batch summary for this session
         const batchSummary = await env.DB.prepare(
           `SELECT
@@ -71,20 +72,28 @@ export async function getAdminAthletes(request: Request, env: Env): Promise<Resp
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_batches,
             SUM(CASE WHEN status = 'completed' THEN activities_fetched ELSE 0 END) as total_activities,
             SUM(CASE WHEN status = 'completed' THEN races_added ELSE 0 END) as total_races_added,
-            MAX(CASE WHEN status = 'processing' THEN batch_number ELSE NULL END) as current_batch
+            SUM(CASE WHEN status = 'completed' THEN races_removed ELSE 0 END) as total_races_removed,
+            MAX(CASE WHEN status = 'processing' THEN batch_number ELSE NULL END) as current_batch,
+            MIN(created_at) as started_at,
+            MAX(completed_at) as completed_at,
+            MAX(CASE WHEN status = 'failed' THEN error_message ELSE NULL END) as error_message
           FROM sync_batches
           WHERE sync_session_id = ?`
         )
           .bind(athlete.sync_session_id)
           .first();
 
-        if (batchSummary) {
+        if (batchSummary && (batchSummary.total_batches as number) > 0) {
           athleteData.batch_progress = {
             total_batches: batchSummary.total_batches || 0,
             completed_batches: batchSummary.completed_batches || 0,
             total_activities: batchSummary.total_activities || 0,
             total_races_added: batchSummary.total_races_added || 0,
+            total_races_removed: batchSummary.total_races_removed || 0,
             current_batch: batchSummary.current_batch,
+            started_at: batchSummary.started_at,
+            completed_at: batchSummary.completed_at,
+            error_message: batchSummary.error_message,
           };
         }
       }
