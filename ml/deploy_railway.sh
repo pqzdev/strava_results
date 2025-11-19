@@ -18,7 +18,7 @@ cd "$(dirname "$0")"
 # Initialize Railway project
 echo ""
 echo "📦 Step 1: Initializing Railway project..."
-echo "  → Select: kalvinoz's Projects"
+echo "  → Select: pqzdev's Projects"
 echo "  → Create new: Yes"
 echo "  → Name: strava-ml-api"
 echo ""

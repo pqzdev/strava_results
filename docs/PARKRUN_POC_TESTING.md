@@ -88,7 +88,7 @@ Since the test script is in `strava_results` (not the HA repo), you have two opt
 
 ```bash
 cd /Users/pqz/Code/homeassistant
-git submodule add https://github.com/kalvinoz/strava_results.git submodules/strava_results
+git submodule add https://github.com/pqzdev/strava_results.git submodules/strava_results
 git commit -m "Add strava_results as submodule for parkrun scripts"
 git push
 

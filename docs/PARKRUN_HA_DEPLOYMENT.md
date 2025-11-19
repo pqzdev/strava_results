@@ -44,7 +44,7 @@ ls -la /config/scripts/parkrun/
 ```bash
 # On HA, pull the strava_results repo
 cd /config
-git clone https://github.com/kalvinoz/strava_results.git submodules/strava_results
+git clone https://github.com/pqzdev/strava_results.git submodules/strava_results
 
 # Copy scripts
 cp submodules/strava_results/scripts/parkrun-homeassistant.js scripts/parkrun/

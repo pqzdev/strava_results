@@ -6,7 +6,7 @@
 echo "🚀 Deploying ML Inference API to Railway"
 echo ""
 echo "When prompted:"
-echo "  1. Select workspace: kalvinoz's Projects"
+echo "  1. Select workspace: pqzdev's Projects"
 echo "  2. Create new project: strava-ml-api (or similar name)"
 echo "  3. Wait for deployment to complete"
 echo ""

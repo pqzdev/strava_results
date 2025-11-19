@@ -28,7 +28,7 @@ git pull origin main
 # Go to HA UI → Settings → Scripts → [Parkrun] Start Proxy Server
 ```
 
-See [homeassistant/scripts/parkrun/README.md](https://github.com/kalvinoz/homeassistant/tree/main/scripts/parkrun) for details.
+See [homeassistant/scripts/parkrun/README.md](https://github.com/pqzdev/homeassistant/tree/main/scripts/parkrun) for details.
 
 ### 2. Configure Cloudflare Tunnel
 
@@ -38,7 +38,7 @@ Add a public hostname to your existing Cloudflare Tunnel:
 - **Domain**: Your domain
 - **Service**: `http://homeassistant11.local:8765`
 
-See [homeassistant/scripts/parkrun/CLOUDFLARE_TUNNEL_SETUP.md](https://github.com/kalvinoz/homeassistant/tree/main/scripts/parkrun/CLOUDFLARE_TUNNEL_SETUP.md) for detailed instructions.
+See [homeassistant/scripts/parkrun/CLOUDFLARE_TUNNEL_SETUP.md](https://github.com/pqzdev/homeassistant/tree/main/scripts/parkrun/CLOUDFLARE_TUNNEL_SETUP.md) for detailed instructions.
 
 ### 3. Add Environment Variable to Workers
 
@@ -233,7 +233,7 @@ async function getCachedParkrunData(clubNum: string, env: Env): Promise<string> 
 
 - [workers/src/utils/parkrun-proxy.ts](workers/src/utils/parkrun-proxy.ts) - Utility functions
 - [PARKRUN_PROXY_INTEGRATION.md](PARKRUN_PROXY_INTEGRATION.md) - This file
-- See [homeassistant/scripts/parkrun/](https://github.com/kalvinoz/homeassistant/tree/main/scripts/parkrun) for proxy implementation
+- See [homeassistant/scripts/parkrun/](https://github.com/pqzdev/homeassistant/tree/main/scripts/parkrun) for proxy implementation
 
 ## Next Steps
 
