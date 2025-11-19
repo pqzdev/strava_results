@@ -19,7 +19,7 @@
     const API_KEY_STORAGE = 'parkrun_scraper_api_key';
     const SCRIPT_URL = 'https://woodstock-results.pages.dev/parkrun-individual-batch-browser.js';
 
-    // Add CSS for the floating button
+    // Add CSS for the floating button and modal
     GM_addStyle(`
         #parkrun-scraper-button {
             position: fixed;
@@ -52,6 +52,114 @@
         @keyframes pulse {
             0%, 100% { box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4); }
             50% { box-shadow: 0 4px 25px rgba(245, 87, 108, 0.8); }
+        }
+
+        /* Modal styles */
+        #parkrun-scraper-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #parkrun-scraper-modal .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+        #parkrun-scraper-modal h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: #333;
+        }
+        #parkrun-scraper-modal .radio-group {
+            margin-bottom: 16px;
+        }
+        #parkrun-scraper-modal .radio-option {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            margin: 6px 0;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        #parkrun-scraper-modal .radio-option:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        #parkrun-scraper-modal .radio-option.selected {
+            border-color: #667eea;
+            background: #f0f3ff;
+        }
+        #parkrun-scraper-modal .radio-option input {
+            margin-right: 10px;
+        }
+        #parkrun-scraper-modal .radio-option label {
+            cursor: pointer;
+            flex: 1;
+            font-size: 14px;
+            color: #333;
+        }
+        #parkrun-scraper-modal .delay-input {
+            margin-bottom: 16px;
+        }
+        #parkrun-scraper-modal .delay-input label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #555;
+        }
+        #parkrun-scraper-modal .delay-input input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        #parkrun-scraper-modal .delay-input input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        #parkrun-scraper-modal .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        #parkrun-scraper-modal button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        #parkrun-scraper-modal .btn-cancel {
+            background: #f0f0f0;
+            color: #666;
+        }
+        #parkrun-scraper-modal .btn-cancel:hover {
+            background: #e0e0e0;
+        }
+        #parkrun-scraper-modal .btn-start {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        #parkrun-scraper-modal .btn-start:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
     `);
 
@@ -98,93 +206,132 @@
         return apiKey;
     }
 
-    // Button click handler - start scraper
-    button.onclick = function() {
-        const apiKey = getApiKey();
-        if (!apiKey) return;
-
+    // Show modal dialog for scraper configuration
+    function showConfigModal(apiKey) {
         // Get current athlete ID from URL for "only this" option
         const urlMatch = window.location.pathname.match(/\/parkrunner\/(\d+)/);
         const currentAthleteId = urlMatch ? urlMatch[1] : null;
 
-        const modeInput = prompt(
-            'Select scraping mode:\n\n' +
-            '1 = All athletes (refresh all)\n' +
-            '2 = New athletes only\n' +
-            '3 = Only this parkrunner' + (currentAthleteId ? ` (${currentAthleteId})` : '') + '\n\n' +
-            'Enter 1, 2, or 3:'
-        );
+        // Create modal
+        const modal = document.createElement('div');
+        modal.id = 'parkrun-scraper-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h3>Parkrun Batch Scraper</h3>
+                <div class="radio-group">
+                    <div class="radio-option selected" data-value="all">
+                        <input type="radio" name="scrape-mode" id="mode-all" value="all" checked>
+                        <label for="mode-all">All athletes (refresh all)</label>
+                    </div>
+                    <div class="radio-option" data-value="new">
+                        <input type="radio" name="scrape-mode" id="mode-new" value="new">
+                        <label for="mode-new">New athletes only</label>
+                    </div>
+                    <div class="radio-option" data-value="single">
+                        <input type="radio" name="scrape-mode" id="mode-single" value="single">
+                        <label for="mode-single">Only this parkrunner${currentAthleteId ? ` (${currentAthleteId})` : ''}</label>
+                    </div>
+                </div>
+                <div class="delay-input">
+                    <label for="delay-ms">Delay between athletes (ms)</label>
+                    <input type="number" id="delay-ms" value="3000" min="1000" max="30000">
+                </div>
+                <div class="button-group">
+                    <button class="btn-cancel">Cancel</button>
+                    <button class="btn-start">Start</button>
+                </div>
+            </div>
+        `;
 
-        if (!modeInput) {
+        document.body.appendChild(modal);
+
+        // Handle radio option clicks
+        const radioOptions = modal.querySelectorAll('.radio-option');
+        radioOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                radioOptions.forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                option.querySelector('input').checked = true;
+            });
+        });
+
+        // Handle cancel
+        modal.querySelector('.btn-cancel').addEventListener('click', () => {
+            modal.remove();
             console.log('❌ Scraper cancelled');
-            return;
-        }
+        });
 
-        let mode;
-        let onlyThisAthlete = null;
-        switch (modeInput.trim()) {
-            case '1':
-                mode = 'all';
-                break;
-            case '2':
-                mode = 'new';
-                break;
-            case '3':
-                mode = 'single';
+        // Handle start
+        modal.querySelector('.btn-start').addEventListener('click', () => {
+            const selectedMode = modal.querySelector('input[name="scrape-mode"]:checked').value;
+            const delay = parseInt(modal.querySelector('#delay-ms').value) || 3000;
+
+            if (delay < 1000 || delay > 30000) {
+                alert('❌ Delay must be between 1000 and 30000 milliseconds');
+                return;
+            }
+
+            let mode = selectedMode;
+            let onlyThisAthlete = null;
+
+            if (mode === 'single') {
                 onlyThisAthlete = currentAthleteId;
                 if (!onlyThisAthlete) {
                     alert('❌ Could not detect athlete ID from URL');
                     return;
                 }
-                break;
-            default:
-                alert('❌ Invalid selection. Please enter 1, 2, or 3.');
-                return;
-        }
-
-        const delayInput = prompt('Delay between athletes (milliseconds):', '3000');
-        if (!delayInput) {
-            console.log('❌ Scraper cancelled');
-            return;
-        }
-        const delay = parseInt(delayInput) || 3000;
-
-        if (delay < 1000 || delay > 30000) {
-            alert('❌ Delay must be between 1000 and 30000 milliseconds');
-            return;
-        }
-
-        const config = {
-            mode,
-            delay,
-            apiEndpoint: 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import-individual',
-            athletesApiEndpoint: 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/athletes-to-scrape',
-            apiKey: apiKey,
-            onlyThisAthlete: onlyThisAthlete,
-            active: true
-        };
-
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-
-        console.log('✅ Parkrun Batch Scraper activated!');
-        console.log('Configuration:', config);
-        console.log('\nThe scraper will now AUTO-RUN on each parkrun athlete page.');
-        console.log('Click the button again to stop.');
-
-        button.textContent = '🔄 Scraper Running...';
-        button.classList.add('active');
-        button.onclick = function() {
-            if (confirm('Stop the batch scraper?')) {
-                sessionStorage.removeItem(STORAGE_KEY);
-                sessionStorage.removeItem(EXECUTED_KEY);
-                button.textContent = '🏃 Start Batch Scraper';
-                button.classList.remove('active');
-                console.log('✅ Parkrun Batch Scraper stopped');
             }
-        };
 
-        // Start scraping immediately
-        runScraper();
+            const config = {
+                mode,
+                delay,
+                apiEndpoint: 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/import-individual',
+                athletesApiEndpoint: 'https://strava-club-workers.pedroqueiroz.workers.dev/api/parkrun/athletes-to-scrape',
+                apiKey: apiKey,
+                onlyThisAthlete: onlyThisAthlete,
+                active: true
+            };
+
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+
+            console.log('✅ Parkrun Batch Scraper activated!');
+            console.log('Configuration:', config);
+            console.log('\nThe scraper will now AUTO-RUN on each parkrun athlete page.');
+            console.log('Click the button again to stop.');
+
+            button.textContent = '🔄 Scraper Running...';
+            button.classList.add('active');
+            button.onclick = function() {
+                if (confirm('Stop the batch scraper?')) {
+                    sessionStorage.removeItem(STORAGE_KEY);
+                    sessionStorage.removeItem(EXECUTED_KEY);
+                    button.textContent = '🏃 Start Batch Scraper';
+                    button.classList.remove('active');
+                    console.log('✅ Parkrun Batch Scraper stopped');
+                }
+            };
+
+            modal.remove();
+
+            // Start scraping immediately
+            runScraper();
+        });
+
+        // Close modal on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                console.log('❌ Scraper cancelled');
+            }
+        });
+    }
+
+    // Button click handler - start scraper
+    button.onclick = function() {
+        const apiKey = getApiKey();
+        if (!apiKey) return;
+
+        showConfigModal(apiKey);
     };
 
     function runScraper() {
