@@ -402,10 +402,12 @@
             errors: stats.failed
         });
 
-        // Add stop button
+        // Toggle panel visibility on button click
         button.onclick = function() {
-            if (confirm('Stop the batch scraper?')) {
-                stopScraper();
+            if (progressPanel.style.display === 'none') {
+                progressPanel.style.display = 'block';
+            } else {
+                progressPanel.style.display = 'none';
             }
         };
 
@@ -535,9 +537,12 @@
             });
             document.getElementById('log-messages').innerHTML = '';
 
+            // Toggle panel visibility on button click
             button.onclick = function() {
-                if (confirm('Stop the batch scraper?')) {
-                    stopScraper();
+                if (progressPanel.style.display === 'none') {
+                    progressPanel.style.display = 'block';
+                } else {
+                    progressPanel.style.display = 'none';
                 }
             };
 
