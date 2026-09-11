@@ -11,6 +11,7 @@ interface WeeklySummary {
   popularEvents: Array<{ name: string; count: number }>;
   firstTimeEvents: Array<{ name: string; athletes: string[] }>;
   rarePokemons: Array<{ name: string; visitCount: number; athletes: string[] }>;
+  parkrunTourism: Array<{ name: string; pctWeeksAttended: number; totalVisits: number; athletes: string[] }>;
 }
 
 interface MilestoneData {
@@ -289,6 +290,19 @@ export default function ParkrunWeeklySummary() {
                 {index > 0 && ', '}
                 {pokemon.name} ({getOrdinal(pokemon.visitCount)} Woodies visit
                 {pokemon.athletes.length > 0 && ` - ${pokemon.athletes.join(', ')}`})
+              </span>
+            ))}
+          </p>
+        )}
+
+        {summary.parkrunTourism.length > 0 && (
+          <p>
+            <i className="fa-solid fa-plane"></i> <strong>Parkrun Tourism:</strong>{' '}
+            {summary.parkrunTourism.map((event, index) => (
+              <span key={event.name}>
+                {index > 0 && ', '}
+                {event.name} ({event.pctWeeksAttended}% of weeks since first visit
+                {event.athletes.length > 0 && ` - ${event.athletes.join(', ')}`})
               </span>
             ))}
           </p>

@@ -749,6 +749,58 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
     // Sort rare Pokémon by visit count ascending (2nd visit, then 3rd visit, etc.)
     rarePokemons.sort((a, b) => a.visitCount - b.visitCount);
 
+    // Parkrun Tourism: events Woodies have attended <=15% of weeks since first
+    // recording them there (with >1 total visit, to exclude first-timers). This
+    // catches genuine one-off/travel destinations while excluding both home
+    // venues (70%+ of weeks) and regular day-trip spots (e.g. Woy Woy at ~21%).
+    // Events already called out as a First Woodies Visit or Rare Visit this
+    // week are excluded here so each event appears in only one category.
+    const TOURISM_MAX_PCT = 15;
+    const alreadyHighlighted = new Set<string>([
+      ...firstTimeEvents.map((e) => e.name),
+      ...rarePokemons.map((e) => e.name),
+    ]);
+    const parkrunTourism: Array<{ name: string; pctWeeksAttended: number; totalVisits: number; athletes: string[] }> = [];
+
+    if (currentEvents.length > 0) {
+      const placeholders = currentEvents.map(() => '?').join(', ');
+      const tourismStatsQuery = `
+        SELECT
+          pr.event_name,
+          COUNT(DISTINCT pr.date) as distinct_dates,
+          MIN(pr.date) as first_seen,
+          MAX(pr.date) as last_seen
+        FROM parkrun_results pr
+        LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+        WHERE pr.event_name IN (${placeholders})
+          AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+        GROUP BY pr.event_name
+      `;
+      const tourismStatsResult = await env.DB.prepare(tourismStatsQuery).bind(...currentEvents).all();
+
+      for (const row of (tourismStatsResult.results || []) as Array<{ event_name: string; distinct_dates: number; first_seen: string; last_seen: string }>) {
+        if (row.distinct_dates <= 1) continue; // exclude first-timers, covered by firstTimeEvents
+        if (alreadyHighlighted.has(row.event_name)) continue; // avoid double-counting with other categories
+
+        const weeksSpan = Math.floor(
+          (new Date(row.last_seen).getTime() - new Date(row.first_seen).getTime()) / (7 * 24 * 60 * 60 * 1000)
+        ) + 1;
+        const pctWeeksAttended = (row.distinct_dates / weeksSpan) * 100;
+
+        if (pctWeeksAttended <= TOURISM_MAX_PCT) {
+          parkrunTourism.push({
+            name: row.event_name,
+            pctWeeksAttended: Math.round(pctWeeksAttended * 10) / 10,
+            totalVisits: row.distinct_dates,
+            athletes: athleteNamesByEvent.get(row.event_name) || [],
+          });
+        }
+      }
+    }
+
+    // Sort tourism events by rarity ascending (least-visited relative to their history first)
+    parkrunTourism.sort((a, b) => a.pctWeeksAttended - b.pctWeeksAttended);
+
     return new Response(
       JSON.stringify({
         date: targetDate,
@@ -760,6 +812,7 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
         popularEvents,
         firstTimeEvents,
         rarePokemons,
+        parkrunTourism,
       }),
       {
         headers: {
