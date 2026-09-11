@@ -154,33 +154,45 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
       }
 
       // Batch check for existing results - build lookup keys
-      // SQLite has a limit of ~999 variables
-      // For existence check: 3 variables per row, so max ~330 rows
-      // For inserts: 10 variables per statement, so max ~99 statements
-      // Using 20 for existence checks (60 variables) and separate limit for inserts
-      const EXISTENCE_BATCH_SIZE = 20;
-      const STATEMENT_BATCH_SIZE = 50; // Each INSERT has 10 vars = 500 total
+      // The table has TWO unique constraints we must respect:
+      //  1. UNIQUE(athlete_name, event_name, event_number, date) - original constraint
+      //  2. UNIQUE(parkrun_athlete_id, event_name, date) WHERE parkrun_athlete_id IS NOT NULL - added later
+      // A row can collide on either, so the existence check must match both to avoid
+      // an uncaught SQLITE_CONSTRAINT_UNIQUE error blowing up the whole batch.
+      // D1 enforces a hard limit of 100 bound variables PER STATEMENT (stricter than
+      // SQLite's own ~999 default); this limit does not sum across a .batch() call,
+      // it applies to each statement in the batch individually.
+      // The existence check is a single statement binding 7 vars/row (all rows OR'd
+      // together), so it must stay under 100/7 (~14) rows. Each INSERT/UPDATE is its
+      // own statement with only ~10 vars, so STATEMENT_BATCH_SIZE just controls how
+      // many statements go in one .batch() call and can stay large.
+      const EXISTENCE_BATCH_SIZE = 10; // 10 rows * 7 vars = 70 variables, under the 100 cap
+      const STATEMENT_BATCH_SIZE = 50; // Each statement has ~10 vars, well under the 100 cap
       const existingResults = new Map<string, { id: number; data_source: string | null; time_seconds: number }>();
 
       for (let i = 0; i < processedRows.length; i += EXISTENCE_BATCH_SIZE) {
         const batch = processedRows.slice(i, i + EXISTENCE_BATCH_SIZE);
 
-        // Build query for this batch
-        const placeholders = batch.map(() => '(parkrun_athlete_id = ? AND event_name = ? AND date = ?)').join(' OR ');
+        // Build query for this batch - match either unique constraint
+        const placeholders = batch
+          .map(() => '((parkrun_athlete_id = ? AND event_name = ? AND date = ?) OR (athlete_name = ? AND event_name = ? AND event_number = ? AND date = ?))')
+          .join(' OR ');
         const bindings: any[] = [];
         batch.forEach(row => {
-          bindings.push(row.parkrunId, row.eventName, row.date);
+          bindings.push(row.parkrunId, row.eventName, row.date, row.athleteName, row.eventName, row.runNumber, row.date);
         });
 
         const existingQuery = await env.DB.prepare(
-          `SELECT id, parkrun_athlete_id, event_name, date, data_source, time_seconds
+          `SELECT id, parkrun_athlete_id, athlete_name, event_name, event_number, date, data_source, time_seconds
            FROM parkrun_results
            WHERE ${placeholders}`
-        ).bind(...bindings).all<{ id: number; parkrun_athlete_id: string; event_name: string; date: string; data_source: string | null; time_seconds: number }>();
+        ).bind(...bindings).all<{ id: number; parkrun_athlete_id: string; athlete_name: string; event_name: string; event_number: number; date: string; data_source: string | null; time_seconds: number }>();
 
         for (const result of (existingQuery.results || [])) {
-          const key = `${result.parkrun_athlete_id}|${result.event_name}|${result.date}`;
-          existingResults.set(key, { id: result.id, data_source: result.data_source, time_seconds: result.time_seconds });
+          const value = { id: result.id, data_source: result.data_source, time_seconds: result.time_seconds };
+          // Index under both possible lookup keys so either constraint match is found below
+          existingResults.set(`id|${result.parkrun_athlete_id}|${result.event_name}|${result.date}`, value);
+          existingResults.set(`name|${result.athlete_name}|${result.event_name}|${result.event_number}|${result.date}`, value);
         }
       }
 
@@ -188,9 +200,20 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
       const insertStatements: D1PreparedStatement[] = [];
       const updateStatements: D1PreparedStatement[] = [];
 
+      // Two rows in the same CSV can resolve to the same key (e.g. missing Run
+      // Number defaulting to 0) - track keys we've already queued an INSERT for
+      // so we don't issue two INSERTs that collide with each other.
+      const insertedKeys = new Set<string>();
+
       for (const row of processedRows) {
-        const key = `${row.parkrunId}|${row.eventName}|${row.date}`;
-        const existing = existingResults.get(key);
+        const idKey = `id|${row.parkrunId}|${row.eventName}|${row.date}`;
+        const nameKey = `name|${row.athleteName}|${row.eventName}|${row.runNumber}|${row.date}`;
+        const existing = existingResults.get(idKey) || existingResults.get(nameKey);
+
+        if (!existing && (insertedKeys.has(idKey) || insertedKeys.has(nameKey))) {
+          duplicatesSkipped++;
+          continue;
+        }
 
         if (existing) {
           // Row exists - handle based on data source
@@ -223,6 +246,8 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
           }
         } else {
           // New row - insert it
+          insertedKeys.add(idKey);
+          insertedKeys.add(nameKey);
           insertStatements.push(
             env.DB.prepare(
               `INSERT INTO parkrun_results

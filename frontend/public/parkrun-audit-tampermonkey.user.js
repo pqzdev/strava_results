@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Parkrun Athlete Data Audit
 // @namespace    http://tampermonkey.net/
-// @version      2.2
+// @version      2.3
 // @description  Audits athlete run counts against the database and imports missing runs
 // @author       Woodstock Results
 // @match        https://www.parkrun.com/parkrunner/*/
@@ -478,11 +478,14 @@
             // Last resort: first h1 on the page
             document.querySelector('h1'),
         ];
+        // Generic section headings that appear as the first <h1> on some page
+        // layouts (e.g. the /all/ page) instead of the athlete's actual name.
+        const GENERIC_HEADINGS = new Set(['results', 'results index', 'event history', 'summary']);
         for (const el of candidates) {
             if (!el) continue;
             const text = el.textContent.replace(/[\s ]*\(A\d+\)[\s ]*$/, '').trim();
-            // Reject if it looks like a nav item or page title (too short or generic)
-            if (text && text.length > 3 && !text.toLowerCase().includes('parkrun')) return text;
+            // Reject if it looks like a nav item, page title, or generic section heading
+            if (text && text.length > 3 && !text.toLowerCase().includes('parkrun') && !GENERIC_HEADINGS.has(text.toLowerCase())) return text;
         }
         // Fallback: page title is usually "FirstName LASTNAME | parkrun"
         return document.title.split(/[|\-–]/)[0].trim();
