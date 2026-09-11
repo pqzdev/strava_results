@@ -9,8 +9,8 @@ interface WeeklySummary {
     eventCount: number;
   };
   popularEvents: Array<{ name: string; count: number }>;
-  firstTimeEvents: string[];
-  rarePokemons: Array<{ name: string; visitCount: number }>;
+  firstTimeEvents: Array<{ name: string; athletes: string[] }>;
+  rarePokemons: Array<{ name: string; visitCount: number; athletes: string[] }>;
 }
 
 interface MilestoneData {
@@ -271,17 +271,24 @@ export default function ParkrunWeeklySummary() {
         {summary.firstTimeEvents.length > 0 && (
           <p>
             <i className="fa-solid fa-champagne-glasses"></i> <strong>First Woodies visit:</strong>{' '}
-            {summary.firstTimeEvents.join(', ')}
+            {summary.firstTimeEvents.map((event, index) => (
+              <span key={event.name}>
+                {index > 0 && ', '}
+                {event.name}
+                {event.athletes.length > 0 && ` (${event.athletes.join(', ')})`}
+              </span>
+            ))}
           </p>
         )}
 
         {summary.rarePokemons.length > 0 && (
           <p>
-            <i className="fa-solid fa-wand-sparkles"></i> <strong>Rare Pokémons:</strong>{' '}
+            <i className="fa-solid fa-wand-sparkles"></i> <strong>Rare Visits:</strong>{' '}
             {summary.rarePokemons.map((pokemon, index) => (
               <span key={pokemon.name}>
                 {index > 0 && ', '}
-                {pokemon.name} ({getOrdinal(pokemon.visitCount)} Woodies visit)
+                {pokemon.name} ({getOrdinal(pokemon.visitCount)} Woodies visit
+                {pokemon.athletes.length > 0 && ` - ${pokemon.athletes.join(', ')}`})
               </span>
             ))}
           </p>

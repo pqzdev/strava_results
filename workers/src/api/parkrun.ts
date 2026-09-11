@@ -261,6 +261,106 @@ export async function getParkrunStats(request: Request, env: Env): Promise<Respo
 }
 
 /**
+ * GET /api/parkrun/leaderboard
+ * Returns per-athlete aggregates respecting the same filters as /api/parkrun.
+ * Query params: athlete (multi), event (multi), date_from, date_to, offset, limit (default 10)
+ */
+export async function getParkrunLeaderboard(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '10'), 100);
+  const offset = parseInt(url.searchParams.get('offset') || '0');
+  const athletes = url.searchParams.getAll('athlete');
+  const events   = url.searchParams.getAll('event');
+  const dateFrom = url.searchParams.get('date_from');
+  const dateTo   = url.searchParams.get('date_to');
+
+  const validSortFields: Record<string, string> = {
+    athlete_name:   'agg.athlete_name',
+    total_runs:     'agg.total_runs',
+    distinct_events:'agg.distinct_events',
+    fastest_seconds:'agg.fastest_seconds',
+  };
+  const rawSort = url.searchParams.get('sort_by') || 'total_runs';
+  const sortCol = validSortFields[rawSort] || 'agg.total_runs';
+  const sortDir = url.searchParams.get('sort_dir') === 'asc' ? 'ASC' : 'DESC';
+  // Secondary sort: always break ties consistently
+  const orderBy = sortCol === 'agg.total_runs'
+    ? `${sortCol} ${sortDir}, agg.fastest_seconds ASC`
+    : `${sortCol} ${sortDir}, agg.total_runs DESC`;
+
+  try {
+    const bindings: any[] = [];
+    let where = `WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0) AND pr.time_seconds > 0`;
+
+    if (athletes.length) {
+      where += ` AND pr.athlete_name IN (${athletes.map(() => '?').join(',')})`;
+      bindings.push(...athletes);
+    }
+    if (events.length) {
+      where += ` AND pr.event_name IN (${events.map(() => '?').join(',')})`;
+      bindings.push(...events);
+    }
+    if (dateFrom) { where += ` AND pr.date >= ?`; bindings.push(dateFrom); }
+    if (dateTo)   { where += ` AND pr.date <= ?`; bindings.push(dateTo); }
+
+    const countRow = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT pr.athlete_name) as total
+       FROM parkrun_results pr
+       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+       ${where}`
+    ).bind(...bindings).first<{ total: number }>();
+
+    const rows = await env.DB.prepare(
+      `SELECT
+         agg.athlete_name,
+         (SELECT parkrun_athlete_id FROM parkrun_results
+          WHERE athlete_name = agg.athlete_name AND parkrun_athlete_id IS NOT NULL LIMIT 1) as parkrun_athlete_id,
+         agg.total_runs,
+         agg.distinct_events,
+         agg.fastest_seconds,
+         (SELECT time_string FROM parkrun_results
+          WHERE athlete_name = agg.athlete_name
+            AND time_seconds = agg.fastest_seconds
+            AND time_seconds > 0
+          LIMIT 1) as fastest_time_string
+       FROM (
+         SELECT
+           pr.athlete_name,
+           COUNT(*)                      as total_runs,
+           COUNT(DISTINCT pr.event_name) as distinct_events,
+           MIN(pr.time_seconds)          as fastest_seconds
+         FROM parkrun_results pr
+         LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+         ${where}
+         GROUP BY pr.athlete_name
+       ) agg
+       ORDER BY ${orderBy}
+       LIMIT ? OFFSET ?`
+    ).bind(...bindings, limit, offset).all<{
+      athlete_name: string;
+      parkrun_athlete_id: string | null;
+      total_runs: number;
+      distinct_events: number;
+      fastest_seconds: number;
+      fastest_time_string: string | null;
+    }>();
+
+    return new Response(
+      JSON.stringify({
+        leaderboard: rows.results || [],
+        pagination: { total: countRow?.total ?? 0, limit, offset },
+      }),
+      { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to fetch leaderboard', message: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  }
+}
+
+/**
  * GET /api/parkrun/athletes - Get all parkrun athletes (for admin management)
  */
 export async function getParkrunAthletes(request: Request, env: Env): Promise<Response> {
@@ -586,11 +686,33 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
     const currentEventsResult = await env.DB.prepare(currentEventsQuery).bind(targetDate).all();
     const currentEvents = (currentEventsResult.results || []).map((e: any) => e.event_name);
 
+    // Get athlete names per event for this date (excluding hidden athletes), for
+    // attaching to first-time and rare-visit call-outs below.
+    const athleteNamesByEvent = new Map<string, string[]>();
+    if (currentEvents.length > 0) {
+      const namesQuery = `
+        SELECT pr.event_name, pr.athlete_name
+        FROM parkrun_results pr
+        LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+        WHERE pr.date = ?
+          AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+        ORDER BY pr.athlete_name
+      `;
+      const namesResult = await env.DB.prepare(namesQuery).bind(targetDate).all();
+      for (const row of (namesResult.results || []) as Array<{ event_name: string; athlete_name: string }>) {
+        const names = athleteNamesByEvent.get(row.event_name) || [];
+        names.push(row.athlete_name);
+        athleteNamesByEvent.set(row.event_name, names);
+      }
+    }
+
     // Find first-time events (events on current date that don't appear in preceding dates)
-    const firstTimeEvents = currentEvents.filter((event) => !precedingEvents.has(event));
+    const firstTimeEvents = currentEvents
+      .filter((event) => !precedingEvents.has(event))
+      .map((event) => ({ name: event, athletes: athleteNamesByEvent.get(event) || [] }));
 
     // Get event occurrence counts before this date for ALL current events in one query (fixes N+1 problem)
-    const rarePokemons: Array<{ name: string; visitCount: number }> = [];
+    const rarePokemons: Array<{ name: string; visitCount: number; athletes: string[] }> = [];
 
     if (currentEvents.length > 0) {
       const placeholders = currentEvents.map(() => '?').join(', ');
@@ -619,7 +741,7 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
 
         // Only include events with <=5 total visits (including current)
         if (visitCount <= 5 && visitCount > 1) { // >1 to exclude first-time events
-          rarePokemons.push({ name: event, visitCount });
+          rarePokemons.push({ name: event, visitCount, athletes: athleteNamesByEvent.get(event) || [] });
         }
       }
     }

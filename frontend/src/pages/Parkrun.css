@@ -272,6 +272,122 @@
   flex-shrink: 0;
 }
 
+/* Woodstock Leaderboard */
+.leaderboard-section {
+  margin: 2rem 0;
+}
+
+.leaderboard-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+}
+
+.leaderboard-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #888;
+  background: #f9f9f9;
+  border-radius: 12px;
+}
+
+.leaderboard-table-container {
+  overflow-x: auto;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leaderboard-table thead {
+  background-color: #f5f5f5;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.leaderboard-table th {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.leaderboard-th-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.leaderboard-th-sortable:hover {
+  background-color: #ececec;
+}
+
+.leaderboard-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: left;
+}
+
+.leaderboard-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.leaderboard-rank {
+  width: 48px;
+}
+
+.leaderboard-rank-cell {
+  width: 48px;
+  font-weight: 700;
+  color: #764ba2;
+}
+
+.leaderboard-athlete {
+  font-weight: 500;
+  color: #667eea;
+}
+
+.leaderboard-athlete-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #667eea;
+  font-weight: 500;
+  font-size: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.leaderboard-athlete-btn:hover {
+  text-decoration: underline;
+  color: #5568d3;
+}
+
+.leaderboard-time {
+  font-weight: 600;
+  color: #333;
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+
 .loading {
   text-align: center;
   padding: 3rem;

@@ -34,7 +34,17 @@ interface Filters {
 }
 
 type SortField = 'date' | 'event_name' | 'athlete_name' | 'position' | 'gender_position' | 'time_seconds';
+type LeaderboardSortField = 'athlete_name' | 'total_runs' | 'distinct_events' | 'fastest_seconds';
 type SortDirection = 'asc' | 'desc';
+
+interface LeaderboardEntry {
+  athlete_name: string;
+  parkrun_athlete_id: string | null;
+  total_runs: number;
+  distinct_events: number;
+  fastest_seconds: number;
+  fastest_time_string: string | null;
+}
 
 interface ParkrunStats {
   totalResults: number;
@@ -92,10 +102,26 @@ export default function Parkrun() {
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [leaderboardTotal, setLeaderboardTotal] = useState(0);
+  const [leaderboardOffset, setLeaderboardOffset] = useState(0);
+  const [leaderboardSortField, setLeaderboardSortField] = useState<LeaderboardSortField>('total_runs');
+  const [leaderboardSortDir, setLeaderboardSortDir] = useState<SortDirection>('desc');
+  const LEADERBOARD_LIMIT = 10;
+
   useEffect(() => {
     fetchResults();
     fetchStats();
   }, [filters, pagination.offset, sortField, sortDirection]);
+
+  // Reset leaderboard to page 1 when the relevant filters or sort change
+  useEffect(() => {
+    setLeaderboardOffset(0);
+  }, [filters.events, filters.dateFrom, filters.dateTo, leaderboardSortField, leaderboardSortDir]);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [filters.events, filters.dateFrom, filters.dateTo, leaderboardOffset, leaderboardSortField, leaderboardSortDir]);
 
   useEffect(() => {
     fetchAvailableOptions();
@@ -154,6 +180,32 @@ export default function Parkrun() {
       if (err instanceof ApiMaintenanceError) {
         setError(err.message);
       }
+    }
+  }
+
+  async function fetchLeaderboard() {
+    try {
+      const params = new URLSearchParams({
+        limit: LEADERBOARD_LIMIT.toString(),
+        offset: leaderboardOffset.toString(),
+        sort_by: leaderboardSortField,
+        sort_dir: leaderboardSortDir,
+      });
+      // Deliberately exclude the athlete filter — the leaderboard ranks everyone,
+      // clicking a name filters the results table instead.
+      filters.events.forEach(e => params.append('event', e));
+      if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+      if (filters.dateTo)   params.append('date_to',   filters.dateTo);
+
+      const data = await fetchApi<{
+        leaderboard: LeaderboardEntry[];
+        pagination: { total: number; limit: number; offset: number };
+      }>(`/api/parkrun/leaderboard?${params}`);
+
+      setLeaderboard(data.leaderboard || []);
+      setLeaderboardTotal(data.pagination?.total || 0);
+    } catch (err) {
+      console.error('Error fetching leaderboard:', err);
     }
   }
 
@@ -307,6 +359,21 @@ export default function Parkrun() {
     return sortDirection === 'asc' ? <i className="fa-solid fa-sort-up"></i> : <i className="fa-solid fa-sort-down"></i>;
   }
 
+  function handleLeaderboardSort(field: LeaderboardSortField) {
+    if (leaderboardSortField === field) {
+      setLeaderboardSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setLeaderboardSortField(field);
+      // fastest_seconds: ascending (fastest first); others: descending
+      setLeaderboardSortDir(field === 'fastest_seconds' || field === 'athlete_name' ? 'asc' : 'desc');
+    }
+  }
+
+  function getLeaderboardSortIcon(field: LeaderboardSortField): React.ReactNode {
+    if (leaderboardSortField !== field) return <i className="fa-solid fa-sort"></i>;
+    return leaderboardSortDir === 'asc' ? <i className="fa-solid fa-sort-up"></i> : <i className="fa-solid fa-sort-down"></i>;
+  }
+
   return (
     <div className="parkrun-page">
       {error && (
@@ -450,6 +517,94 @@ export default function Parkrun() {
       </div>
 
       <ParkrunChart filters={filters} onDateClick={handleDateClick} />
+
+      {/* Woodstock Leaderboard */}
+      <div className="leaderboard-section">
+        <h2 className="leaderboard-title">Woodstock Leaderboard</h2>
+        {leaderboard.length === 0 ? (
+          <div className="leaderboard-empty">No results for the current filters.</div>
+        ) : (
+          <>
+            <div className="leaderboard-table-container">
+              <table className="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th className="leaderboard-rank">#</th>
+                    <th
+                      onClick={() => handleLeaderboardSort('athlete_name')}
+                      className="leaderboard-th-sortable"
+                    >
+                      Athlete {getLeaderboardSortIcon('athlete_name')}
+                    </th>
+                    <th
+                      onClick={() => handleLeaderboardSort('total_runs')}
+                      className="leaderboard-th-sortable"
+                    >
+                      Total Runs {getLeaderboardSortIcon('total_runs')}
+                    </th>
+                    <th
+                      onClick={() => handleLeaderboardSort('distinct_events')}
+                      className="leaderboard-th-sortable"
+                    >
+                      Distinct Events {getLeaderboardSortIcon('distinct_events')}
+                    </th>
+                    <th
+                      onClick={() => handleLeaderboardSort('fastest_seconds')}
+                      className="leaderboard-th-sortable"
+                    >
+                      Fastest Time {getLeaderboardSortIcon('fastest_seconds')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaderboard.map((entry, i) => (
+                    <tr key={entry.athlete_name}>
+                      <td className="leaderboard-rank-cell">
+                        {leaderboardOffset + i + 1}
+                      </td>
+                      <td className="leaderboard-athlete">
+                        <button
+                          className="leaderboard-athlete-btn"
+                          onClick={() => handleFilterChange({ athletes: [entry.athlete_name] })}
+                          title={`Filter results to ${entry.athlete_name}`}
+                        >
+                          {entry.athlete_name}
+                        </button>
+                      </td>
+                      <td>{entry.total_runs}</td>
+                      <td>{entry.distinct_events}</td>
+                      <td className="leaderboard-time">
+                        {entry.fastest_seconds > 0 ? formatTime(entry.fastest_seconds) : '–'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {leaderboardTotal > LEADERBOARD_LIMIT && (
+              <div className="leaderboard-pagination">
+                <button
+                  onClick={() => setLeaderboardOffset(o => Math.max(0, o - LEADERBOARD_LIMIT))}
+                  disabled={leaderboardOffset === 0}
+                  className="pagination-btn"
+                >
+                  Previous
+                </button>
+                <span className="pagination-info">
+                  {leaderboardOffset + 1}–{Math.min(leaderboardOffset + LEADERBOARD_LIMIT, leaderboardTotal)} of {leaderboardTotal}
+                </span>
+                <button
+                  onClick={() => setLeaderboardOffset(o => o + LEADERBOARD_LIMIT)}
+                  disabled={leaderboardOffset + LEADERBOARD_LIMIT >= leaderboardTotal}
+                  className="pagination-btn"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {loading ? (
         <div className="loading">Loading parkrun results...</div>
