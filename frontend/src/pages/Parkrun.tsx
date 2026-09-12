@@ -194,8 +194,15 @@ export default function Parkrun() {
       // Deliberately exclude the athlete filter — the leaderboard ranks everyone,
       // clicking a name filters the results table instead.
       filters.events.forEach(e => params.append('event', e));
-      if (filters.dateFrom) params.append('date_from', filters.dateFrom);
-      if (filters.dateTo)   params.append('date_to',   filters.dateTo);
+      // Only send date params when the user has actually narrowed the range —
+      // the placeholder defaults mean "no filter", and omitting them lets the
+      // backend use its precomputed all-time stats instead of a live scan.
+      if (filters.dateFrom && filters.dateFrom !== PLACEHOLDER_DATE_FROM) {
+        params.append('date_from', filters.dateFrom);
+      }
+      if (filters.dateTo && filters.dateTo !== getPlaceholderDateTo()) {
+        params.append('date_to', filters.dateTo);
+      }
 
       const data = await fetchApi<{
         leaderboard: LeaderboardEntry[];
@@ -211,21 +218,9 @@ export default function Parkrun() {
 
   async function fetchAvailableOptions() {
     try {
-      // Fetch all results without pagination to get unique athletes and events
-      const data = await fetchApi<{ results: ParkrunResult[] }>('/api/parkrun?limit=10000');
-
-      if (data.results) {
-        const athletes = Array.from(
-          new Set(data.results.map((r: ParkrunResult) => r.athlete_name))
-        ).sort() as string[];
-
-        const events = Array.from(
-          new Set(data.results.map((r: ParkrunResult) => r.event_name))
-        ).sort() as string[];
-
-        setAvailableAthletes(athletes);
-        setAvailableEvents(events);
-      }
+      const data = await fetchApi<{ athletes: string[]; events: string[] }>('/api/parkrun/filter-options');
+      setAvailableAthletes(data.athletes || []);
+      setAvailableEvents(data.events || []);
     } catch (err) {
       console.error('Error fetching available options:', err);
       if (err instanceof ApiMaintenanceError) {

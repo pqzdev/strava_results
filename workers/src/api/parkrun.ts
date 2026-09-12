@@ -261,6 +261,42 @@ export async function getParkrunStats(request: Request, env: Env): Promise<Respo
 }
 
 /**
+ * GET /api/parkrun/filter-options - Get distinct athlete/event names for filter dropdowns
+ * Reads from parkrun_athletes and parkrun_event_stats (small per-entity summary
+ * tables, hundreds of rows) instead of scanning all of parkrun_results (200K+
+ * rows) or having the client fetch thousands of full result rows to derive them.
+ */
+export async function getParkrunFilterOptions(request: Request, env: Env): Promise<Response> {
+  try {
+    const athletesResult = await env.DB.prepare(
+      `SELECT athlete_name FROM parkrun_athletes
+       WHERE is_hidden IS NULL OR is_hidden = 0
+       ORDER BY athlete_name`
+    ).all<{ athlete_name: string }>();
+
+    const eventsResult = await env.DB.prepare(
+      `SELECT event_name FROM parkrun_event_stats ORDER BY event_name`
+    ).all<{ event_name: string }>();
+
+    return new Response(
+      JSON.stringify({
+        athletes: (athletesResult.results || []).map((r) => r.athlete_name),
+        events: (eventsResult.results || []).map((r) => r.event_name),
+      }),
+      { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to fetch filter options',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  }
+}
+
+/**
  * GET /api/parkrun/leaderboard
  * Returns per-athlete aggregates respecting the same filters as /api/parkrun.
  * Query params: athlete (multi), event (multi), date_from, date_to, offset, limit (default 10)
@@ -287,6 +323,64 @@ export async function getParkrunLeaderboard(request: Request, env: Env): Promise
   const orderBy = sortCol === 'agg.total_runs'
     ? `${sortCol} ${sortDir}, agg.fastest_seconds ASC`
     : `${sortCol} ${sortDir}, agg.total_runs DESC`;
+
+  // Unfiltered case: read from the small precomputed parkrun_athlete_stats
+  // table (one row per athlete) instead of a full GROUP BY scan of
+  // parkrun_results, which runs on every plain Parkrun page load. Falls back
+  // to the live query below whenever any athlete/event/date filter narrows
+  // the result set, since the summary table only reflects all-time totals.
+  const isUnfiltered = athletes.length === 0 && events.length === 0 && !dateFrom && !dateTo;
+
+  if (isUnfiltered) {
+    try {
+      const countRow = await env.DB.prepare(
+        `SELECT COUNT(*) as total
+         FROM parkrun_athlete_stats s
+         LEFT JOIN parkrun_athletes pa ON s.athlete_name = pa.athlete_name
+         WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0)`
+      ).first<{ total: number }>();
+
+      const statsSortCol: Record<string, string> = {
+        athlete_name: 'athlete_name',
+        total_runs: 'total_runs',
+        distinct_events: 'distinct_events',
+        fastest_seconds: 'fastest_seconds',
+      };
+      const statsCol = statsSortCol[rawSort] || 'total_runs';
+      const statsOrderBy = statsCol === 'total_runs'
+        ? `${statsCol} ${sortDir}, fastest_seconds ASC`
+        : `${statsCol} ${sortDir}, total_runs DESC`;
+
+      const rows = await env.DB.prepare(
+        `SELECT s.athlete_name, s.parkrun_athlete_id, s.total_runs, s.distinct_events, s.fastest_seconds, s.fastest_time_string
+         FROM parkrun_athlete_stats s
+         LEFT JOIN parkrun_athletes pa ON s.athlete_name = pa.athlete_name
+         WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+         ORDER BY ${statsOrderBy}
+         LIMIT ? OFFSET ?`
+      ).bind(limit, offset).all<{
+        athlete_name: string;
+        parkrun_athlete_id: string | null;
+        total_runs: number;
+        distinct_events: number;
+        fastest_seconds: number;
+        fastest_time_string: string | null;
+      }>();
+
+      return new Response(
+        JSON.stringify({
+          leaderboard: rows.results || [],
+          pagination: { total: countRow?.total ?? 0, limit, offset },
+        }),
+        { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      );
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch leaderboard', message: error instanceof Error ? error.message : 'Unknown error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
+  }
 
   try {
     const bindings: any[] = [];

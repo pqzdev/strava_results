@@ -1,7 +1,7 @@
 // API endpoint for manually importing parkrun CSV data
 
 import { Env } from '../types';
-import { updateEventStats } from '../utils/parkrun-event-stats';
+import { updateEventStats, updateAthleteStats } from '../utils/parkrun-event-stats';
 
 interface CSVRow {
   [key: string]: string;
@@ -404,6 +404,7 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
     }
 
     const touchedEventNames = new Set<string>();
+    const touchedAthleteNames = new Set<string>();
 
     try {
       for (const row of rows) {
@@ -459,6 +460,7 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
 
           const timeSeconds = parseTimeToSeconds(timeString);
           touchedEventNames.add(eventName.replace(/#\d+/, '').trim());
+          touchedAthleteNames.add(athleteName);
 
           // Check if record exists with this parkrun_athlete_id
           const existing = parkrunId
@@ -539,9 +541,11 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
         }
       }
 
-      // Keep parkrun_event_stats in sync, scoped to only the events in this
-      // import so cost stays proportional to import size, not full history.
+      // Keep parkrun_event_stats and parkrun_athlete_stats in sync, scoped to
+      // only what this import touched so cost stays proportional to import
+      // size, not full history.
       await updateEventStats(env, [...touchedEventNames]);
+      await updateAthleteStats(env, [...touchedAthleteNames]);
 
       // Update sync log
       const syncCompletedTime = Math.floor(Date.now() / 1000);

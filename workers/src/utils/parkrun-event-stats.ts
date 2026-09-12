@@ -39,3 +39,54 @@ export async function updateEventStats(env: Env, eventNames: string[]): Promise<
 
   await env.DB.batch(statements);
 }
+
+// Keeps parkrun_athlete_stats in sync, scoped to only the athletes touched by
+// an import. Used by the leaderboard's default (unfiltered) case to avoid a
+// full GROUP BY scan of parkrun_results on every page load.
+export async function updateAthleteStats(env: Env, athleteNames: string[]): Promise<void> {
+  const uniqueNames = [...new Set(athleteNames)];
+  if (uniqueNames.length === 0) return;
+
+  const placeholders = uniqueNames.map(() => '?').join(', ');
+  const statsQuery = await env.DB.prepare(
+    `SELECT
+       pr.athlete_name,
+       (SELECT parkrun_athlete_id FROM parkrun_results
+        WHERE athlete_name = pr.athlete_name AND parkrun_athlete_id IS NOT NULL LIMIT 1) as parkrun_athlete_id,
+       COUNT(*) as total_runs,
+       COUNT(DISTINCT pr.event_name) as distinct_events,
+       MIN(pr.time_seconds) as fastest_seconds
+     FROM parkrun_results pr
+     WHERE pr.athlete_name IN (${placeholders})
+       AND pr.time_seconds > 0
+     GROUP BY pr.athlete_name`
+  ).bind(...uniqueNames).all<{ athlete_name: string; parkrun_athlete_id: string | null; total_runs: number; distinct_events: number; fastest_seconds: number }>();
+
+  const rows = statsQuery.results || [];
+  if (rows.length === 0) return;
+
+  const statements: D1PreparedStatement[] = [];
+  for (const row of rows) {
+    const timeStringRow = await env.DB.prepare(
+      `SELECT time_string FROM parkrun_results
+       WHERE athlete_name = ? AND time_seconds = ? AND time_seconds > 0 LIMIT 1`
+    ).bind(row.athlete_name, row.fastest_seconds).first<{ time_string: string }>();
+
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO parkrun_athlete_stats
+         (athlete_name, parkrun_athlete_id, total_runs, distinct_events, fastest_seconds, fastest_time_string)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(athlete_name) DO UPDATE SET
+           parkrun_athlete_id = excluded.parkrun_athlete_id,
+           total_runs = excluded.total_runs,
+           distinct_events = excluded.distinct_events,
+           fastest_seconds = excluded.fastest_seconds,
+           fastest_time_string = excluded.fastest_time_string,
+           updated_at = strftime('%s', 'now')`
+      ).bind(row.athlete_name, row.parkrun_athlete_id, row.total_runs, row.distinct_events, row.fastest_seconds, timeStringRow?.time_string || '')
+    );
+  }
+
+  await env.DB.batch(statements);
+}
