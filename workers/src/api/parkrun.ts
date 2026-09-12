@@ -745,10 +745,12 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
     // Sort rare Pokémon by visit count ascending (2nd visit, then 3rd visit, etc.)
     rarePokemons.sort((a, b) => a.visitCount - b.visitCount);
 
-    // Parkrun Tourism: events Woodies have attended <=15% of weeks since first
-    // recording them there (with >1 total visit, to exclude first-timers). This
-    // catches genuine one-off/travel destinations while excluding both home
-    // venues (70%+ of weeks) and regular day-trip spots (e.g. Woy Woy at ~21%).
+    // Parkrun Tourism: events Woodies have attended <=15% of weeks over the
+    // trailing 12 months (or since first recorded there, whichever is later),
+    // with >1 total visit to exclude first-timers. This catches genuine
+    // one-off/travel destinations while excluding both home venues (70%+ of
+    // weeks) and regular day-trip spots (e.g. Woy Woy at ~21%), and reflects
+    // recent attendance rather than being diluted by a long all-time history.
     // Events already called out as a First Woodies Visit or Rare Visit this
     // week are excluded here so each event appears in only one category.
     const TOURISM_MAX_PCT = 15;
@@ -756,41 +758,70 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
       ...firstTimeEvents.map((e) => e.name),
       ...rarePokemons.map((e) => e.name),
     ]);
-    const parkrunTourism: Array<{ name: string; pctWeeksAttended: number; totalVisits: number; athletes: string[] }> = [];
+    const parkrunTourism: Array<{ name: string; athletes: string[] }> = [];
 
     if (currentEvents.length > 0) {
-      // Read from the small event-stats summary table (one row per event)
-      // instead of scanning full parkrun_results history on every request.
+      // Event first-seen dates come from the small event-stats summary table;
+      // the trailing-12-months visit count is queried directly against
+      // parkrun_results, but bounded to this week's handful of events and a
+      // 1-year date range, so it stays cheap regardless of total history size.
       const placeholders = currentEvents.map(() => '?').join(', ');
-      const tourismStatsQuery = `
-        SELECT event_name, distinct_dates, first_seen, last_seen
-        FROM parkrun_event_stats
-        WHERE event_name IN (${placeholders})
+      const firstSeenResult = await env.DB.prepare(
+        `SELECT event_name, first_seen FROM parkrun_event_stats WHERE event_name IN (${placeholders})`
+      ).bind(...currentEvents).all<{ event_name: string; first_seen: string }>();
+      const firstSeenMap = new Map<string, string>();
+      for (const row of (firstSeenResult.results || [])) {
+        firstSeenMap.set(row.event_name, row.first_seen);
+      }
+
+      const twelveMonthsAgo = new Date(targetDate);
+      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+      const twelveMonthsAgoStr = twelveMonthsAgo.toISOString().slice(0, 10);
+
+      const windowedVisitsQuery = `
+        SELECT pr.event_name, COUNT(DISTINCT pr.date) as visits_in_window
+        FROM parkrun_results pr
+        LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+        WHERE pr.event_name IN (${placeholders})
+          AND pr.date >= ?
+          AND pr.date <= ?
+          AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+        GROUP BY pr.event_name
       `;
-      const tourismStatsResult = await env.DB.prepare(tourismStatsQuery).bind(...currentEvents).all();
+      const windowedVisitsResult = await env.DB.prepare(windowedVisitsQuery)
+        .bind(...currentEvents, twelveMonthsAgoStr, targetDate)
+        .all<{ event_name: string; visits_in_window: number }>();
+      const visitsInWindowMap = new Map<string, number>();
+      for (const row of (windowedVisitsResult.results || [])) {
+        visitsInWindowMap.set(row.event_name, row.visits_in_window);
+      }
 
-      for (const row of (tourismStatsResult.results || []) as Array<{ event_name: string; distinct_dates: number; first_seen: string; last_seen: string }>) {
-        if (row.distinct_dates <= 1) continue; // exclude first-timers, covered by firstTimeEvents
-        if (alreadyHighlighted.has(row.event_name)) continue; // avoid double-counting with other categories
+      for (const event of currentEvents) {
+        if (alreadyHighlighted.has(event)) continue; // avoid double-counting with other categories
 
+        const firstSeen = firstSeenMap.get(event);
+        if (!firstSeen) continue;
+
+        const visitsInWindow = visitsInWindowMap.get(event) || 0;
+        if (visitsInWindow <= 1) continue; // exclude first-timers, covered by firstTimeEvents
+
+        // Coverage window: since first visit, or the trailing 12 months, whichever is later
+        const windowStart = firstSeen > twelveMonthsAgoStr ? firstSeen : twelveMonthsAgoStr;
         const weeksSpan = Math.floor(
-          (new Date(row.last_seen).getTime() - new Date(row.first_seen).getTime()) / (7 * 24 * 60 * 60 * 1000)
+          (new Date(targetDate).getTime() - new Date(windowStart).getTime()) / (7 * 24 * 60 * 60 * 1000)
         ) + 1;
-        const pctWeeksAttended = (row.distinct_dates / weeksSpan) * 100;
+        const pctWeeksAttended = (visitsInWindow / weeksSpan) * 100;
 
         if (pctWeeksAttended <= TOURISM_MAX_PCT) {
           parkrunTourism.push({
-            name: row.event_name,
-            pctWeeksAttended: Math.round(pctWeeksAttended * 10) / 10,
-            totalVisits: row.distinct_dates,
-            athletes: athleteNamesByEvent.get(row.event_name) || [],
+            name: event,
+            athletes: athleteNamesByEvent.get(event) || [],
           });
         }
       }
     }
 
-    // Sort tourism events by rarity ascending (least-visited relative to their history first)
-    parkrunTourism.sort((a, b) => a.pctWeeksAttended - b.pctWeeksAttended);
+    parkrunTourism.sort((a, b) => a.name.localeCompare(b.name));
 
     return new Response(
       JSON.stringify({

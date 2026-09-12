@@ -11,7 +11,7 @@ interface WeeklySummary {
   popularEvents: Array<{ name: string; count: number }>;
   firstTimeEvents: Array<{ name: string; athletes: string[] }>;
   rarePokemons: Array<{ name: string; visitCount: number; athletes: string[] }>;
-  parkrunTourism: Array<{ name: string; pctWeeksAttended: number; totalVisits: number; athletes: string[] }>;
+  parkrunTourism: Array<{ name: string; athletes: string[] }>;
 }
 
 interface MilestoneData {
@@ -301,8 +301,8 @@ export default function ParkrunWeeklySummary() {
             {summary.parkrunTourism.map((event, index) => (
               <span key={event.name}>
                 {index > 0 && ', '}
-                {event.name} ({event.pctWeeksAttended}% of weeks since first visit
-                {event.athletes.length > 0 && ` - ${event.athletes.join(', ')}`})
+                {event.name}
+                {event.athletes.length > 0 && ` (${event.athletes.join(', ')})`}
               </span>
             ))}
           </p>
