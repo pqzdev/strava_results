@@ -664,15 +664,11 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
       count: e.count,
     }));
 
-    // Get all events before this date (excluding hidden athletes)
-    const precedingEventsQuery = `
-      SELECT DISTINCT pr.event_name
-      FROM parkrun_results pr
-      LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
-      WHERE pr.date < ?
-        AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
-    `;
-    const precedingEventsResult = await env.DB.prepare(precedingEventsQuery).bind(targetDate).all();
+    // Get all events first seen before this date, from the small event-stats
+    // summary table instead of scanning full parkrun_results history.
+    const precedingEventsResult = await env.DB.prepare(
+      `SELECT event_name FROM parkrun_event_stats WHERE first_seen < ?`
+    ).bind(targetDate).all();
     const precedingEvents = new Set((precedingEventsResult.results || []).map((e: any) => e.event_name));
 
     // Get events on this date (excluding hidden athletes)
@@ -763,18 +759,13 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
     const parkrunTourism: Array<{ name: string; pctWeeksAttended: number; totalVisits: number; athletes: string[] }> = [];
 
     if (currentEvents.length > 0) {
+      // Read from the small event-stats summary table (one row per event)
+      // instead of scanning full parkrun_results history on every request.
       const placeholders = currentEvents.map(() => '?').join(', ');
       const tourismStatsQuery = `
-        SELECT
-          pr.event_name,
-          COUNT(DISTINCT pr.date) as distinct_dates,
-          MIN(pr.date) as first_seen,
-          MAX(pr.date) as last_seen
-        FROM parkrun_results pr
-        LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
-        WHERE pr.event_name IN (${placeholders})
-          AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
-        GROUP BY pr.event_name
+        SELECT event_name, distinct_dates, first_seen, last_seen
+        FROM parkrun_event_stats
+        WHERE event_name IN (${placeholders})
       `;
       const tourismStatsResult = await env.DB.prepare(tourismStatsQuery).bind(...currentEvents).all();
 

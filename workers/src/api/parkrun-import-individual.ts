@@ -2,6 +2,7 @@
 
 import { Env } from '../types';
 import { stripAthleteIdSuffix, cleanupAthleteNames } from './parkrun-import';
+import { updateEventStats } from '../utils/parkrun-event-stats';
 
 interface CSVRow {
   [key: string]: string;
@@ -281,6 +282,10 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
           await env.DB.batch(batch);
         }
       }
+
+      // Keep parkrun_event_stats in sync, scoped to only the events in this
+      // import so cost stays proportional to import size, not full history.
+      await updateEventStats(env, processedRows.map((row) => row.eventName));
 
       // Update or create athlete scraping log
       const scrapeCompletedTime = Math.floor(Date.now() / 1000);
