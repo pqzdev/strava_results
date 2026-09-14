@@ -1,7 +1,7 @@
 // API endpoint for manually importing parkrun CSV data
 
 import { Env } from '../types';
-import { updateEventStats, updateAthleteStats, updateGlobalStats } from '../utils/parkrun-event-stats';
+import { updateEventStats, updateAthleteStats, updateGlobalStats, updateDateStats } from '../utils/parkrun-event-stats';
 
 interface CSVRow {
   [key: string]: string;
@@ -405,6 +405,7 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
 
     const touchedEventNames = new Set<string>();
     const touchedAthleteNames = new Set<string>();
+    const touchedDates = new Set<string>();
 
     try {
       for (const row of rows) {
@@ -461,6 +462,7 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
           const timeSeconds = parseTimeToSeconds(timeString);
           touchedEventNames.add(eventName.replace(/#\d+/, '').trim());
           touchedAthleteNames.add(athleteName);
+          touchedDates.add(date);
 
           // Check if record exists with this parkrun_athlete_id
           const existing = parkrunId
@@ -541,12 +543,14 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
         }
       }
 
-      // Keep parkrun_event_stats and parkrun_athlete_stats in sync, scoped to
-      // only what this import touched so cost stays proportional to import
-      // size, not full history. updateGlobalStats then recomputes the
-      // single-row club-wide summary from those two small tables.
+      // Keep parkrun_event_stats, parkrun_athlete_stats, and
+      // parkrun_date_stats in sync, scoped to only what this import touched
+      // so cost stays proportional to import size, not full history.
+      // updateGlobalStats then recomputes the single-row club-wide summary
+      // from the event/athlete stats tables.
       await updateEventStats(env, [...touchedEventNames]);
       await updateAthleteStats(env, [...touchedAthleteNames]);
+      await updateDateStats(env, [...touchedDates]);
       await updateGlobalStats(env);
 
       // Update sync log

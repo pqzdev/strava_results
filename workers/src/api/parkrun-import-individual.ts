@@ -2,7 +2,7 @@
 
 import { Env } from '../types';
 import { stripAthleteIdSuffix, cleanupAthleteNames } from './parkrun-import';
-import { updateEventStats, updateAthleteStats, updateGlobalStats } from '../utils/parkrun-event-stats';
+import { updateEventStats, updateAthleteStats, updateGlobalStats, updateDateStats } from '../utils/parkrun-event-stats';
 
 interface CSVRow {
   [key: string]: string;
@@ -283,12 +283,14 @@ export async function importIndividualParkrunCSV(request: Request, env: Env): Pr
         }
       }
 
-      // Keep parkrun_event_stats and parkrun_athlete_stats in sync, scoped to
-      // only what this import touched so cost stays proportional to import
-      // size, not full history. updateGlobalStats then recomputes the
-      // single-row club-wide summary from those two small tables.
+      // Keep parkrun_event_stats, parkrun_athlete_stats, and
+      // parkrun_date_stats in sync, scoped to only what this import touched
+      // so cost stays proportional to import size, not full history.
+      // updateGlobalStats then recomputes the single-row club-wide summary
+      // from the event/athlete stats tables.
       await updateEventStats(env, processedRows.map((row) => row.eventName));
       await updateAthleteStats(env, processedRows.map((row) => row.athleteName));
+      await updateDateStats(env, processedRows.map((row) => row.date));
       await updateGlobalStats(env);
 
       // Update or create athlete scraping log

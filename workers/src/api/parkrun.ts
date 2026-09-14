@@ -647,7 +647,28 @@ export async function getParkrunByDate(request: Request, env: Env): Promise<Resp
 
     query += ` GROUP BY pr.date ORDER BY pr.date ASC`;
 
-    const result = await env.DB.prepare(query).bind(...bindings).all();
+    // Unfiltered case: read from the small precomputed parkrun_date_stats
+    // table instead of scanning parkrun_results (tens of thousands of rows
+    // for a multi-year range) on every chart load. Built as a plain
+    // date >= ?/<= ? predicate (added only when that bound is present)
+    // rather than "(? IS NULL OR date >= ?)", since the OR form prevents
+    // SQLite from using the date index and reads the whole table.
+    const isUnfiltered = athleteNames.length === 0 && eventNames.length === 0;
+    let result;
+    if (isUnfiltered) {
+      let dateStatsQuery = `SELECT date, run_count, distinct_events as event_count FROM parkrun_date_stats`;
+      const dateStatsConditions: string[] = [];
+      const dateStatsBindings: string[] = [];
+      if (dateFrom) { dateStatsConditions.push('date >= ?'); dateStatsBindings.push(dateFrom); }
+      if (dateTo) { dateStatsConditions.push('date <= ?'); dateStatsBindings.push(dateTo); }
+      if (dateStatsConditions.length > 0) {
+        dateStatsQuery += ` WHERE ${dateStatsConditions.join(' AND ')}`;
+      }
+      dateStatsQuery += ` ORDER BY date ASC`;
+      result = await env.DB.prepare(dateStatsQuery).bind(...dateStatsBindings).all();
+    } else {
+      result = await env.DB.prepare(query).bind(...bindings).all();
+    }
 
     // Fill in missing parkrun dates (Saturdays + special dates) with zero counts
     let filledData: any[] = [];

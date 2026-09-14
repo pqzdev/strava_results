@@ -40,6 +40,44 @@ export async function updateEventStats(env: Env, eventNames: string[]): Promise<
   await env.DB.batch(statements);
 }
 
+// Keeps parkrun_date_stats in sync, scoped to only the dates touched by an
+// import. Used by getParkrunByDate's unfiltered (no athlete/event filter)
+// case to avoid a GROUP BY pr.date scan of parkrun_results on every chart
+// load.
+export async function updateDateStats(env: Env, dates: string[]): Promise<void> {
+  const uniqueDates = [...new Set(dates)];
+  if (uniqueDates.length === 0) return;
+
+  const placeholders = uniqueDates.map(() => '?').join(', ');
+  const statsQuery = await env.DB.prepare(
+    `SELECT
+       pr.date,
+       COUNT(*) as run_count,
+       COUNT(DISTINCT pr.event_name) as distinct_events
+     FROM parkrun_results pr
+     LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+     WHERE pr.date IN (${placeholders})
+       AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+     GROUP BY pr.date`
+  ).bind(...uniqueDates).all<{ date: string; run_count: number; distinct_events: number }>();
+
+  const rows = statsQuery.results || [];
+  if (rows.length === 0) return;
+
+  const statements = rows.map((row) =>
+    env.DB.prepare(
+      `INSERT INTO parkrun_date_stats (date, run_count, distinct_events)
+       VALUES (?, ?, ?)
+       ON CONFLICT(date) DO UPDATE SET
+         run_count = excluded.run_count,
+         distinct_events = excluded.distinct_events,
+         updated_at = strftime('%s', 'now')`
+    ).bind(row.date, row.run_count, row.distinct_events)
+  );
+
+  await env.DB.batch(statements);
+}
+
 // Keeps parkrun_athlete_stats in sync, scoped to only the athletes touched by
 // an import. Used by the leaderboard's default (unfiltered) case to avoid a
 // full GROUP BY scan of parkrun_results on every page load.
