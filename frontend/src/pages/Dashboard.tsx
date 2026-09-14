@@ -37,6 +37,15 @@ interface Filters {
   dateTo: string;
 }
 
+interface AthleteSummaryStat {
+  athleteName: string;
+  profilePhoto?: string;
+  activityCount: number;
+  totalDistance: number;
+  totalTime: number;
+  averagePace: number;
+}
+
 // Helper function to get default start date (January 1st of previous year)
 const getDefaultStartDate = () => {
   const now = new Date();
@@ -47,7 +56,7 @@ const getDefaultStartDate = () => {
 export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [races, setRaces] = useState<Race[]>([]);
-  const [allFilteredRaces, setAllFilteredRaces] = useState<Race[]>([]);
+  const [athleteSummary, setAthleteSummary] = useState<AthleteSummaryStat[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Initialize filters from URL params
@@ -92,9 +101,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    fetchEarliestDate();
-    fetchAvailableAthletes();
-    fetchAvailableEvents();
+    fetchFilterOptions();
   }, []);
 
   useEffect(() => {
@@ -108,47 +115,30 @@ export default function Dashboard() {
   }, [filters, pagination.offset, currentAthleteId, showHidden]);
 
   useEffect(() => {
-    fetchAllFilteredRaces();
+    fetchAthleteSummary();
   }, [filters, currentAthleteId, showHidden]);
 
-  const fetchEarliestDate = async () => {
+  // Fetches earliest date + available athletes/events in one small call,
+  // instead of three separate /api/races?limit=10000 fetches of full race
+  // rows (polylines included) just to derive these small distinct lists.
+  const fetchFilterOptions = async () => {
     try {
-      const response = await fetch('/api/races?limit=1000');
+      const response = await fetch('/api/races/filter-options');
       const data = await response.json();
-      if (data.races && data.races.length > 0) {
-        const dates = data.races.map((r: Race) => r.date.split('T')[0]); // Extract just YYYY-MM-DD
-        setEarliestDate(dates.sort()[0]);
-      }
+      if (data.earliestDate) setEarliestDate(data.earliestDate);
+      if (data.athletes) setAvailableAthletes(data.athletes);
+      if (data.events) setAvailableEvents(data.events);
     } catch (error) {
-      console.error('Failed to fetch earliest date:', error);
+      console.error('Failed to fetch filter options:', error);
     }
   };
 
-  const fetchAvailableAthletes = async () => {
-    try {
-      const response = await fetch('/api/races?limit=10000');
-      const data = await response.json();
-      if (data.races && data.races.length > 0) {
-        const athletes = Array.from(
-          new Set(data.races.map((r: Race) => `${r.firstname} ${r.lastname}`))
-        ).sort() as string[];
-        setAvailableAthletes(athletes);
-      }
-    } catch (error) {
-      console.error('Failed to fetch available athletes:', error);
-    }
-  };
-
+  // Refreshes just the events list (e.g. after an event name edit).
   const fetchAvailableEvents = async () => {
     try {
-      const response = await fetch('/api/races?limit=10000');
+      const response = await fetch('/api/races/filter-options');
       const data = await response.json();
-      if (data.races && data.races.length > 0) {
-        const events = Array.from(
-          new Set(data.races.map((r: Race) => r.event_name).filter((name: string | undefined): name is string => !!name))
-        ).sort() as string[];
-        setAvailableEvents(events);
-      }
+      if (data.events) setAvailableEvents(data.events);
     } catch (error) {
       console.error('Failed to fetch available events:', error);
     }
@@ -213,10 +203,12 @@ export default function Dashboard() {
     }
   };
 
-  const fetchAllFilteredRaces = async () => {
+  // Fetches per-athlete aggregates (count, distance, time, pace) computed
+  // server-side, instead of fetching up to 10,000 full race rows (polylines
+  // included) just to reduce() them into the same numbers client-side.
+  const fetchAthleteSummary = async () => {
     try {
       const params = new URLSearchParams();
-      params.set('limit', '10000'); // Fetch all results for summary
 
       // Pass current viewer's athlete_id to show their hidden races
       if (currentAthleteId) {
@@ -241,11 +233,11 @@ export default function Dashboard() {
       if (filters.dateFrom) params.set('date_from', filters.dateFrom);
       if (filters.dateTo) params.set('date_to', filters.dateTo);
 
-      const response = await fetch(`/api/races?${params.toString()}`);
+      const response = await fetch(`/api/races/athlete-summary?${params.toString()}`);
       const data = await response.json();
-      setAllFilteredRaces(data.races || []);
+      setAthleteSummary(data.athletes || []);
     } catch (error) {
-      console.error('Failed to fetch all filtered races:', error);
+      console.error('Failed to fetch athlete summary:', error);
     }
   };
 
@@ -382,7 +374,7 @@ export default function Dashboard() {
         ) : (
           <>
             <AthleteSummary
-              races={allFilteredRaces}
+              athleteStats={athleteSummary}
               selectedAthletes={filters.athletes}
               onAthleteToggle={handleAthleteToggle}
             />
@@ -488,7 +480,7 @@ export default function Dashboard() {
                       onClick={() => {
                         setIsEditMode(false);
                         fetchRaces(); // Refresh to save all changes
-                        fetchAllFilteredRaces();
+                        fetchAthleteSummary();
                       }}
                       className="button button-secondary"
                       style={{
@@ -508,7 +500,7 @@ export default function Dashboard() {
                       onClick={() => {
                         setIsEditMode(false);
                         fetchRaces(); // Refresh to discard changes
-                        fetchAllFilteredRaces();
+                        fetchAthleteSummary();
                       }}
                       className="button button-secondary"
                       style={{
@@ -547,12 +539,12 @@ export default function Dashboard() {
               isAdmin={isAdmin}
               onTimeUpdate={() => {
                 fetchRaces();
-                fetchAllFilteredRaces();
+                fetchAthleteSummary();
               }}
               availableEvents={availableEvents}
               onEventUpdate={() => {
                 fetchRaces();
-                fetchAllFilteredRaces();
+                fetchAthleteSummary();
                 fetchAvailableEvents();
               }}
               isEditMode={isEditMode}

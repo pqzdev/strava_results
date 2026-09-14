@@ -1,33 +1,6 @@
 import { useState } from 'react';
 import './AthleteSummary.css';
 
-interface Race {
-  id: number;
-  strava_activity_id: number;
-  name: string;
-  distance: number;
-  elapsed_time: number;
-  moving_time: number;
-  manual_time?: number;
-  manual_distance?: number;
-  date: string;
-  elevation_gain: number;
-  average_heartrate?: number;
-  max_heartrate?: number;
-  athlete_id: number;
-  is_hidden?: number;
-  firstname: string;
-  lastname: string;
-  profile_photo?: string;
-  strava_id: number;
-}
-
-interface AthleteSummaryProps {
-  races: Race[];
-  selectedAthletes?: string[];
-  onAthleteToggle?: (athleteName: string) => void;
-}
-
 interface AthleteStat {
   athleteName: string;
   profilePhoto?: string;
@@ -37,47 +10,20 @@ interface AthleteStat {
   averagePace: number;
 }
 
-export default function AthleteSummary({ races, selectedAthletes = [], onAthleteToggle }: AthleteSummaryProps) {
+interface AthleteSummaryProps {
+  athleteStats: AthleteStat[];
+  selectedAthletes?: string[];
+  onAthleteToggle?: (athleteName: string) => void;
+}
+
+export default function AthleteSummary({ athleteStats, selectedAthletes = [], onAthleteToggle }: AthleteSummaryProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [isCollapsed, setIsCollapsed] = useState(true);
 
-  // Filter out hidden races before calculating statistics
-  const visibleRaces = races.filter(race => !race.is_hidden);
-
-  // Group races by athlete and calculate statistics
-  const athleteStats = visibleRaces.reduce((acc, race) => {
-    const athleteKey = `${race.firstname} ${race.lastname}`;
-
-    if (!acc[athleteKey]) {
-      acc[athleteKey] = {
-        athleteName: athleteKey,
-        profilePhoto: race.profile_photo,
-        activityCount: 0,
-        totalDistance: 0,
-        totalTime: 0,
-      };
-    }
-
-    // Use manual values if available, otherwise use Strava values
-    const distance = race.manual_distance || race.distance;
-    const time = race.manual_time || race.moving_time;
-
-    acc[athleteKey].activityCount += 1;
-    acc[athleteKey].totalDistance += distance;
-    acc[athleteKey].totalTime += time;
-
-    return acc;
-  }, {} as Record<string, Omit<AthleteStat, 'averagePace'>>);
-
-  // Calculate average pace and convert to final format
-  const summaryData: AthleteStat[] = Object.values(athleteStats).map((stat) => ({
-    ...stat,
-    averagePace: stat.totalDistance > 0 ? (stat.totalTime / 60) / (stat.totalDistance / 1000) : 0,
-  }));
-
-  // Sort by activity count descending
-  summaryData.sort((a, b) => b.activityCount - a.activityCount);
+  // Already aggregated and filtered server-side (GET /api/races/athlete-summary);
+  // just sort by activity count descending for display.
+  const summaryData: AthleteStat[] = [...athleteStats].sort((a, b) => b.activityCount - a.activityCount);
 
   // Pagination logic
   const totalAthletes = summaryData.length;

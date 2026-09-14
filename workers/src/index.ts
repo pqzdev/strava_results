@@ -6,7 +6,7 @@ import { syncAllAthletes } from './cron/sync';
 import { syncAthlete } from './queue/sync-queue';
 import { processPendingBatches } from './cron/batch-processor-cron';
 import { healthCheckBatchedSyncs } from './cron/sync-health-monitor';
-import { getRaces, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
+import { getRaces, getRaceAthleteSummary, getRaceFilterOptions, getStats, getAthletes, updateRaceTime, updateRaceDistance, updateRaceEvent, updateRaceVisibility, bulkEditRaces, fetchRaceDescription } from './api/races';
 import { getAdminAthletes, updateAthlete, deleteAthlete, triggerAthleteSync, triggerSyncAll, stopAthleteSync, resetStuckSyncs, getAdminSyncLogs, checkAdmin, getAdminSyncStatus, stopSyncJob, triggerBatchedAthleteSync, getBatchedSyncProgress, getAdminApiKey } from './api/admin';
 import { getReviewActivities, updateActivity } from './api/admin-review';
 import { getParkrunResults, getParkrunStats, getParkrunAthletes, updateParkrunAthlete, getParkrunByDate, getParkrunWeeklySummary, getParkrunDuplicates, getParkrunMilestones, cleanupParkrunAthleteNames, getParkrunCountByAthleteId, markAthleteAudited, getParkrunLeaderboard, getParkrunFilterOptions } from './api/parkrun';
@@ -81,6 +81,14 @@ export default {
       // API routes
       if (path === '/api/races' && request.method === 'GET') {
         return getRaces(request, env);
+      }
+
+      if (path === '/api/races/athlete-summary' && request.method === 'GET') {
+        return getRaceAthleteSummary(request, env);
+      }
+
+      if (path === '/api/races/filter-options' && request.method === 'GET') {
+        return getRaceFilterOptions(env);
       }
 
       if (path === '/api/stats' && request.method === 'GET') {

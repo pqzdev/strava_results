@@ -13,6 +13,121 @@ const DISTANCE_CATEGORIES: { [key: string]: { minMeters: number; maxMeters: numb
   'Ultra': { minMeters: 43200, maxMeters: 999999 },
 };
 
+interface RaceFilterParams {
+  athleteNames: string[];
+  eventNames: string[];
+  activityName: string | null;
+  dateFrom: string | null;
+  dateTo: string | null;
+  distanceCategories: string[];
+  minDistance: number | null;
+  maxDistance: number | null;
+  viewerAthleteId: string | null;
+  showHidden: boolean;
+  isViewerAdmin: boolean;
+}
+
+function parseRaceFilterParams(url: URL): RaceFilterParams {
+  const minDistanceParam = url.searchParams.get('min_distance');
+  const maxDistanceParam = url.searchParams.get('max_distance');
+  return {
+    athleteNames: url.searchParams.getAll('athlete'),
+    eventNames: url.searchParams.getAll('event'),
+    activityName: url.searchParams.get('activity_name'),
+    dateFrom: url.searchParams.get('date_from'),
+    dateTo: url.searchParams.get('date_to'),
+    distanceCategories: url.searchParams.getAll('distance'),
+    minDistance: minDistanceParam ? parseFloat(minDistanceParam) : null,
+    maxDistance: maxDistanceParam ? parseFloat(maxDistanceParam) : null,
+    viewerAthleteId: url.searchParams.get('viewer_athlete_id'),
+    showHidden: url.searchParams.get('show_hidden') === 'true',
+    isViewerAdmin: false, // filled in by caller after checking admin status
+  };
+}
+
+// Builds the shared WHERE clause (and bindings) used by getRaces' main query,
+// its count query, and the athlete-summary aggregate query, so the three
+// stay in sync instead of duplicating (and risking drift in) the same filter
+// logic three times.
+function buildRaceWhereClause(f: RaceFilterParams): { where: string; bindings: any[] } {
+  let where = `WHERE (a.is_hidden = 0 OR a.id IS NULL)`;
+  const bindings: any[] = [];
+
+  if (!f.showHidden) {
+    where += ` AND r.is_hidden = 0`;
+  } else if (!f.isViewerAdmin && f.viewerAthleteId) {
+    where += ` AND (r.is_hidden = 0 OR a.strava_id = ?)`;
+    bindings.push(parseInt(f.viewerAthleteId));
+  }
+
+  if (f.athleteNames.length > 0) {
+    const athleteConditions = f.athleteNames.map(() => `(a.firstname || ' ' || a.lastname) = ?`).join(' OR ');
+    where += ` AND (${athleteConditions})`;
+    f.athleteNames.forEach(name => bindings.push(name));
+  }
+
+  if (f.eventNames.length > 0) {
+    const eventConditions = f.eventNames.map(() => `r.event_name = ?`).join(' OR ');
+    where += ` AND (${eventConditions})`;
+    f.eventNames.forEach(name => bindings.push(name));
+  }
+
+  if (f.activityName) {
+    where += ` AND r.name LIKE ?`;
+    bindings.push(`%${f.activityName}%`);
+  }
+
+  if (f.dateFrom) {
+    where += ` AND r.date >= ?`;
+    bindings.push(f.dateFrom);
+  }
+
+  if (f.dateTo) {
+    where += ` AND r.date <= ?`;
+    bindings.push(f.dateTo);
+  }
+
+  if (f.distanceCategories.length > 0) {
+    const hasOther = f.distanceCategories.includes('Other');
+    const selectedCategories = f.distanceCategories.filter(c => c !== 'Other');
+    const distanceConditions: string[] = [];
+
+    selectedCategories.forEach(category => {
+      const range = DISTANCE_CATEGORIES[category];
+      if (range) {
+        distanceConditions.push(
+          `(COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ? AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?)`
+        );
+        bindings.push(range.minMeters, range.maxMeters);
+      }
+    });
+
+    if (hasOther) {
+      const allRanges = Object.values(DISTANCE_CATEGORIES);
+      const otherConditions = allRanges.map(() =>
+        `(COALESCE(re.manual_distance, r.manual_distance, r.distance) < ? OR COALESCE(re.manual_distance, r.manual_distance, r.distance) > ?)`
+      );
+      distanceConditions.push(`(${otherConditions.join(' AND ')})`);
+      allRanges.forEach(range => bindings.push(range.minMeters, range.maxMeters));
+    }
+
+    if (distanceConditions.length > 0) {
+      where += ` AND (${distanceConditions.join(' OR ')})`;
+    }
+  } else if (f.minDistance !== null || f.maxDistance !== null) {
+    if (f.minDistance !== null && f.minDistance > 0) {
+      where += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ?`;
+      bindings.push(f.minDistance);
+    }
+    if (f.maxDistance !== null && f.maxDistance < 999999) {
+      where += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?`;
+      bindings.push(f.maxDistance);
+    }
+  }
+
+  return { where, bindings };
+}
+
 /**
  * GET /api/races - Get recent races with filtering
  */
@@ -20,33 +135,21 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const limit = parseInt(url.searchParams.get('limit') || '50');
   const offset = parseInt(url.searchParams.get('offset') || '0');
-  const athleteNames = url.searchParams.getAll('athlete'); // Get all athlete parameters
-  const eventNames = url.searchParams.getAll('event'); // Get all event parameters
-  const activityName = url.searchParams.get('activity_name');
-  const dateFrom = url.searchParams.get('date_from');
-  const dateTo = url.searchParams.get('date_to');
-  const distanceCategories = url.searchParams.getAll('distance'); // Get all distance category parameters
-  const viewerAthleteId = url.searchParams.get('viewer_athlete_id'); // Current user's strava_id
-  const showHidden = url.searchParams.get('show_hidden') === 'true'; // Whether to show hidden races
-
-  // Legacy support for min/max distance
-  const minDistanceParam = url.searchParams.get('min_distance');
-  const maxDistanceParam = url.searchParams.get('max_distance');
-  const minDistance = minDistanceParam ? parseFloat(minDistanceParam) : null;
-  const maxDistance = maxDistanceParam ? parseFloat(maxDistanceParam) : null;
+  const filterParams = parseRaceFilterParams(url);
 
   // Check if viewer is admin
-  let isViewerAdmin = false;
-  if (viewerAthleteId) {
+  if (filterParams.viewerAthleteId) {
     const adminCheck = await env.DB.prepare(
       'SELECT is_admin FROM athletes WHERE strava_id = ?'
-    ).bind(parseInt(viewerAthleteId)).first<{ is_admin: number }>();
-    isViewerAdmin = adminCheck?.is_admin === 1;
+    ).bind(parseInt(filterParams.viewerAthleteId)).first<{ is_admin: number }>();
+    filterParams.isViewerAdmin = adminCheck?.is_admin === 1;
   }
 
   try {
+    const { where, bindings } = buildRaceWhereClause(filterParams);
+
     // Build query with filters - JOIN with race_edits to get manual overrides
-    let query = `
+    const query = `
       SELECT
         r.id,
         r.strava_activity_id,
@@ -72,192 +175,23 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
       FROM races r
       LEFT JOIN athletes a ON r.athlete_id = a.id
       LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
-      WHERE (a.is_hidden = 0 OR a.id IS NULL)
+      ${where}
+      ORDER BY r.date DESC LIMIT ? OFFSET ?
     `;
 
-    const bindings: any[] = [];
-
-    // Filter hidden races based on showHidden toggle
-    if (!showHidden) {
-      // showHidden is false (default): hide ALL hidden races
-      query += ` AND r.is_hidden = 0`;
-    } else {
-      // showHidden is true: show hidden races based on permissions
-      if (!isViewerAdmin && viewerAthleteId) {
-        // Not admin: show visible races + own hidden races
-        query += ` AND (r.is_hidden = 0 OR a.strava_id = ?)`;
-        bindings.push(parseInt(viewerAthleteId));
-      }
-      // If viewer is admin: show all races (no additional filter)
-      // If anonymous: show all races (no additional filter - they toggled to see hidden)
-    }
-
-    // Handle multiple athlete filters - match against full name
-    if (athleteNames.length > 0) {
-      const athleteConditions = athleteNames.map(() => `(a.firstname || ' ' || a.lastname) = ?`).join(' OR ');
-      query += ` AND (${athleteConditions})`;
-      athleteNames.forEach(name => bindings.push(name));
-    }
-
-    // Handle multiple event filters
-    if (eventNames.length > 0) {
-      const eventConditions = eventNames.map(() => `r.event_name = ?`).join(' OR ');
-      query += ` AND (${eventConditions})`;
-      eventNames.forEach(name => bindings.push(name));
-    }
-
-    if (activityName) {
-      query += ` AND r.name LIKE ?`;
-      bindings.push(`%${activityName}%`);
-    }
-
-    if (dateFrom) {
-      query += ` AND r.date >= ?`;
-      bindings.push(dateFrom);
-    }
-
-    if (dateTo) {
-      query += ` AND r.date <= ?`;
-      bindings.push(dateTo);
-    }
-
-    // Handle distance category filtering
-    if (distanceCategories.length > 0) {
-      const hasOther = distanceCategories.includes('Other');
-      const selectedCategories = distanceCategories.filter(c => c !== 'Other');
-
-      const distanceConditions: string[] = [];
-
-      // Add conditions for selected preset categories
-      selectedCategories.forEach(category => {
-        const range = DISTANCE_CATEGORIES[category];
-        if (range) {
-          distanceConditions.push(
-            `(COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ? AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?)`
-          );
-          bindings.push(range.minMeters, range.maxMeters);
-        }
-      });
-
-      // Add condition for "Other" - races not in any preset category
-      if (hasOther) {
-        const allRanges = Object.values(DISTANCE_CATEGORIES);
-        const otherConditions = allRanges.map(() =>
-          `(COALESCE(re.manual_distance, r.manual_distance, r.distance) < ? OR COALESCE(re.manual_distance, r.manual_distance, r.distance) > ?)`
-        );
-        const otherCondition = otherConditions.join(' AND ');
-        distanceConditions.push(`(${otherCondition})`);
-
-        allRanges.forEach(range => {
-          bindings.push(range.minMeters, range.maxMeters);
-        });
-      }
-
-      if (distanceConditions.length > 0) {
-        query += ` AND (${distanceConditions.join(' OR ')})`;
-      }
-    } else if (minDistance !== null || maxDistance !== null) {
-      // Legacy min/max distance filtering
-      if (minDistance !== null && minDistance > 0) {
-        query += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ?`;
-        bindings.push(minDistance);
-      }
-
-      if (maxDistance !== null && maxDistance < 999999) {
-        query += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?`;
-        bindings.push(maxDistance);
-      }
-    }
-
-    query += ` ORDER BY r.date DESC LIMIT ? OFFSET ?`;
-    bindings.push(limit, offset);
-
-    const result = await env.DB.prepare(query).bind(...bindings).all();
+    const result = await env.DB.prepare(query).bind(...bindings, limit, offset).all();
 
     // Get total count for pagination
-    let countQuery = `
+    const countQuery = `
       SELECT COUNT(*) as total
       FROM races r
       LEFT JOIN athletes a ON r.athlete_id = a.id
       LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
-      WHERE (a.is_hidden = 0 OR a.id IS NULL)
+      ${where}
     `;
-    const countBindings: any[] = [];
-
-    // Handle multiple athlete filters - match against full name
-    if (athleteNames.length > 0) {
-      const athleteConditions = athleteNames.map(() => `(a.firstname || ' ' || a.lastname) = ?`).join(' OR ');
-      countQuery += ` AND (${athleteConditions})`;
-      athleteNames.forEach(name => countBindings.push(name));
-    }
-    // Handle multiple event filters
-    if (eventNames.length > 0) {
-      const eventConditions = eventNames.map(() => `r.event_name = ?`).join(' OR ');
-      countQuery += ` AND (${eventConditions})`;
-      eventNames.forEach(name => countBindings.push(name));
-    }
-    if (activityName) {
-      countQuery += ` AND r.name LIKE ?`;
-      countBindings.push(`%${activityName}%`);
-    }
-    if (dateFrom) {
-      countQuery += ` AND r.date >= ?`;
-      countBindings.push(dateFrom);
-    }
-    if (dateTo) {
-      countQuery += ` AND r.date <= ?`;
-      countBindings.push(dateTo);
-    }
-
-    // Handle distance category filtering (same as main query)
-    if (distanceCategories.length > 0) {
-      const hasOther = distanceCategories.includes('Other');
-      const selectedCategories = distanceCategories.filter(c => c !== 'Other');
-
-      const distanceConditions: string[] = [];
-
-      // Add conditions for selected preset categories
-      selectedCategories.forEach(category => {
-        const range = DISTANCE_CATEGORIES[category];
-        if (range) {
-          distanceConditions.push(
-            `(COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ? AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?)`
-          );
-          countBindings.push(range.minMeters, range.maxMeters);
-        }
-      });
-
-      // Add condition for "Other" - races not in any preset category
-      if (hasOther) {
-        const allRanges = Object.values(DISTANCE_CATEGORIES);
-        const otherConditions = allRanges.map(() =>
-          `(COALESCE(re.manual_distance, r.manual_distance, r.distance) < ? OR COALESCE(re.manual_distance, r.manual_distance, r.distance) > ?)`
-        );
-        const otherCondition = otherConditions.join(' AND ');
-        distanceConditions.push(`(${otherCondition})`);
-
-        allRanges.forEach(range => {
-          countBindings.push(range.minMeters, range.maxMeters);
-        });
-      }
-
-      if (distanceConditions.length > 0) {
-        countQuery += ` AND (${distanceConditions.join(' OR ')})`;
-      }
-    } else if (minDistance !== null || maxDistance !== null) {
-      // Legacy min/max distance filtering
-      if (minDistance !== null && minDistance > 0) {
-        countQuery += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) >= ?`;
-        countBindings.push(minDistance);
-      }
-      if (maxDistance !== null && maxDistance < 999999) {
-        countQuery += ` AND COALESCE(re.manual_distance, r.manual_distance, r.distance) <= ?`;
-        countBindings.push(maxDistance);
-      }
-    }
 
     const countResult = await env.DB.prepare(countQuery)
-      .bind(...countBindings)
+      .bind(...bindings)
       .first<{ total: number }>();
 
     return new Response(
@@ -288,6 +222,84 @@ export async function getRaces(request: Request, env: Env): Promise<Response> {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       }
+    );
+  }
+}
+
+/**
+ * GET /api/races/athlete-summary - Per-athlete aggregates (count, total
+ * distance/time, average pace) for the current race filters. Replicates
+ * AthleteSummary.tsx's client-side reduce() in SQL so the frontend no longer
+ * needs to fetch up to 10,000 full race rows (polylines included) just to
+ * compute these per-athlete totals.
+ */
+export async function getRaceAthleteSummary(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const filterParams = parseRaceFilterParams(url);
+
+  if (filterParams.viewerAthleteId) {
+    const adminCheck = await env.DB.prepare(
+      'SELECT is_admin FROM athletes WHERE strava_id = ?'
+    ).bind(parseInt(filterParams.viewerAthleteId)).first<{ is_admin: number }>();
+    filterParams.isViewerAdmin = adminCheck?.is_admin === 1;
+  }
+
+  try {
+    // AthleteSummary.tsx always excludes hidden races client-side (via
+    // race.is_hidden), regardless of the showHidden toggle that controls the
+    // raw race list's visibility. Force showHidden: false here so this
+    // aggregate matches that behavior exactly.
+    const { where, bindings } = buildRaceWhereClause({ ...filterParams, showHidden: false });
+
+    const query = `
+      SELECT
+        a.firstname,
+        a.lastname,
+        a.profile_photo,
+        COUNT(*) as activity_count,
+        SUM(COALESCE(re.manual_distance, r.manual_distance, r.distance)) as total_distance,
+        SUM(COALESCE(re.manual_time, r.manual_time, r.moving_time)) as total_time
+      FROM races r
+      LEFT JOIN athletes a ON r.athlete_id = a.id
+      LEFT JOIN race_edits re ON r.strava_activity_id = re.strava_activity_id AND r.athlete_id = re.athlete_id
+      ${where}
+      GROUP BY r.athlete_id
+      ORDER BY activity_count DESC
+    `;
+
+    const result = await env.DB.prepare(query).bind(...bindings).all<{
+      firstname: string;
+      lastname: string;
+      profile_photo: string | null;
+      activity_count: number;
+      total_distance: number;
+      total_time: number;
+    }>();
+
+    const athletes = (result.results || []).map((row) => {
+      const averagePace = row.total_distance > 0 ? (row.total_time / 60) / (row.total_distance / 1000) : 0;
+      return {
+        athleteName: `${row.firstname} ${row.lastname}`,
+        profilePhoto: row.profile_photo || undefined,
+        activityCount: row.activity_count,
+        totalDistance: row.total_distance,
+        totalTime: row.total_time,
+        averagePace,
+      };
+    });
+
+    return new Response(
+      JSON.stringify({ athletes }),
+      { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  } catch (error) {
+    console.error('Error fetching race athlete summary:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to fetch race athlete summary',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
     );
   }
 }
@@ -860,6 +872,57 @@ export async function fetchRaceDescription(
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       }
+    );
+  }
+}
+
+/**
+ * GET /api/races/filter-options - Distinct visible athlete/event names and
+ * the earliest race date, for the Dashboard's filter dropdowns. Replaces
+ * three separate full-row /api/races?limit=10000 (or limit=1000) fetches
+ * that only used them to derive these small distinct lists client-side.
+ */
+export async function getRaceFilterOptions(env: Env): Promise<Response> {
+  try {
+    const athletesResult = await env.DB.prepare(
+      `SELECT DISTINCT a.firstname, a.lastname
+       FROM races r
+       JOIN athletes a ON r.athlete_id = a.id
+       WHERE a.is_hidden = 0 AND r.is_hidden = 0
+       ORDER BY a.firstname, a.lastname`
+    ).all<{ firstname: string; lastname: string }>();
+
+    const eventsResult = await env.DB.prepare(
+      `SELECT DISTINCT r.event_name
+       FROM races r
+       JOIN athletes a ON r.athlete_id = a.id
+       WHERE a.is_hidden = 0 AND r.is_hidden = 0 AND r.event_name IS NOT NULL
+       ORDER BY r.event_name`
+    ).all<{ event_name: string }>();
+
+    const earliestResult = await env.DB.prepare(
+      `SELECT MIN(r.date) as earliest
+       FROM races r
+       JOIN athletes a ON r.athlete_id = a.id
+       WHERE a.is_hidden = 0 AND r.is_hidden = 0`
+    ).first<{ earliest: string | null }>();
+
+    return new Response(
+      JSON.stringify({
+        athletes: (athletesResult.results || []).map((r) => `${r.firstname} ${r.lastname}`),
+        events: (eventsResult.results || []).map((r) => r.event_name),
+        earliestDate: earliestResult?.earliest ? earliestResult.earliest.split('T')[0] : null,
+      }),
+      { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+    );
+  } catch (error) {
+    console.error('Error fetching race filter options:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to fetch race filter options',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
     );
   }
 }
