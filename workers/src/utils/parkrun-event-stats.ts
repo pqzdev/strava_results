@@ -86,6 +86,21 @@ export async function updateAthleteStats(env: Env, athleteNames: string[]): Prom
   if (uniqueNames.length === 0) return;
 
   const placeholders = uniqueNames.map(() => '?').join(', ');
+
+  // all_time_run_count counts every row (regardless of time validity) -
+  // needed by getParkrunMilestones, which must not undercount an athlete
+  // who has a bad-time (0:00) result in their history.
+  const allTimeCountsQuery = await env.DB.prepare(
+    `SELECT athlete_name, COUNT(*) as all_time_run_count
+     FROM parkrun_results
+     WHERE athlete_name IN (${placeholders})
+     GROUP BY athlete_name`
+  ).bind(...uniqueNames).all<{ athlete_name: string; all_time_run_count: number }>();
+  const allTimeCountMap = new Map<string, number>();
+  for (const row of (allTimeCountsQuery.results || [])) {
+    allTimeCountMap.set(row.athlete_name, row.all_time_run_count);
+  }
+
   const statsQuery = await env.DB.prepare(
     `SELECT
        pr.athlete_name,
@@ -113,16 +128,17 @@ export async function updateAthleteStats(env: Env, athleteNames: string[]): Prom
     statements.push(
       env.DB.prepare(
         `INSERT INTO parkrun_athlete_stats
-         (athlete_name, parkrun_athlete_id, total_runs, distinct_events, fastest_seconds, fastest_time_string)
-         VALUES (?, ?, ?, ?, ?, ?)
+         (athlete_name, parkrun_athlete_id, total_runs, distinct_events, fastest_seconds, fastest_time_string, all_time_run_count)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(athlete_name) DO UPDATE SET
            parkrun_athlete_id = excluded.parkrun_athlete_id,
            total_runs = excluded.total_runs,
            distinct_events = excluded.distinct_events,
            fastest_seconds = excluded.fastest_seconds,
            fastest_time_string = excluded.fastest_time_string,
+           all_time_run_count = excluded.all_time_run_count,
            updated_at = strftime('%s', 'now')`
-      ).bind(row.athlete_name, row.parkrun_athlete_id, row.total_runs, row.distinct_events, row.fastest_seconds, timeStringRow?.time_string || '')
+      ).bind(row.athlete_name, row.parkrun_athlete_id, row.total_runs, row.distinct_events, row.fastest_seconds, timeStringRow?.time_string || '', allTimeCountMap.get(row.athlete_name) || 0)
     );
   }
 

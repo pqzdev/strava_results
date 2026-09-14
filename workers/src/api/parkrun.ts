@@ -795,9 +795,11 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
       );
     }
 
-    // Get all available dates for the picker (limit to last 500 dates for performance)
+    // Get all available dates for the picker (limit to last 500 dates for
+    // performance). Reads from the small parkrun_date_stats table (one row
+    // per date) instead of a DISTINCT scan of parkrun_results.
     const availableDatesResult = await env.DB.prepare(
-      `SELECT DISTINCT date FROM parkrun_results ORDER BY date DESC LIMIT 500`
+      `SELECT date FROM parkrun_date_stats ORDER BY date DESC LIMIT 500`
     ).all();
     const availableDates = (availableDatesResult.results || []).map((r: any) => r.date);
 
@@ -1133,17 +1135,30 @@ export async function getParkrunMilestones(request: Request, env: Env): Promise<
       athletes: Array<{ name: string; count: number; parkrun_id: string | null }>;
     }> = milestones.map(m => ({ milestone: m, athletes: [] }));
 
-    // Get total run counts for all athletes on this date in one query (fixes N+1 problem)
+    // Get total run counts for all athletes on this date in one query (fixes N+1 problem).
+    // When targetDate is the most recent date, "total as of targetDate" is
+    // the same as the all-time total, so this can read from the small
+    // parkrun_athlete_stats table instead. countsAreCurrentDate is reused
+    // below for the upcoming-milestones query too.
     const athleteNames = (athletesOnDate.results || []).map((a: any) => a.athlete_name);
+    const globalStatsForCounts = await env.DB.prepare(
+      `SELECT latest_date FROM parkrun_global_stats WHERE id = 1`
+    ).first<{ latest_date: string | null }>();
+    const countsAreCurrentDate = globalStatsForCounts?.latest_date === targetDate;
 
     if (athleteNames.length > 0) {
       const placeholders = athleteNames.map(() => '?').join(', ');
-      const countsResult = await env.DB.prepare(
-        `SELECT athlete_name, COUNT(*) as total
-         FROM parkrun_results
-         WHERE athlete_name IN (${placeholders}) AND date <= ?
-         GROUP BY athlete_name`
-      ).bind(...athleteNames, targetDate).all<{ athlete_name: string; total: number }>();
+      const countsResult = countsAreCurrentDate
+        ? await env.DB.prepare(
+            `SELECT athlete_name, all_time_run_count as total FROM parkrun_athlete_stats
+             WHERE athlete_name IN (${placeholders})`
+          ).bind(...athleteNames).all<{ athlete_name: string; total: number }>()
+        : await env.DB.prepare(
+            `SELECT athlete_name, COUNT(*) as total
+             FROM parkrun_results
+             WHERE athlete_name IN (${placeholders}) AND date <= ?
+             GROUP BY athlete_name`
+          ).bind(...athleteNames, targetDate).all<{ athlete_name: string; total: number }>();
 
       // Build a map of athlete -> total count
       const countMap = new Map<string, number>();
@@ -1169,18 +1184,32 @@ export async function getParkrunMilestones(request: Request, env: Env): Promise<
       }
     }
 
-    // Get all visible athletes and their current total run counts for upcoming milestones
-    const allAthletes = await env.DB.prepare(
-      `SELECT
-        pr.athlete_name,
-        (SELECT parkrun_athlete_id FROM parkrun_results WHERE athlete_name = pr.athlete_name AND parkrun_athlete_id IS NOT NULL LIMIT 1) as parkrun_id,
-        COUNT(*) as total
-       FROM parkrun_results pr
-       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
-       WHERE pr.date <= ?
-         AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
-       GROUP BY pr.athlete_name`
-    ).bind(targetDate).all<{ athlete_name: string; parkrun_id: string | null; total: number }>();
+    // Get all visible athletes and their current total run counts for upcoming
+    // milestones. When targetDate is the most recent date in the data (the
+    // common case - "upcoming milestones" is inherently about current
+    // standing), "total as of targetDate" is identical to the all-time total,
+    // so read from the small precomputed parkrun_athlete_stats table instead
+    // of a near-full-table GROUP BY scan. Falls back to the live query for a
+    // genuinely historical targetDate. Reuses countsAreCurrentDate computed
+    // above (same latest_date check).
+    const allAthletes = countsAreCurrentDate
+      ? await env.DB.prepare(
+          `SELECT s.athlete_name, s.parkrun_athlete_id as parkrun_id, s.all_time_run_count as total
+           FROM parkrun_athlete_stats s
+           LEFT JOIN parkrun_athletes pa ON s.athlete_name = pa.athlete_name
+           WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0)`
+        ).all<{ athlete_name: string; parkrun_id: string | null; total: number }>()
+      : await env.DB.prepare(
+          `SELECT
+            pr.athlete_name,
+            (SELECT parkrun_athlete_id FROM parkrun_results WHERE athlete_name = pr.athlete_name AND parkrun_athlete_id IS NOT NULL LIMIT 1) as parkrun_id,
+            COUNT(*) as total
+           FROM parkrun_results pr
+           LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+           WHERE pr.date <= ?
+             AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+           GROUP BY pr.athlete_name`
+        ).bind(targetDate).all<{ athlete_name: string; parkrun_id: string | null; total: number }>();
 
     // Check for upcoming milestones (within 98% but not yet reached)
     for (const athlete of (allAthletes.results || [])) {
