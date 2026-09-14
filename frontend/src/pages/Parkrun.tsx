@@ -128,6 +128,19 @@ export default function Parkrun() {
     fetchAbsoluteDateRange();
   }, []);
 
+  // True when [filters.dateFrom, filters.dateTo] covers the entire available
+  // data span (either still at the placeholder defaults, or - once
+  // absoluteDateRange has loaded - matching/exceeding the real earliest and
+  // latest dates). Used to decide whether to omit date params entirely on
+  // aggregate endpoints (stats, leaderboard) so the backend can use its
+  // precomputed all-time summary tables instead of a live full-table scan.
+  function dateFiltersCoverFullRange(): boolean {
+    return (
+      (!filters.dateFrom || filters.dateFrom === PLACEHOLDER_DATE_FROM || filters.dateFrom <= (absoluteDateRange.earliest || filters.dateFrom)) &&
+      (!filters.dateTo || filters.dateTo === getPlaceholderDateTo() || filters.dateTo >= (absoluteDateRange.latest || filters.dateTo))
+    );
+  }
+
   async function fetchResults() {
     setLoading(true);
     setError(null);
@@ -170,8 +183,12 @@ export default function Parkrun() {
       // Apply same filters as results
       filters.athletes.forEach(athlete => params.append('athlete', athlete));
       filters.events.forEach(event => params.append('event', event));
-      if (filters.dateFrom) params.append('date_from', filters.dateFrom);
-      if (filters.dateTo) params.append('date_to', filters.dateTo);
+      // Omit date params when they cover the full data range so the backend
+      // can use its precomputed all-time stats instead of a live scan.
+      if (!dateFiltersCoverFullRange()) {
+        if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+        if (filters.dateTo) params.append('date_to', filters.dateTo);
+      }
 
       const data = await fetchApi<ParkrunStats>(`/api/parkrun/stats?${params}`);
       setStats(data);
@@ -194,14 +211,11 @@ export default function Parkrun() {
       // Deliberately exclude the athlete filter — the leaderboard ranks everyone,
       // clicking a name filters the results table instead.
       filters.events.forEach(e => params.append('event', e));
-      // Only send date params when the user has actually narrowed the range —
-      // the placeholder defaults mean "no filter", and omitting them lets the
-      // backend use its precomputed all-time stats instead of a live scan.
-      if (filters.dateFrom && filters.dateFrom !== PLACEHOLDER_DATE_FROM) {
-        params.append('date_from', filters.dateFrom);
-      }
-      if (filters.dateTo && filters.dateTo !== getPlaceholderDateTo()) {
-        params.append('date_to', filters.dateTo);
+      // Omit date params when they cover the full data range so the backend
+      // can use its precomputed all-time stats instead of a live scan.
+      if (!dateFiltersCoverFullRange()) {
+        if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+        if (filters.dateTo)   params.append('date_to',   filters.dateTo);
       }
 
       const data = await fetchApi<{

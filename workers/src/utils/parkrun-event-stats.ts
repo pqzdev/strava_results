@@ -90,3 +90,99 @@ export async function updateAthleteStats(env: Env, athleteNames: string[]): Prom
 
   await env.DB.batch(statements);
 }
+
+// Recomputes the single-row parkrun_global_stats summary, called after each
+// import. Reads from parkrun_athlete_stats and parkrun_event_stats (small,
+// already-maintained tables) rather than parkrun_results directly, so this
+// stays cheap even though - unlike updateEventStats/updateAthleteStats - it
+// recomputes club-wide totals rather than a scoped subset. The fastest-time
+// and most-recent-result lookups still need one small point-query each
+// against parkrun_results, scoped by the winning athlete_name/time or date.
+export async function updateGlobalStats(env: Env): Promise<void> {
+  const totals = await env.DB.prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM parkrun_athlete_stats) as unique_athletes,
+       (SELECT COUNT(*) FROM parkrun_event_stats) as unique_events,
+       (SELECT SUM(total_runs) FROM parkrun_athlete_stats) as total_results,
+       (SELECT MIN(first_seen) FROM parkrun_event_stats) as earliest_date,
+       (SELECT MAX(last_seen) FROM parkrun_event_stats) as latest_date`
+  ).first<{ unique_athletes: number; unique_events: number; total_results: number | null; earliest_date: string | null; latest_date: string | null }>();
+
+  if (!totals) return;
+
+  const fastestAthlete = await env.DB.prepare(
+    `SELECT athlete_name, fastest_seconds, fastest_time_string FROM parkrun_athlete_stats
+     WHERE fastest_seconds > 0 ORDER BY fastest_seconds ASC LIMIT 1`
+  ).first<{ athlete_name: string; fastest_seconds: number; fastest_time_string: string }>();
+
+  let fastestEventName: string | null = null;
+  let fastestDate: string | null = null;
+  if (fastestAthlete) {
+    const fastestRow = await env.DB.prepare(
+      `SELECT event_name, date FROM parkrun_results
+       WHERE athlete_name = ? AND time_seconds = ? LIMIT 1`
+    ).bind(fastestAthlete.athlete_name, fastestAthlete.fastest_seconds).first<{ event_name: string; date: string }>();
+    fastestEventName = fastestRow?.event_name || null;
+    fastestDate = fastestRow?.date || null;
+  }
+
+  const mostActive = await env.DB.prepare(
+    `SELECT athlete_name, total_runs FROM parkrun_athlete_stats ORDER BY total_runs DESC LIMIT 1`
+  ).first<{ athlete_name: string; total_runs: number }>();
+
+  let mostRecentAthleteName: string | null = null;
+  let mostRecentEventName: string | null = null;
+  let mostRecentTimeString: string | null = null;
+  if (totals.latest_date) {
+    const mostRecentRow = await env.DB.prepare(
+      `SELECT athlete_name, event_name, time_string FROM parkrun_results
+       WHERE date = ? LIMIT 1`
+    ).bind(totals.latest_date).first<{ athlete_name: string; event_name: string; time_string: string }>();
+    mostRecentAthleteName = mostRecentRow?.athlete_name || null;
+    mostRecentEventName = mostRecentRow?.event_name || null;
+    mostRecentTimeString = mostRecentRow?.time_string || null;
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO parkrun_global_stats (
+       id, total_results, unique_athletes, unique_events, earliest_date, latest_date,
+       fastest_athlete_name, fastest_event_name, fastest_time_string, fastest_date,
+       most_recent_athlete_name, most_recent_event_name, most_recent_time_string, most_recent_date,
+       most_active_athlete_name, most_active_count
+     )
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       total_results = excluded.total_results,
+       unique_athletes = excluded.unique_athletes,
+       unique_events = excluded.unique_events,
+       earliest_date = excluded.earliest_date,
+       latest_date = excluded.latest_date,
+       fastest_athlete_name = excluded.fastest_athlete_name,
+       fastest_event_name = excluded.fastest_event_name,
+       fastest_time_string = excluded.fastest_time_string,
+       fastest_date = excluded.fastest_date,
+       most_recent_athlete_name = excluded.most_recent_athlete_name,
+       most_recent_event_name = excluded.most_recent_event_name,
+       most_recent_time_string = excluded.most_recent_time_string,
+       most_recent_date = excluded.most_recent_date,
+       most_active_athlete_name = excluded.most_active_athlete_name,
+       most_active_count = excluded.most_active_count,
+       updated_at = strftime('%s', 'now')`
+  ).bind(
+    totals.total_results || 0,
+    totals.unique_athletes,
+    totals.unique_events,
+    totals.earliest_date,
+    totals.latest_date,
+    fastestAthlete?.athlete_name || null,
+    fastestEventName,
+    fastestAthlete?.fastest_time_string || null,
+    fastestDate,
+    mostRecentAthleteName,
+    mostRecentEventName,
+    mostRecentTimeString,
+    totals.latest_date,
+    mostActive?.athlete_name || null,
+    mostActive?.total_runs || null
+  ).run();
+}

@@ -1,7 +1,7 @@
 // API endpoint for manually importing parkrun CSV data
 
 import { Env } from '../types';
-import { updateEventStats, updateAthleteStats } from '../utils/parkrun-event-stats';
+import { updateEventStats, updateAthleteStats, updateGlobalStats } from '../utils/parkrun-event-stats';
 
 interface CSVRow {
   [key: string]: string;
@@ -543,9 +543,11 @@ export async function importParkrunCSV(request: Request, env: Env): Promise<Resp
 
       // Keep parkrun_event_stats and parkrun_athlete_stats in sync, scoped to
       // only what this import touched so cost stays proportional to import
-      // size, not full history.
+      // size, not full history. updateGlobalStats then recomputes the
+      // single-row club-wide summary from those two small tables.
       await updateEventStats(env, [...touchedEventNames]);
       await updateAthleteStats(env, [...touchedAthleteNames]);
+      await updateGlobalStats(env);
 
       // Update sync log
       const syncCompletedTime = Math.floor(Date.now() / 1000);

@@ -130,6 +130,62 @@ export async function getParkrunStats(request: Request, env: Env): Promise<Respo
     const dateFrom = url.searchParams.get('date_from');
     const dateTo = url.searchParams.get('date_to');
 
+    // Unfiltered case: read the single precomputed row from
+    // parkrun_global_stats instead of running 6-7 full aggregate scans of
+    // parkrun_results (200K+ rows each) on every plain Parkrun page load.
+    // Falls back to the live queries below for any filtered request.
+    if (athleteNames.length === 0 && eventNames.length === 0 && !dateFrom && !dateTo) {
+      const globalStats = await env.DB.prepare(
+        `SELECT * FROM parkrun_global_stats WHERE id = 1`
+      ).first<{
+        total_results: number;
+        unique_athletes: number;
+        unique_events: number;
+        earliest_date: string | null;
+        latest_date: string | null;
+        fastest_athlete_name: string | null;
+        fastest_event_name: string | null;
+        fastest_time_string: string | null;
+        fastest_date: string | null;
+        most_recent_athlete_name: string | null;
+        most_recent_event_name: string | null;
+        most_recent_time_string: string | null;
+        most_recent_date: string | null;
+        most_active_athlete_name: string | null;
+        most_active_count: number | null;
+      }>();
+
+      if (globalStats) {
+        return new Response(
+          JSON.stringify({
+            totalResults: globalStats.total_results,
+            uniqueAthletes: globalStats.unique_athletes,
+            uniqueEvents: globalStats.unique_events,
+            earliestDate: globalStats.earliest_date,
+            latestDate: globalStats.latest_date,
+            fastestTime: globalStats.fastest_athlete_name ? {
+              athlete_name: globalStats.fastest_athlete_name,
+              event_name: globalStats.fastest_event_name,
+              time_string: globalStats.fastest_time_string,
+              date: globalStats.fastest_date,
+            } : null,
+            mostRecentResult: globalStats.most_recent_athlete_name ? {
+              athlete_name: globalStats.most_recent_athlete_name,
+              event_name: globalStats.most_recent_event_name,
+              time_string: globalStats.most_recent_time_string,
+              date: globalStats.most_recent_date,
+            } : null,
+            mostActiveAthlete: globalStats.most_active_athlete_name ? {
+              athlete_name: globalStats.most_active_athlete_name,
+              count: globalStats.most_active_count,
+            } : null,
+          }),
+          { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+        );
+      }
+      // No precomputed row yet (migration not run) - fall through to live queries.
+    }
+
     // Build WHERE clause for filters
     const conditions: string[] = [];
     const bindings: any[] = [];
