@@ -25,8 +25,13 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
   const validSortDir = allowedSortDirs.includes(sortDir.toLowerCase()) ? sortDir.toUpperCase() : 'DESC';
 
   try {
-    // Build query with filters - exclude hidden athletes
-    // Uses COUNT(*) OVER() to get total count in same query (avoids duplicate query)
+    // Build query with filters - exclude hidden athletes.
+    // total_count used to come from a COUNT(*) OVER() window function on this
+    // same query - that forces SQLite to materialize and count the entire
+    // filtered result set before applying LIMIT, so a "LIMIT 50" page read
+    // ~134,000 rows for a typical multi-year date range (measured directly:
+    // 147 rows without the window function vs ~134,513 with it). Split back
+    // into a cheap LIMIT'd fetch plus a separate COUNT(*) query instead.
     let query = `
       SELECT
         pr.id,
@@ -42,33 +47,47 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
         pr.age_category,
         pr.date,
         pr.club_name,
-        pr.created_at,
-        COUNT(*) OVER() as total_count
+        pr.created_at
+      FROM parkrun_results pr
+      LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+      WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+    `;
+    let countQuery = `
+      SELECT COUNT(*) as total
       FROM parkrun_results pr
       LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
       WHERE (pa.is_hidden IS NULL OR pa.is_hidden = 0)
     `;
 
     const bindings: any[] = [];
+    const countBindings: any[] = [];
 
     if (athleteName) {
       query += ` AND pr.athlete_name LIKE ?`;
+      countQuery += ` AND pr.athlete_name LIKE ?`;
       bindings.push(`%${athleteName}%`);
+      countBindings.push(`%${athleteName}%`);
     }
 
     if (eventName) {
       query += ` AND pr.event_name LIKE ?`;
+      countQuery += ` AND pr.event_name LIKE ?`;
       bindings.push(`%${eventName}%`);
+      countBindings.push(`%${eventName}%`);
     }
 
     if (dateFrom) {
       query += ` AND pr.date >= ?`;
+      countQuery += ` AND pr.date >= ?`;
       bindings.push(dateFrom);
+      countBindings.push(dateFrom);
     }
 
     if (dateTo) {
       query += ` AND pr.date <= ?`;
+      countQuery += ` AND pr.date <= ?`;
       bindings.push(dateTo);
+      countBindings.push(dateTo);
     }
 
     // Add table prefix for sortable columns to avoid ambiguity
@@ -80,10 +99,30 @@ export async function getParkrunResults(request: Request, env: Env): Promise<Res
 
     const result = await env.DB.prepare(query).bind(...bindings).all();
 
-    // Extract total count from first result row (same for all rows due to window function)
-    const total = (result.results && result.results.length > 0)
-      ? (result.results[0] as any).total_count || 0
-      : 0;
+    // Even a plain COUNT(*) over a date range spanning most of the table
+    // still reads ~19-38K rows (SQLite must examine every matching row to
+    // count it, index or not). When there's no athlete/event filter and the
+    // date range covers the full dataset, read the precomputed total from
+    // parkrun_global_stats (1 row) instead.
+    let total: number;
+    if (!athleteName && !eventName) {
+      const globalStatsForCount = await env.DB.prepare(
+        `SELECT total_results, earliest_date, latest_date FROM parkrun_global_stats WHERE id = 1`
+      ).first<{ total_results: number; earliest_date: string | null; latest_date: string | null }>();
+      const coversFullRange =
+        globalStatsForCount &&
+        (!dateFrom || (globalStatsForCount.earliest_date !== null && dateFrom <= globalStatsForCount.earliest_date)) &&
+        (!dateTo || (globalStatsForCount.latest_date !== null && dateTo >= globalStatsForCount.latest_date));
+      if (coversFullRange) {
+        total = globalStatsForCount!.total_results;
+      } else {
+        const countResult = await env.DB.prepare(countQuery).bind(...countBindings).first<{ total: number }>();
+        total = countResult?.total || 0;
+      }
+    } else {
+      const countResult = await env.DB.prepare(countQuery).bind(...countBindings).first<{ total: number }>();
+      total = countResult?.total || 0;
+    }
 
     return new Response(
       JSON.stringify({
@@ -884,24 +923,43 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
     const rarePokemons: Array<{ name: string; visitCount: number; athletes: string[] }> = [];
 
     if (currentEvents.length > 0) {
-      const placeholders = currentEvents.map(() => '?').join(', ');
-      const eventCountsQuery = `
-        SELECT pr.event_name, COUNT(DISTINCT pr.date) as visit_count
-        FROM parkrun_results pr
-        LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
-        WHERE pr.event_name IN (${placeholders})
-          AND pr.date < ?
-          AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
-        GROUP BY pr.event_name
-      `;
-      const eventCountsResult = await env.DB.prepare(eventCountsQuery)
-        .bind(...currentEvents, targetDate)
-        .all();
+      // When targetDate is the most recent date in the data (the common
+      // case), "visits before targetDate" is just parkrun_event_stats'
+      // all-time distinct_dates minus 1 (for the current date's own visit,
+      // since every event in currentEvents occurred on targetDate by
+      // construction) - read from that small table instead of a live
+      // GROUP BY scan of parkrun_results.
+      const globalStatsForRare = await env.DB.prepare(
+        `SELECT latest_date FROM parkrun_global_stats WHERE id = 1`
+      ).first<{ latest_date: string | null }>();
+      const rareIsCurrentDate = globalStatsForRare?.latest_date === targetDate;
 
-      // Build a map of event -> visit count before current date
       const visitCountMap = new Map<string, number>();
-      for (const row of (eventCountsResult.results || []) as Array<{event_name: string, visit_count: number}>) {
-        visitCountMap.set(row.event_name, row.visit_count);
+      if (rareIsCurrentDate) {
+        const placeholders = currentEvents.map(() => '?').join(', ');
+        const eventStatsResult = await env.DB.prepare(
+          `SELECT event_name, distinct_dates FROM parkrun_event_stats WHERE event_name IN (${placeholders})`
+        ).bind(...currentEvents).all<{ event_name: string; distinct_dates: number }>();
+        for (const row of (eventStatsResult.results || [])) {
+          visitCountMap.set(row.event_name, Math.max(0, row.distinct_dates - 1));
+        }
+      } else {
+        const placeholders = currentEvents.map(() => '?').join(', ');
+        const eventCountsQuery = `
+          SELECT pr.event_name, COUNT(DISTINCT pr.date) as visit_count
+          FROM parkrun_results pr
+          LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+          WHERE pr.event_name IN (${placeholders})
+            AND pr.date < ?
+            AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+          GROUP BY pr.event_name
+        `;
+        const eventCountsResult = await env.DB.prepare(eventCountsQuery)
+          .bind(...currentEvents, targetDate)
+          .all();
+        for (const row of (eventCountsResult.results || []) as Array<{event_name: string, visit_count: number}>) {
+          visitCountMap.set(row.event_name, row.visit_count);
+        }
       }
 
       // Check each current event for rare pokemon status
@@ -934,39 +992,59 @@ export async function getParkrunWeeklySummary(request: Request, env: Env): Promi
     const parkrunTourism: Array<{ name: string; athletes: string[] }> = [];
 
     if (currentEvents.length > 0) {
-      // Event first-seen dates come from the small event-stats summary table;
-      // the trailing-12-months visit count is queried directly against
-      // parkrun_results, but bounded to this week's handful of events and a
-      // 1-year date range, so it stays cheap regardless of total history size.
+      // Event first-seen dates and all-time distinct_dates come from the
+      // small event-stats summary table.
       const placeholders = currentEvents.map(() => '?').join(', ');
-      const firstSeenResult = await env.DB.prepare(
-        `SELECT event_name, first_seen FROM parkrun_event_stats WHERE event_name IN (${placeholders})`
-      ).bind(...currentEvents).all<{ event_name: string; first_seen: string }>();
+      const eventStatsForTourism = await env.DB.prepare(
+        `SELECT event_name, first_seen, distinct_dates FROM parkrun_event_stats WHERE event_name IN (${placeholders})`
+      ).bind(...currentEvents).all<{ event_name: string; first_seen: string; distinct_dates: number }>();
       const firstSeenMap = new Map<string, string>();
-      for (const row of (firstSeenResult.results || [])) {
+      const allTimeDistinctDatesMap = new Map<string, number>();
+      for (const row of (eventStatsForTourism.results || [])) {
         firstSeenMap.set(row.event_name, row.first_seen);
+        allTimeDistinctDatesMap.set(row.event_name, row.distinct_dates);
       }
 
       const twelveMonthsAgo = new Date(targetDate);
       twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
       const twelveMonthsAgoStr = twelveMonthsAgo.toISOString().slice(0, 10);
 
-      const windowedVisitsQuery = `
-        SELECT pr.event_name, COUNT(DISTINCT pr.date) as visits_in_window
-        FROM parkrun_results pr
-        LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
-        WHERE pr.event_name IN (${placeholders})
-          AND pr.date >= ?
-          AND pr.date <= ?
-          AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
-        GROUP BY pr.event_name
-      `;
-      const windowedVisitsResult = await env.DB.prepare(windowedVisitsQuery)
-        .bind(...currentEvents, twelveMonthsAgoStr, targetDate)
-        .all<{ event_name: string; visits_in_window: number }>();
+      // A trailing-12-months visit count can never exceed the event's
+      // all-time visit count, so any event with a low all-time count can
+      // use that as a safe (if occasionally conservative) stand-in without
+      // the live query. Only events with a high all-time count - where that
+      // bound isn't useful - need the actual windowed lookup, which is
+      // usually just the club's regular home venues rather than the whole
+      // week's event list.
+      const ALL_TIME_SHORTCUT_THRESHOLD = 10;
       const visitsInWindowMap = new Map<string, number>();
-      for (const row of (windowedVisitsResult.results || [])) {
-        visitsInWindowMap.set(row.event_name, row.visits_in_window);
+      const eventsNeedingLiveQuery = currentEvents.filter((event) => {
+        const allTime = allTimeDistinctDatesMap.get(event);
+        if (allTime !== undefined && allTime <= ALL_TIME_SHORTCUT_THRESHOLD) {
+          visitsInWindowMap.set(event, allTime);
+          return false;
+        }
+        return true;
+      });
+
+      if (eventsNeedingLiveQuery.length > 0) {
+        const livePlaceholders = eventsNeedingLiveQuery.map(() => '?').join(', ');
+        const windowedVisitsQuery = `
+          SELECT pr.event_name, COUNT(DISTINCT pr.date) as visits_in_window
+          FROM parkrun_results pr
+          LEFT JOIN parkrun_athletes pa ON pr.athlete_name = pa.athlete_name
+          WHERE pr.event_name IN (${livePlaceholders})
+            AND pr.date >= ?
+            AND pr.date <= ?
+            AND (pa.is_hidden IS NULL OR pa.is_hidden = 0)
+          GROUP BY pr.event_name
+        `;
+        const windowedVisitsResult = await env.DB.prepare(windowedVisitsQuery)
+          .bind(...eventsNeedingLiveQuery, twelveMonthsAgoStr, targetDate)
+          .all<{ event_name: string; visits_in_window: number }>();
+        for (const row of (windowedVisitsResult.results || [])) {
+          visitsInWindowMap.set(row.event_name, row.visits_in_window);
+        }
       }
 
       for (const event of currentEvents) {
